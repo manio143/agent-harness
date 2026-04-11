@@ -1,7 +1,7 @@
 using System.Threading.Channels;
-using Marian.Agent.Acp.Protocol;
+using Agent.Acp.Protocol;
 
-namespace Marian.Agent.Acp.Transport;
+namespace Agent.Acp.Transport;
 
 public abstract class TransportBase : ITransport
 {

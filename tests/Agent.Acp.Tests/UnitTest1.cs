@@ -1,4 +1,4 @@
-﻿namespace Marian.Agent.Acp.Tests;
+﻿namespace Agent.Acp.Tests;
 
 public class UnitTest1
 {

@@ -1,8 +1,8 @@
 using System.Threading.Channels;
-using Marian.Agent.Acp.Protocol;
-using Marian.Agent.Acp.Transport;
+using Agent.Acp.Protocol;
+using Agent.Acp.Transport;
 
-namespace Marian.Agent.Acp.Tests;
+namespace Agent.Acp.Tests;
 
 /// <summary>
 /// Two in-memory transports connected back-to-back for integration tests.

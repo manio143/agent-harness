@@ -1,6 +1,6 @@
-using Marian.Agent.Acp.Schema;
+using Agent.Acp.Schema;
 
-namespace Marian.Agent.Acp.Acp;
+namespace Agent.Acp.Acp;
 
 /// <summary>
 /// Implement this in your agent harness. The library takes care of JSON-RPC connectivity + dispatch.

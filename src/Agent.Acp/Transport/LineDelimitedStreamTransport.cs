@@ -1,8 +1,8 @@
 using System.Text;
 using System.Text.Json;
-using Marian.Agent.Acp.Protocol;
+using Agent.Acp.Protocol;
 
-namespace Marian.Agent.Acp.Transport;
+namespace Agent.Acp.Transport;
 
 /// <summary>
 /// A very small JSON-RPC transport over streams using newline-delimited JSON (one message per line).

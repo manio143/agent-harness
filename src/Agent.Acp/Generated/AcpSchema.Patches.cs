@@ -11,7 +11,7 @@
 
 using System.Text.Json.Serialization;
 
-namespace Marian.Agent.Acp.Schema;
+namespace Agent.Acp.Schema;
 
 public sealed class Content1
 {

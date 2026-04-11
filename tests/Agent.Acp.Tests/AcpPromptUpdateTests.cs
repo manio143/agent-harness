@@ -1,38 +1,32 @@
 using System.Text.Json;
-using Marian.Agent.Acp.Acp;
-using Marian.Agent.Acp.Protocol;
-using Marian.Agent.Acp.Schema;
+using Agent.Acp.Acp;
+using Agent.Acp.Protocol;
+using Agent.Acp.Schema;
 
-namespace Marian.Agent.Acp.Tests;
+namespace Agent.Acp.Tests;
 
-public class AcpAgentRequestsTests
+public class AcpPromptUpdateTests
 {
     [Fact]
-    public async Task Agent_Can_Request_Client_ReadTextFile_And_Get_Response()
+    public async Task SessionPrompt_Emits_SessionUpdate_Notifications()
     {
         var (clientTransport, serverTransport) = InMemoryTransport.CreatePair();
 
-        var agent = new FileReadingAgent();
+        var agent = new UpdatingAgent();
         var server = new AcpAgentServer(agent);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var serverTask = Task.Run(() => server.RunAsync(serverTransport, cts.Token), cts.Token);
 
+        var updates = new List<JsonRpcNotification>();
+
         await using var client = new AcpClientConnection(clientTransport);
-        client.RequestHandler = (req, _) =>
+        client.NotificationReceived += n =>
         {
-            if (req.Method != "client/readTextFile")
-                throw new InvalidOperationException($"Unexpected request: {req.Method}");
-
-            var p = req.Params!.Value;
-            var sessionId = p.GetProperty("sessionId").GetString();
-
-            var respObj = new ReadTextFileResponse { Content = $"hello from {sessionId}" };
-            var respJson = JsonSerializer.Serialize(respObj, AcpJson.Options);
-            using var doc = JsonDocument.Parse(respJson);
-            return Task.FromResult(doc.RootElement.Clone());
+            if (n.Method == "session/update") updates.Add(n);
         };
 
+        // Initialize + new session first.
         _ = await client.RequestAsync<InitializeRequest, InitializeResponse>(
             "initialize",
             new InitializeRequest
@@ -48,20 +42,32 @@ public class AcpAgentRequestsTests
             new NewSessionRequest { Cwd = "/tmp", McpServers = new List<McpServer>() },
             cts.Token);
 
-        var promptResp = await client.RequestAsync<PromptRequest, PromptResponse>(
+        // Run prompt; agent will emit updates.
+        _ = await client.RequestAsync<PromptRequest, PromptResponse>(
             "session/prompt",
-            new PromptRequest { SessionId = newSes.SessionId, Prompt = new List<Content1>() },
+            new PromptRequest
+            {
+                SessionId = newSes.SessionId,
+                Prompt = new List<Content1>(),
+            },
             cts.Token);
 
-        // Agent should have embedded proof in meta.
-        Assert.True(promptResp.AdditionalProperties.TryGetValue("readTextFileContent", out var v));
-        Assert.Equal($"hello from {newSes.SessionId}", v?.ToString());
+        // Wait a moment for collector.
+        await Task.Delay(100, cts.Token);
+
+        Assert.True(updates.Count >= 2, $"Expected at least 2 session/update notifications, got {updates.Count}");
+
+        // Validate the notification params includes sessionId.
+        var first = updates[0];
+        Assert.NotNull(first.Params);
+        var raw = first.Params!.Value;
+        Assert.Equal(newSes.SessionId, raw.GetProperty("sessionId").GetString());
 
         cts.Cancel();
         try { await serverTask; } catch { }
     }
 
-    private sealed class FileReadingAgent : IAcpAgentWithContext
+    private sealed class UpdatingAgent : IAcpAgentWithContext
     {
         public Task<InitializeResponse> InitializeAsync(InitializeRequest request, CancellationToken cancellationToken)
             => Task.FromResult(new InitializeResponse
@@ -80,19 +86,9 @@ public class AcpAgentRequestsTests
 
         public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpAgentContext context, CancellationToken cancellationToken)
         {
-            var resp = await context.RequestAsync<ReadTextFileRequest, ReadTextFileResponse>(
-                "client/readTextFile",
-                new ReadTextFileRequest { SessionId = request.SessionId, Path = "/tmp/demo.txt" },
-                cancellationToken);
-
-            return new PromptResponse
-            {
-                StopReason = StopReason2.EndTurn,
-                AdditionalProperties = new Dictionary<string, object>
-                {
-                    ["readTextFileContent"] = resp.Content,
-                },
-            };
+            await context.SendSessionUpdateAsync(new { sessionUpdate = "agent_message_chunk", content = new { type = "text", text = "hello" } }, cancellationToken);
+            await context.SendSessionUpdateAsync(new { sessionUpdate = "agent_message_chunk", content = new { type = "text", text = "world" } }, cancellationToken);
+            return new PromptResponse { StopReason = StopReason2.EndTurn };
         }
     }
 }

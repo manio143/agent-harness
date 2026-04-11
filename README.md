@@ -1,4 +1,4 @@
-# Marian's Agent (ACP Harness in C#)
+# Agent (ACP Harness in C#)
 
 A minimal **Agent Client Protocol (ACP)** harness/library for writing ACP-compatible agents in C#.
 
@@ -13,11 +13,11 @@ A minimal **Agent Client Protocol (ACP)** harness/library for writing ACP-compat
 
 ## Repo layout
 
-- `src/Marian.Agent.Acp/` — library
-- `tests/Marian.Agent.Acp.Tests/` — xUnit integration-style tests
+- `src/Agent.Acp/` — library
+- `tests/Agent.Acp.Tests/` — xUnit integration-style tests
 - `schema/` — ACP schema assets pulled from GitHub Releases
 - `scripts/` — schema fetch + codegen helpers
-- `tools/Marian.Agent.Acp.TypeGen/` — codegen helper (NJsonSchema-based)
+- `tools/Agent.Acp.TypeGen/` — codegen helper (NJsonSchema-based)
 
 ## Schema update workflow
 
@@ -37,7 +37,7 @@ python3 scripts/build_codegen_schema.py
 > Note: We keep **NSwag** as a local tool (see `.config/dotnet-tools.json`).
 > ACP’s schema is `$defs`-heavy and current NSwag CLI codegen didn’t emit all reachable types.
 > The generator we use is **NJsonSchema** (the same underlying library NSwag uses), via
-> `tools/Marian.Agent.Acp.TypeGen`.
+> `tools/Agent.Acp.TypeGen`.
 
 ## Using the library (agent side)
 
@@ -49,7 +49,7 @@ which matches the typical **stdio** JSON-RPC framing.
 ## Tests
 
 ```bash
-dotnet test MarianAgent.slnx -c Release
+dotnet test Agent.slnx -c Release
 ```
 
 The integration test spins up an in-memory client/server transport pair and validates

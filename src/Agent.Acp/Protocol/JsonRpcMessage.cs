@@ -1,13 +1,13 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Marian.Agent.Acp.Protocol;
+namespace Agent.Acp.Protocol;
 
 /// <summary>
 /// Minimal JSON-RPC 2.0 envelope model.
 ///
 /// This layer is protocol-agnostic and intentionally small; ACP-specific request/response
-/// DTOs are generated from ACP's JSON Schema under <c>Marian.Agent.Acp.Schema</c>.
+/// DTOs are generated from ACP's JSON Schema under <c>Agent.Acp.Schema</c>.
 /// </summary>
 [JsonConverter(typeof(JsonRpcMessageConverter))]
 public abstract class JsonRpcMessage

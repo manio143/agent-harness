@@ -1,7 +1,7 @@
-using Marian.Agent.Acp.Acp;
-using Marian.Agent.Acp.Schema;
+using Agent.Acp.Acp;
+using Agent.Acp.Schema;
 
-namespace Marian.Agent.Acp.Tests;
+namespace Agent.Acp.Tests;
 
 public class AcpAgentIntegrationTests
 {

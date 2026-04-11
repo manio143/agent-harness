@@ -1,6 +1,6 @@
-using Marian.Agent.Acp.Schema;
+using Agent.Acp.Schema;
 
-namespace Marian.Agent.Acp.Acp;
+namespace Agent.Acp.Acp;
 
 public interface IAcpAgentWithContext : IAcpAgent
 {

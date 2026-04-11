@@ -8,7 +8,7 @@
 #nullable enable
 
 
-namespace Marian.Agent.Acp.Schema
+namespace Agent.Acp.Schema
 {
     #pragma warning disable // Disable all warnings
 

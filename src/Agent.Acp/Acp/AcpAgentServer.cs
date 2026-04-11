@@ -1,9 +1,9 @@
 using System.Text.Json;
-using Marian.Agent.Acp.Protocol;
-using Marian.Agent.Acp.Schema;
-using Marian.Agent.Acp.Transport;
+using Agent.Acp.Protocol;
+using Agent.Acp.Schema;
+using Agent.Acp.Transport;
 
-namespace Marian.Agent.Acp.Acp;
+namespace Agent.Acp.Acp;
 
 /// <summary>
 /// Runs an ACP-compatible agent over a JSON-RPC transport.

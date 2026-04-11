@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 
-namespace Marian.Agent.Acp.Acp;
+namespace Agent.Acp.Acp;
 
 internal sealed class PendingRequests
 {

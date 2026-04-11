@@ -9,7 +9,7 @@ using NJsonSchema.CodeGeneration.CSharp;
 // - We want deterministic generation of all definitions.
 //
 // Usage (from repo root):
-//   dotnet run --project tools/Marian.Agent.Acp.TypeGen -- schema/schema.json src/Marian.Agent.Acp/Generated/AcpTypes.g.cs Marian.Agent.Acp.Schema
+//   dotnet run --project tools/Agent.Acp.TypeGen -- schema/schema.json src/Agent.Acp/Generated/AcpTypes.g.cs Agent.Acp.Schema
 
 if (args.Length < 3)
 {

@@ -1,9 +1,9 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
-using Marian.Agent.Acp.Protocol;
-using Marian.Agent.Acp.Transport;
+using Agent.Acp.Protocol;
+using Agent.Acp.Transport;
 
-namespace Marian.Agent.Acp.Acp;
+namespace Agent.Acp.Acp;
 
 /// <summary>
 /// Minimal ACP client-side helper (mainly for tests / harnesses).

@@ -1,7 +1,7 @@
-using Marian.Agent.Acp.Acp;
-using Marian.Agent.Acp.Schema;
+using Agent.Acp.Acp;
+using Agent.Acp.Schema;
 
-namespace Marian.Agent.Acp.Tests;
+namespace Agent.Acp.Tests;
 
 public class AcpCancellationTests
 {
@@ -42,10 +42,10 @@ public class AcpCancellationTests
         await Task.Delay(100, cts.Token);
 
         // Cancel the session.
-        var cancelJson = System.Text.Json.JsonSerializer.Serialize(new CancelNotification { SessionId = newSes.SessionId }, Marian.Agent.Acp.Protocol.AcpJson.Options);
+        var cancelJson = System.Text.Json.JsonSerializer.Serialize(new CancelNotification { SessionId = newSes.SessionId }, Agent.Acp.Protocol.AcpJson.Options);
         using var cancelDoc = System.Text.Json.JsonDocument.Parse(cancelJson);
 
-        await clientTransport.SendMessageAsync(new Marian.Agent.Acp.Protocol.JsonRpcNotification
+        await clientTransport.SendMessageAsync(new Agent.Acp.Protocol.JsonRpcNotification
         {
             Method = "session/cancel",
             Params = cancelDoc.RootElement.Clone(),

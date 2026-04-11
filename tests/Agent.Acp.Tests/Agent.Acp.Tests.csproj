@@ -6,7 +6,9 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <IsPackable>false</IsPackable>
-  </PropertyGroup>
+    <RootNamespace>Agent.Acp.Tests</RootNamespace>
+  <AssemblyName>Agent.Acp.Tests</AssemblyName>
+</PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
@@ -20,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Marian.Agent.Acp\Marian.Agent.Acp.csproj" />
+    <ProjectReference Include="..\..\src\Agent.Acp\Agent.Acp.csproj" />
   </ItemGroup>
 
 </Project>
