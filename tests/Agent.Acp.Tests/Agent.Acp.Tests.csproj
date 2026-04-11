@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Agent.Acp\Agent.Acp.csproj" />
+    <ProjectReference Include="..\..\tools\Agent.Acp.TypeGen\Agent.Acp.TypeGen.csproj" />
   </ItemGroup>
 
 </Project>
