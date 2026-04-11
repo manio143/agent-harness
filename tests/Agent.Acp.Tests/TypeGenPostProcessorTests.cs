@@ -216,7 +216,7 @@ public class TypeGenPostProcessorTests
     }
 
     [Fact]
-    public void Rewrites_StopReason_Placeholder()
+    public void Rewrites_StopReason_To_ContextSpecific_Wrapper()
     {
         var schema = new JsonSchema();
         var stop = new JsonSchema { DocumentPath = "#/definitions/StopReason" };
@@ -232,14 +232,14 @@ public class TypeGenPostProcessorTests
             public partial class Holder
             {
                 [System.Text.Json.Serialization.JsonPropertyName("stopReason")]
-                public StopReason2 StopReason { get; set; } = default!;
+                public StopReason StopReason { get; set; } = default!;
             }
         }
         """;
 
         var output = CodegenPostProcessor.PostProcessGeneratedCode(schema, input);
-        Assert.Contains("public StopReasonValue StopReason", output);
-        Assert.DoesNotContain("public StopReason2 StopReason", output);
+        Assert.Contains("public PromptResponseStopReason StopReason", output);
+        Assert.DoesNotContain("public StopReason StopReason", output);
     }
 
     [Fact]

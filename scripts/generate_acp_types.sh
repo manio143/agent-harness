@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+python3 "$ROOT_DIR/scripts/build_codegen_schema.py" >/dev/null
+
 SCHEMA_FILE="$ROOT_DIR/schema/schema.codegen.json"
 OUT_DIR="$ROOT_DIR/src/Agent.Acp/Generated"
 OUT_FILE="$OUT_DIR/AcpSchema.g.cs"

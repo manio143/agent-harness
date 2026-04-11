@@ -2549,7 +2549,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("stopReason")]
-        public StopReasonValue StopReason { get; set; } = default!;
+        public PromptResponseStopReason StopReason { get; set; } = default!;
 
 
 
@@ -3711,27 +3711,6 @@ namespace Agent.Acp.Schema
         [System.Text.Json.Serialization.JsonPropertyName("_meta")]
         public object? _meta { get; set; } = default!;
 
-
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    /// <summary>
-    /// Reasons why an agent stops processing a prompt turn.
-    /// <br/>
-    /// <br/>See protocol docs: [Stop Reasons](https://agentclientprotocol.com/protocol/prompt-turn#stop-reasons)
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "11.0.2.0 (Newtonsoft.Json v13.0.0.0)")]
-    public partial class StopReason
-    {
 
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;

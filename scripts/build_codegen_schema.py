@@ -41,14 +41,9 @@ def main() -> int:
 
     defs_rewritten = rewrite_refs(defs)
 
-    # Note: we intentionally exclude certain defs we model manually in C#.
-    # Rationale:
-    # - StopReason is a string-union (oneOf const strings). NJsonSchema models it as an
-    #   extension object, which is not ideal in C#.
-    # - We provide a handwritten `StopReason` wrapper + JsonConverter instead.
-    excluded_defs = {"StopReason"}
-    for k in excluded_defs:
-        defs_rewritten.pop(k, None)
+    # Note: we keep all defs in the codegen schema.
+    # Some union-heavy refs and some schema patterns still require deterministic postprocessing
+    # of the generated C# (performed by tools/Agent.Acp.TypeGen).
 
     # NJsonSchema (and many generators) expect draft-07 style `definitions` rather than `$defs`.
     # So we rewrite to `definitions` and re-point all refs to `#/definitions/...`.
