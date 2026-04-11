@@ -1,0 +1,11 @@
+{
+  "repo": "agentclientprotocol/agent-client-protocol",
+  "tag": "v0.11.5",
+  "downloaded": [
+    "meta.json",
+    "meta.unstable.json",
+    "schema.json",
+    "schema.unstable.json"
+  ],
+  "release_url": "https://github.com/agentclientprotocol/agent-client-protocol/releases/tag/v0.11.5"
+}

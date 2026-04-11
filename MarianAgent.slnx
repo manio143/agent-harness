@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Marian.Agent.Acp/Marian.Agent.Acp.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Marian.Agent.Acp.Tests/Marian.Agent.Acp.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Marian.Agent.Acp.TypeGen/Marian.Agent.Acp.TypeGen.csproj" />
+  </Folder>
+</Solution>
