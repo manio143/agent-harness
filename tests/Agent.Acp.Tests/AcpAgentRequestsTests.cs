@@ -12,7 +12,7 @@ public class AcpAgentRequestsTests
     {
         var (clientTransport, serverTransport) = InMemoryTransport.CreatePair();
 
-        var agent = new FileReadingAgent();
+        var agent = new FileReadingFactory();
         var server = new AcpAgentServer(agent);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -75,7 +75,7 @@ public class AcpAgentRequestsTests
         try { await serverTask; } catch { }
     }
 
-    private sealed class FileReadingAgent : IAcpAgentWithContext
+    private sealed class FileReadingFactory : IAcpAgentFactory
     {
         public Task<InitializeResponse> InitializeAsync(InitializeRequest request, CancellationToken cancellationToken)
             => Task.FromResult(new InitializeResponse
@@ -89,24 +89,36 @@ public class AcpAgentRequestsTests
         public Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken)
             => Task.FromResult(new NewSessionResponse { SessionId = "ses_test", Modes = new Modes2() });
 
-        public Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken)
-            => Task.FromResult(new PromptResponse());
+        public IAcpSessionAgent CreateSessionAgent(string sessionId, IAcpClientCaller client, IAcpSessionEvents events)
+            => new FileReadingSessionAgent(client, sessionId);
 
-        public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpAgentContext context, CancellationToken cancellationToken)
+        private sealed class FileReadingSessionAgent : IAcpSessionAgent
         {
-            var resp = await context.RequestAsync<ReadTextFileRequest, ReadTextFileResponse>(
-                "client/readTextFile",
-                new ReadTextFileRequest { SessionId = request.SessionId, Path = "/tmp/demo.txt" },
-                cancellationToken);
+            private readonly IAcpClientCaller _client;
+            private readonly string _sessionId;
 
-            return new PromptResponse
+            public FileReadingSessionAgent(IAcpClientCaller client, string sessionId)
             {
-                StopReason = StopReason.EndTurn,
-                AdditionalProperties = new Dictionary<string, object>
+                _client = client;
+                _sessionId = sessionId;
+            }
+
+            public async Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken)
+            {
+                var resp = await _client.RequestAsync<ReadTextFileRequest, ReadTextFileResponse>(
+                    "client/readTextFile",
+                    new ReadTextFileRequest { SessionId = _sessionId, Path = "/tmp/demo.txt" },
+                    cancellationToken);
+
+                return new PromptResponse
                 {
-                    ["readTextFileContent"] = resp.Content,
-                },
-            };
+                    StopReason = StopReason.EndTurn,
+                    AdditionalProperties = new Dictionary<string, object>
+                    {
+                        ["readTextFileContent"] = resp.Content,
+                    },
+                };
+            }
         }
     }
 }

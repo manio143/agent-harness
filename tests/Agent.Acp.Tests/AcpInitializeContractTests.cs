@@ -10,7 +10,7 @@ public class AcpInitializeContractTests
     {
         var (clientTransport, serverTransport) = InMemoryTransport.CreatePair();
 
-        var agent = new MinimalInitAgent();
+        var agent = new MinimalInitFactory();
         var server = new AcpAgentServer(agent);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -52,7 +52,7 @@ public class AcpInitializeContractTests
         try { await serverTask; } catch { }
     }
 
-    private sealed class MinimalInitAgent : IAcpAgent
+    private sealed class MinimalInitFactory : IAcpAgentFactory
     {
         public Task<InitializeResponse> InitializeAsync(InitializeRequest request, CancellationToken cancellationToken)
             => Task.FromResult(new InitializeResponse
@@ -73,7 +73,13 @@ public class AcpInitializeContractTests
         public Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken)
             => Task.FromResult(new NewSessionResponse { SessionId = "ses_test", Modes = new Modes2() });
 
-        public Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken)
-            => Task.FromResult(new PromptResponse());
+        public IAcpSessionAgent CreateSessionAgent(string sessionId, IAcpClientCaller client, IAcpSessionEvents events) =>
+            new NoopSessionAgent();
+
+        private sealed class NoopSessionAgent : IAcpSessionAgent
+        {
+            public Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken)
+                => Task.FromResult(new PromptResponse());
+        }
     }
 }

@@ -3,9 +3,10 @@ using Agent.Acp.Schema;
 namespace Agent.Acp.Acp;
 
 /// <summary>
-/// Implement this in your agent harness. The library takes care of JSON-RPC connectivity + dispatch.
+/// Entry-point for building an ACP agent.
+/// Handles global methods (initialize/authenticate/session creation) and produces per-session agents.
 /// </summary>
-public interface IAcpAgent
+public interface IAcpAgentFactory
 {
     Task<InitializeResponse> InitializeAsync(InitializeRequest request, CancellationToken cancellationToken);
 
@@ -24,16 +25,7 @@ public interface IAcpAgent
         => null;
 
     /// <summary>
-    /// Optional: set the current session mode.
+    /// Create the session-scoped agent that will handle prompt turns.
     /// </summary>
-    Task<SetSessionModeResponse>? SetSessionModeAsync(SetSessionModeRequest request, CancellationToken cancellationToken)
-        => null;
-
-    Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Optional cancellation hook.
-    /// </summary>
-    Task CancelAsync(CancelNotification notification, CancellationToken cancellationToken)
-        => Task.CompletedTask;
+    IAcpSessionAgent CreateSessionAgent(string sessionId, IAcpClientCaller client, IAcpSessionEvents events);
 }

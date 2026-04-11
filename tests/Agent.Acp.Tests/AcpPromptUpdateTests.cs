@@ -12,7 +12,7 @@ public class AcpPromptUpdateTests
     {
         var (clientTransport, serverTransport) = InMemoryTransport.CreatePair();
 
-        var agent = new UpdatingAgent();
+        var agent = new UpdatingFactory();
         var server = new AcpAgentServer(agent);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -67,7 +67,7 @@ public class AcpPromptUpdateTests
         try { await serverTask; } catch { }
     }
 
-    private sealed class UpdatingAgent : IAcpAgentWithContext
+    private sealed class UpdatingFactory : IAcpAgentFactory
     {
         public Task<InitializeResponse> InitializeAsync(InitializeRequest request, CancellationToken cancellationToken)
             => Task.FromResult(new InitializeResponse
@@ -81,14 +81,24 @@ public class AcpPromptUpdateTests
         public Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken)
             => Task.FromResult(new NewSessionResponse { SessionId = "ses_test", Modes = new Modes2() });
 
-        public Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken)
-            => Task.FromResult(new PromptResponse());
+        public IAcpSessionAgent CreateSessionAgent(string sessionId, IAcpClientCaller client, IAcpSessionEvents events)
+            => new UpdatingSessionAgent(events);
 
-        public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpAgentContext context, CancellationToken cancellationToken)
+        private sealed class UpdatingSessionAgent : IAcpSessionAgent
         {
-            await context.SendSessionUpdateAsync(new { sessionUpdate = "agent_message_chunk", content = new { type = "text", text = "hello" } }, cancellationToken);
-            await context.SendSessionUpdateAsync(new { sessionUpdate = "agent_message_chunk", content = new { type = "text", text = "world" } }, cancellationToken);
-            return new PromptResponse { StopReason = StopReason.EndTurn };
+            private readonly IAcpSessionEvents _events;
+
+            public UpdatingSessionAgent(IAcpSessionEvents events)
+            {
+                _events = events;
+            }
+
+            public async Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken)
+            {
+                await _events.SendSessionUpdateAsync(new { sessionUpdate = "agent_message_chunk", content = new { type = "text", text = "hello" } }, cancellationToken);
+                await _events.SendSessionUpdateAsync(new { sessionUpdate = "agent_message_chunk", content = new { type = "text", text = "world" } }, cancellationToken);
+                return new PromptResponse { StopReason = StopReason.EndTurn };
+            }
         }
     }
 }

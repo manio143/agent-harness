@@ -10,7 +10,7 @@ public class AcpCancellationTests
     {
         var (clientTransport, serverTransport) = InMemoryTransport.CreatePair();
 
-        var agent = new BlockingAgent();
+        var agent = new BlockingFactory();
         var server = new AcpAgentServer(agent);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -59,7 +59,7 @@ public class AcpCancellationTests
         try { await serverTask; } catch { }
     }
 
-    private sealed class BlockingAgent : IAcpAgentWithContext
+    private sealed class BlockingFactory : IAcpAgentFactory
     {
         public Task<InitializeResponse> InitializeAsync(InitializeRequest request, CancellationToken cancellationToken)
             => Task.FromResult(new InitializeResponse
@@ -73,14 +73,16 @@ public class AcpCancellationTests
         public Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken)
             => Task.FromResult(new NewSessionResponse { SessionId = "ses_test", Modes = new Modes2() });
 
-        public Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken)
-            => Task.FromResult(new PromptResponse());
+        public IAcpSessionAgent CreateSessionAgent(string sessionId, IAcpClientCaller client, IAcpSessionEvents events)
+            => new BlockingSessionAgent();
 
-        public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpAgentContext context, CancellationToken cancellationToken)
+        private sealed class BlockingSessionAgent : IAcpSessionAgent
         {
-            // Block until cancelled.
-            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
-            return new PromptResponse();
+            public async Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken)
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return new PromptResponse();
+            }
         }
     }
 }

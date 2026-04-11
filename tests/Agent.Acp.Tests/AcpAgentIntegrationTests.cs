@@ -10,7 +10,7 @@ public class AcpAgentIntegrationTests
     {
         var (clientTransport, serverTransport) = InMemoryTransport.CreatePair();
 
-        var agent = new TestAgent();
+        var agent = new TestFactory();
         var server = new AcpAgentServer(agent);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -57,7 +57,7 @@ public class AcpAgentIntegrationTests
         try { await serverTask; } catch { /* ignore */ }
     }
 
-    private sealed class TestAgent : IAcpAgent
+    private sealed class TestFactory : IAcpAgentFactory
     {
         public Task<InitializeResponse> InitializeAsync(InitializeRequest request, CancellationToken cancellationToken)
         {
@@ -87,10 +87,13 @@ public class AcpAgentIntegrationTests
             });
         }
 
-        public Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken)
+        public IAcpSessionAgent CreateSessionAgent(string sessionId, IAcpClientCaller client, IAcpSessionEvents events) =>
+            new NoopSessionAgent();
+
+        private sealed class NoopSessionAgent : IAcpSessionAgent
         {
-            // Not exercised in this test.
-            return Task.FromResult(new PromptResponse());
+            public Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken) =>
+                Task.FromResult(new PromptResponse());
         }
     }
 }

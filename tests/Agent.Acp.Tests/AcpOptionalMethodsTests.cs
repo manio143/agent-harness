@@ -10,7 +10,7 @@ public class AcpOptionalMethodsTests
     {
         var (clientTransport, serverTransport) = InMemoryTransport.CreatePair();
 
-        var server = new AcpAgentServer(new MinimalAgent());
+        var server = new AcpAgentServer(new MinimalFactory());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var serverTask = Task.Run(() => server.RunAsync(serverTransport, cts.Token), cts.Token);
@@ -33,7 +33,7 @@ public class AcpOptionalMethodsTests
     {
         var (clientTransport, serverTransport) = InMemoryTransport.CreatePair();
 
-        var server = new AcpAgentServer(new MinimalAgent());
+        var server = new AcpAgentServer(new MinimalFactory());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var serverTask = Task.Run(() => server.RunAsync(serverTransport, cts.Token), cts.Token);
@@ -56,7 +56,7 @@ public class AcpOptionalMethodsTests
     {
         var (clientTransport, serverTransport) = InMemoryTransport.CreatePair();
 
-        var server = new AcpAgentServer(new AgentWithOptionals());
+        var server = new AcpAgentServer(new FactoryWithOptionals());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var serverTask = Task.Run(() => server.RunAsync(serverTransport, cts.Token), cts.Token);
@@ -81,7 +81,7 @@ public class AcpOptionalMethodsTests
         try { await serverTask; } catch { }
     }
 
-    private class MinimalAgent : IAcpAgent
+    private sealed class MinimalFactory : IAcpAgentFactory
     {
         public Task<InitializeResponse> InitializeAsync(InitializeRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(new InitializeResponse { ProtocolVersion = 1, AgentInfo = new AgentInfo(), AgentCapabilities = new AgentCapabilities(), AuthMethods = new List<AuthMethod>() });
@@ -89,11 +89,17 @@ public class AcpOptionalMethodsTests
         public Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(new NewSessionResponse { SessionId = "ses_test", Modes = new Modes2(), ConfigOptions = null });
 
-        public Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new PromptResponse());
+        public IAcpSessionAgent CreateSessionAgent(string sessionId, IAcpClientCaller client, IAcpSessionEvents events) =>
+            new MinimalSessionAgent();
+
+        private sealed class MinimalSessionAgent : IAcpSessionAgent
+        {
+            public Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken) =>
+                Task.FromResult(new PromptResponse());
+        }
     }
 
-    private sealed class AgentWithOptionals : IAcpAgent
+    private sealed class FactoryWithOptionals : IAcpAgentFactory
     {
         public Task<InitializeResponse> InitializeAsync(InitializeRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(new InitializeResponse { ProtocolVersion = 1, AgentInfo = new AgentInfo(), AgentCapabilities = new AgentCapabilities(), AuthMethods = new List<AuthMethod>() });
@@ -101,13 +107,19 @@ public class AcpOptionalMethodsTests
         public Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(new NewSessionResponse { SessionId = "ses_test", Modes = new Modes2(), ConfigOptions = null });
 
-        public Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new PromptResponse());
-
-        Task<LoadSessionResponse>? IAcpAgent.LoadSessionAsync(LoadSessionRequest request, CancellationToken cancellationToken) =>
+        public Task<LoadSessionResponse>? LoadSessionAsync(LoadSessionRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(new LoadSessionResponse { Modes = new Modes(), ConfigOptions = null });
 
-        Task<SetSessionModeResponse>? IAcpAgent.SetSessionModeAsync(SetSessionModeRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new SetSessionModeResponse());
+        public IAcpSessionAgent CreateSessionAgent(string sessionId, IAcpClientCaller client, IAcpSessionEvents events) =>
+            new SessionAgentWithSetMode();
+
+        private sealed class SessionAgentWithSetMode : IAcpSessionAgent
+        {
+            public Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken) =>
+                Task.FromResult(new PromptResponse());
+
+            Task<SetSessionModeResponse>? IAcpSessionAgent.SetSessionModeAsync(SetSessionModeRequest request, CancellationToken cancellationToken) =>
+                Task.FromResult(new SetSessionModeResponse());
+        }
     }
 }

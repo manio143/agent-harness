@@ -2232,26 +2232,6 @@ namespace Agent.Acp.Schema
 
     }
 
-    /// <summary>
-    /// The type of permission option being presented to the user.
-    /// <br/>
-    /// <br/>Helps clients choose appropriate icons and UI treatment.
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "11.0.2.0 (Newtonsoft.Json v13.0.0.0)")]
-    public partial class PermissionOptionKind
-    {
-
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
 
     /// <summary>
     /// An execution plan for accomplishing complex tasks.
@@ -2355,50 +2335,7 @@ namespace Agent.Acp.Schema
 
     }
 
-    /// <summary>
-    /// Priority levels for plan entries.
-    /// <br/>
-    /// <br/>Used to indicate the relative importance or urgency of different
-    /// <br/>tasks in the execution plan.
-    /// <br/>See protocol docs: [Plan Entries](https://agentclientprotocol.com/protocol/agent-plan#plan-entries)
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "11.0.2.0 (Newtonsoft.Json v13.0.0.0)")]
-    public partial class PlanEntryPriority
-    {
 
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    /// <summary>
-    /// Status of a plan entry in the execution flow.
-    /// <br/>
-    /// <br/>Tracks the lifecycle of each task from planning through completion.
-    /// <br/>See protocol docs: [Plan Entries](https://agentclientprotocol.com/protocol/agent-plan#plan-entries)
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "11.0.2.0 (Newtonsoft.Json v13.0.0.0)")]
-    public partial class PlanEntryStatus
-    {
-
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
 
     /// <summary>
     /// Prompt capabilities supported by the agent in `session/prompt` requests.
@@ -3724,6 +3661,7 @@ namespace Agent.Acp.Schema
 
     }
 
+
     /// <summary>
     /// Embed a terminal created with `terminal/create` by its id.
     /// <br/>
@@ -4147,28 +4085,6 @@ namespace Agent.Acp.Schema
 
     }
 
-    /// <summary>
-    /// Execution status of a tool call.
-    /// <br/>
-    /// <br/>Tool calls progress through different statuses during their lifecycle.
-    /// <br/>
-    /// <br/>See protocol docs: [Status](https://agentclientprotocol.com/protocol/tool-calls#status)
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "11.0.2.0 (Newtonsoft.Json v13.0.0.0)")]
-    public partial class ToolCallStatus
-    {
-
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
 
     /// <summary>
     /// An update to an existing tool call.
@@ -4261,29 +4177,6 @@ namespace Agent.Acp.Schema
 
     }
 
-    /// <summary>
-    /// Categories of tools that can be invoked.
-    /// <br/>
-    /// <br/>Tool kinds help clients choose appropriate icons and optimize how they
-    /// <br/>display tool execution progress.
-    /// <br/>
-    /// <br/>See protocol docs: [Creating](https://agentclientprotocol.com/protocol/tool-calls#creating)
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "11.0.2.0 (Newtonsoft.Json v13.0.0.0)")]
-    public partial class ToolKind
-    {
-
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
 
     /// <summary>
     /// Request to wait for a terminal command to exit.

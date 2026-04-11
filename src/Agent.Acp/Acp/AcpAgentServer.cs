@@ -12,7 +12,7 @@ namespace Agent.Acp.Acp;
 /// </summary>
 public sealed class AcpAgentServer
 {
-    private sealed class AgentContext : IAcpAgentContext
+    private sealed class AgentContext : IAcpClientCaller, IAcpSessionEvents
     {
         private readonly ITransport _transport;
         private readonly PendingRequests _pending;
@@ -28,8 +28,6 @@ public sealed class AcpAgentServer
 
         public Task SendSessionUpdateAsync(object update, CancellationToken cancellationToken = default)
         {
-            // We keep the payload flexible for now because the generated schema types contain
-            // unions that are not fully materialized by the generator.
             var notif = new JsonRpcNotification
             {
                 Method = "session/update",
@@ -62,13 +60,25 @@ public sealed class AcpAgentServer
     }
 
 
-    private readonly IAcpAgent _agent;
-    private readonly PendingRequests _pending = new();
-    private readonly Dictionary<string, CancellationTokenSource> _sessionCts = new();
-
-    public AcpAgentServer(IAcpAgent agent)
+    private sealed class SessionAgentHandle
     {
-        _agent = agent;
+        public SessionAgentHandle(IAcpSessionAgent agent, CancellationTokenSource cts)
+        {
+            Agent = agent;
+            Cts = cts;
+        }
+
+        public IAcpSessionAgent Agent { get; }
+        public CancellationTokenSource Cts { get; }
+    }
+
+    private readonly IAcpAgentFactory _factory;
+    private readonly PendingRequests _pending = new();
+    private readonly Dictionary<string, SessionAgentHandle> _sessions = new();
+
+    public AcpAgentServer(IAcpAgentFactory factory)
+    {
+        _factory = factory;
     }
 
     public async Task RunAsync(ITransport transport, CancellationToken cancellationToken = default)
@@ -103,15 +113,19 @@ public sealed class AcpAgentServer
         {
             var cancel = Deserialize<CancelNotification>(p);
 
-            lock (_sessionCts)
+            SessionAgentHandle? handle;
+            lock (_sessions)
             {
-                if (_sessionCts.TryGetValue(cancel.SessionId, out var cts))
-                {
-                    cts.Cancel();
-                }
+                _sessions.TryGetValue(cancel.SessionId, out handle);
             }
 
-            await _agent.CancelAsync(cancel, cancellationToken).ConfigureAwait(false);
+            handle?.Cts.Cancel();
+
+            if (handle is not null)
+            {
+                await handle.Agent.CancelAsync(cancel, cancellationToken).ConfigureAwait(false);
+            }
+
             return;
         }
 
@@ -127,7 +141,7 @@ public sealed class AcpAgentServer
                 case "initialize":
                 {
                     var init = Deserialize<InitializeRequest>(req.Params);
-                    var result = await _agent.InitializeAsync(init, cancellationToken).ConfigureAwait(false);
+                    var result = await _factory.InitializeAsync(init, cancellationToken).ConfigureAwait(false);
                     await transport.SendMessageAsync(new JsonRpcResponse { Id = req.Id, Result = SerializeToElement(result) }, cancellationToken);
                     break;
                 }
@@ -135,7 +149,7 @@ public sealed class AcpAgentServer
                 case "authenticate":
                 {
                     var authReq = Deserialize<AuthenticateRequest>(req.Params);
-                    var auth = _agent.AuthenticateAsync(authReq, cancellationToken);
+                    var auth = _factory.AuthenticateAsync(authReq, cancellationToken);
                     if (auth is null)
                     {
                         await transport.SendMessageAsync(new JsonRpcError
@@ -154,14 +168,20 @@ public sealed class AcpAgentServer
                 case "session/new":
                 {
                     var newSession = Deserialize<NewSessionRequest>(req.Params);
-                    var result = await _agent.NewSessionAsync(newSession, cancellationToken).ConfigureAwait(false);
+                    var result = await _factory.NewSessionAsync(newSession, cancellationToken).ConfigureAwait(false);
 
-                    // Create CTS for future prompt cancellation (best-effort; sessionId comes from response).
                     if (!string.IsNullOrWhiteSpace(result.SessionId))
                     {
-                        lock (_sessionCts)
+                        var sessionId = result.SessionId;
+                        var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+                        // Build caller + events for this session and create the session agent.
+                        var clientCaller = new AgentContext(sessionId, transport, _pending);
+                        var sessionAgent = _factory.CreateSessionAgent(sessionId, clientCaller, clientCaller);
+
+                        lock (_sessions)
                         {
-                            _sessionCts[result.SessionId] = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                            _sessions[sessionId] = new SessionAgentHandle(sessionAgent, cts);
                         }
                     }
 
@@ -172,7 +192,7 @@ public sealed class AcpAgentServer
                 case "session/load":
                 {
                     var loadReq = Deserialize<LoadSessionRequest>(req.Params);
-                    var load = _agent.LoadSessionAsync(loadReq, cancellationToken);
+                    var load = _factory.LoadSessionAsync(loadReq, cancellationToken);
                     if (load is null)
                     {
                         await transport.SendMessageAsync(new JsonRpcError
@@ -187,9 +207,15 @@ public sealed class AcpAgentServer
 
                     if (!string.IsNullOrWhiteSpace(loadReq.SessionId))
                     {
-                        lock (_sessionCts)
+                        var sessionId = loadReq.SessionId;
+                        var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+                        var clientCaller = new AgentContext(sessionId, transport, _pending);
+                        var sessionAgent = _factory.CreateSessionAgent(sessionId, clientCaller, clientCaller);
+
+                        lock (_sessions)
                         {
-                            _sessionCts[loadReq.SessionId] = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                            _sessions[sessionId] = new SessionAgentHandle(sessionAgent, cts);
                         }
                     }
 
@@ -200,7 +226,14 @@ public sealed class AcpAgentServer
                 case "session/set_mode":
                 {
                     var setModeReq = Deserialize<SetSessionModeRequest>(req.Params);
-                    var setMode = _agent.SetSessionModeAsync(setModeReq, cancellationToken);
+
+                    SessionAgentHandle? handle;
+                    lock (_sessions)
+                    {
+                        _sessions.TryGetValue(setModeReq.SessionId, out handle);
+                    }
+
+                    var setMode = handle?.Agent.SetSessionModeAsync(setModeReq, cancellationToken);
                     if (setMode is null)
                     {
                         await transport.SendMessageAsync(new JsonRpcError
@@ -220,25 +253,23 @@ public sealed class AcpAgentServer
                 {
                     var prompt = Deserialize<PromptRequest>(req.Params);
 
-                    CancellationToken promptToken = cancellationToken;
-                    lock (_sessionCts)
+                    SessionAgentHandle? handle;
+                    lock (_sessions)
                     {
-                        if (_sessionCts.TryGetValue(prompt.SessionId, out var cts))
-                        {
-                            promptToken = cts.Token;
-                        }
+                        _sessions.TryGetValue(prompt.SessionId, out handle);
                     }
 
-                    PromptResponse result;
-                    if (_agent is IAcpAgentWithContext agentWithCtx)
+                    if (handle is null)
                     {
-                        var ctx = new AgentContext(prompt.SessionId, transport, _pending);
-                        result = await agentWithCtx.PromptAsync(prompt, ctx, promptToken).ConfigureAwait(false);
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = -32602, Message = $"Unknown session: {prompt.SessionId}" },
+                        }, cancellationToken);
+                        break;
                     }
-                    else
-                    {
-                        result = await _agent.PromptAsync(prompt, promptToken).ConfigureAwait(false);
-                    }
+
+                    var result = await handle.Agent.PromptAsync(prompt, handle.Cts.Token).ConfigureAwait(false);
 
                     await transport.SendMessageAsync(new JsonRpcResponse { Id = req.Id, Result = SerializeToElement(result) }, cancellationToken);
                     break;
