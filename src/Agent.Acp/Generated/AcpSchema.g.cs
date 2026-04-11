@@ -2855,7 +2855,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("outcome")]
-        public Outcome Outcome { get; set; } = default!;
+        public RequestPermissionOutcome Outcome { get; set; } = default!;
 
 
 
@@ -3524,7 +3524,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("update")]
-        public Update Update { get; set; } = default!;
+        public SessionUpdate Update { get; set; } = default!;
 
 
 
