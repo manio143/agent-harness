@@ -104,7 +104,7 @@ public class AcpOptionalMethodsTests
     private sealed class MinimalFactory : IAcpAgentFactory
     {
         public Task<InitializeResponse> InitializeAsync(InitializeRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new InitializeResponse { ProtocolVersion = 1, AgentInfo = new AgentInfo(), AgentCapabilities = new AgentCapabilities(), AuthMethods = new List<AuthMethod>() });
+            Task.FromResult(new InitializeResponse { ProtocolVersion = 1, AgentInfo = new AgentInfo(), AgentCapabilities = new AgentCapabilities { LoadSession = true, PromptCapabilities = new PromptCapabilities() }, AuthMethods = new List<AuthMethod>() });
 
         public Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(new NewSessionResponse { SessionId = "ses_test", Modes = new Modes2(), ConfigOptions = null });
@@ -122,7 +122,7 @@ public class AcpOptionalMethodsTests
     private sealed class FactoryWithOptionals : IAcpAgentFactory
     {
         public Task<InitializeResponse> InitializeAsync(InitializeRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new InitializeResponse { ProtocolVersion = 1, AgentInfo = new AgentInfo(), AgentCapabilities = new AgentCapabilities(), AuthMethods = new List<AuthMethod>() });
+            Task.FromResult(new InitializeResponse { ProtocolVersion = 1, AgentInfo = new AgentInfo(), AgentCapabilities = new AgentCapabilities { LoadSession = true, PromptCapabilities = new PromptCapabilities() }, AuthMethods = new List<AuthMethod>() });
 
         public Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(new NewSessionResponse { SessionId = "ses_test", Modes = new Modes2(), ConfigOptions = null });

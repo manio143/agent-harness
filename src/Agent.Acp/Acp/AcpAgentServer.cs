@@ -147,7 +147,7 @@ public sealed class AcpAgentServer
                 await transport.SendMessageAsync(new JsonRpcError
                 {
                     Id = req.Id,
-                    Error = new JsonRpcErrorDetail { Code = -32000, Message = "Connection not initialized. Call initialize first." },
+                    Error = new JsonRpcErrorDetail { Code = AcpErrors.NotInitialized, Message = "Connection not initialized. Call initialize first." },
                 }, cancellationToken);
                 return;
             }
@@ -180,7 +180,7 @@ public sealed class AcpAgentServer
                         await transport.SendMessageAsync(new JsonRpcError
                         {
                             Id = req.Id,
-                            Error = new JsonRpcErrorDetail { Code = -32601, Message = "authenticate not supported" },
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.MethodNotFound, Message = "authenticate not supported" },
                         }, cancellationToken);
                         break;
                     }
@@ -193,6 +193,16 @@ public sealed class AcpAgentServer
                 case "session/new":
                 {
                     var newSession = Deserialize<NewSessionRequest>(req.Params);
+                    if (!Path.IsPathRooted(newSession.Cwd))
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = "cwd must be an absolute path" },
+                        }, cancellationToken);
+                        break;
+                    }
+
                     var result = await _factory.NewSessionAsync(newSession, cancellationToken).ConfigureAwait(false);
 
                     if (!string.IsNullOrWhiteSpace(result.SessionId))
@@ -217,13 +227,34 @@ public sealed class AcpAgentServer
                 case "session/load":
                 {
                     var loadReq = Deserialize<LoadSessionRequest>(req.Params);
+
+                    if (_agentCapabilities?.LoadSession != true)
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = "Agent did not advertise loadSession capability" },
+                        }, cancellationToken);
+                        break;
+                    }
+
+                    if (!Path.IsPathRooted(loadReq.Cwd))
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = "cwd must be an absolute path" },
+                        }, cancellationToken);
+                        break;
+                    }
+
                     var load = _factory.LoadSessionAsync(loadReq, cancellationToken);
                     if (load is null)
                     {
                         await transport.SendMessageAsync(new JsonRpcError
                         {
                             Id = req.Id,
-                            Error = new JsonRpcErrorDetail { Code = -32601, Message = "session/load not supported" },
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.MethodNotFound, Message = "session/load not supported" },
                         }, cancellationToken);
                         break;
                     }
@@ -264,7 +295,7 @@ public sealed class AcpAgentServer
                         await transport.SendMessageAsync(new JsonRpcError
                         {
                             Id = req.Id,
-                            Error = new JsonRpcErrorDetail { Code = -32601, Message = "session/set_mode not supported" },
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.MethodNotFound, Message = "session/set_mode not supported" },
                         }, cancellationToken);
                         break;
                     }
@@ -289,7 +320,7 @@ public sealed class AcpAgentServer
                         await transport.SendMessageAsync(new JsonRpcError
                         {
                             Id = req.Id,
-                            Error = new JsonRpcErrorDetail { Code = -32602, Message = $"Unknown session: {prompt.SessionId}" },
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = $"Unknown session: {prompt.SessionId}" },
                         }, cancellationToken);
                         break;
                     }
@@ -299,7 +330,7 @@ public sealed class AcpAgentServer
                         await transport.SendMessageAsync(new JsonRpcError
                         {
                             Id = req.Id,
-                            Error = new JsonRpcErrorDetail { Code = -32602, Message = errorMessage },
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = errorMessage },
                         }, cancellationToken);
                         break;
                     }
@@ -314,7 +345,7 @@ public sealed class AcpAgentServer
                     await transport.SendMessageAsync(new JsonRpcError
                     {
                         Id = req.Id,
-                        Error = new JsonRpcErrorDetail { Code = -32601, Message = $"Method not found: {req.Method}" },
+                        Error = new JsonRpcErrorDetail { Code = AcpErrors.MethodNotFound, Message = $"Method not found: {req.Method}" },
                     }, cancellationToken);
                     break;
             }
