@@ -210,6 +210,16 @@ public sealed class AcpAgentServer
 
                     var result = await _factory.NewSessionAsync(newSession, cancellationToken).ConfigureAwait(false);
 
+                    if (!ValidateSessionConfigOptions(result.ConfigOptions, out var configError))
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = configError },
+                        }, cancellationToken);
+                        break;
+                    }
+
                     if (!string.IsNullOrWhiteSpace(result.SessionId))
                     {
                         var sessionId = result.SessionId;
@@ -426,6 +436,49 @@ public sealed class AcpAgentServer
                 Error = new JsonRpcErrorDetail { Code = -32603, Message = ex.Message },
             }, cancellationToken);
         }
+    }
+
+    private static bool ValidateSessionConfigOptions(ICollection<SessionConfigOption>? configOptions, out string errorMessage)
+    {
+        errorMessage = string.Empty;
+        if (configOptions is null)
+            return true;
+
+        foreach (var opt in configOptions)
+        {
+            if (string.IsNullOrWhiteSpace(opt.Id) || string.IsNullOrWhiteSpace(opt.Name))
+            {
+                errorMessage = "configOptions entries must have id and name";
+                return false;
+            }
+
+            if (opt.Type != SessionConfigOptionType.Select)
+            {
+                errorMessage = $"configOptions[{opt.Id}].type must be select";
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(opt.CurrentValue))
+            {
+                errorMessage = $"configOptions[{opt.Id}].currentValue is required";
+                return false;
+            }
+
+            if (opt.Options is null || opt.Options.Count == 0)
+            {
+                errorMessage = $"configOptions[{opt.Id}].options is required";
+                return false;
+            }
+
+            var values = opt.Options.Select(o => o.Value).Where(v => !string.IsNullOrWhiteSpace(v)).ToHashSet(StringComparer.Ordinal);
+            if (!values.Contains(opt.CurrentValue))
+            {
+                errorMessage = $"configOptions[{opt.Id}].currentValue must be one of the option values";
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static bool ValidatePromptCapabilities(PromptRequest prompt, AgentCapabilities? caps, out string errorMessage)
