@@ -310,6 +310,42 @@ public sealed class AcpAgentServer
                     break;
                 }
 
+                case "session/set_config_option":
+                {
+                    var setReq = Deserialize<SetSessionConfigOptionRequest>(req.Params);
+
+                    SessionAgentHandle? handle;
+                    lock (_sessions)
+                    {
+                        _sessions.TryGetValue(setReq.SessionId, out handle);
+                    }
+
+                    var set = handle?.Agent.SetSessionConfigOptionAsync(setReq, cancellationToken);
+                    if (set is null)
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.MethodNotFound, Message = "session/set_config_option not supported" },
+                        }, cancellationToken);
+                        break;
+                    }
+
+                    var result = await set.ConfigureAwait(false);
+                    if (result.ConfigOptions is null || result.ConfigOptions.Count == 0)
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = "SetSessionConfigOptionResponse.configOptions is required" },
+                        }, cancellationToken);
+                        break;
+                    }
+
+                    await transport.SendMessageAsync(new JsonRpcResponse { Id = req.Id, Result = SerializeToElement(result) }, cancellationToken);
+                    break;
+                }
+
                 case "session/prompt":
                 {
                     var prompt = Deserialize<PromptRequest>(req.Params);

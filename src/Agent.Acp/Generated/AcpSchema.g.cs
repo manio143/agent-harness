@@ -2992,44 +2992,38 @@ namespace Agent.Acp.Schema
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "11.0.2.0 (Newtonsoft.Json v13.0.0.0)")]
     public partial class SessionConfigOption
     {
-        /// <summary>
-        /// The _meta property is reserved by ACP to allow clients and agents to attach additional
-        /// <br/>metadata to their interactions. Implementations MUST NOT make assumptions about values at
-        /// <br/>these keys.
-        /// <br/>
-        /// <br/>See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-        /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("_meta")]
         public object? _meta { get; set; } = default!;
 
-        /// <summary>
-        /// Optional semantic category for this option (UX only).
-        /// </summary>
-
-        [System.Text.Json.Serialization.JsonPropertyName("category")]
-        public Category Category { get; set; } = default!;
-
-        /// <summary>
-        /// Optional description for the Client to display to the user.
-        /// </summary>
-
-        [System.Text.Json.Serialization.JsonPropertyName("description")]
-        public string? Description { get; set; } = default!;
-
-        /// <summary>
-        /// Unique identifier for the configuration option.
-        /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("id")]
         public string Id { get; set; } = default!;
 
-        /// <summary>
-        /// Human-readable label for the option.
-        /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
+
+
+        [System.Text.Json.Serialization.JsonPropertyName("description")]
+        public string? Description { get; set; } = default!;
+
+
+        [System.Text.Json.Serialization.JsonPropertyName("category")]
+        public Category Category { get; set; } = default!;
+
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
+        public SessionConfigOptionType Type { get; set; } = default!;
+
+
+        [System.Text.Json.Serialization.JsonPropertyName("currentValue")]
+        public string CurrentValue { get; set; } = default!;
+
+
+        [System.Text.Json.Serialization.JsonPropertyName("options")]
+        public SessionConfigSelectOptions Options { get; set; } = new SessionConfigSelectOptions();
 
 
 
@@ -3089,7 +3083,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("options")]
-        public SessionConfigSelectOptions Options { get; set; } = default!;
+        public SessionConfigSelectOptions Options { get; set; } = new SessionConfigSelectOptions();
 
 
 
@@ -3207,21 +3201,11 @@ namespace Agent.Acp.Schema
     }
 
     /// <summary>
-    /// Possible values for a session configuration option.
+    /// Possible values for a session configuration option (ungrouped).
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "11.0.2.0 (Newtonsoft.Json v13.0.0.0)")]
-    public partial class SessionConfigSelectOptions
+    public partial class SessionConfigSelectOptions : System.Collections.ObjectModel.Collection<SessionConfigSelectOption>
     {
-
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
 
     }
 
@@ -4629,6 +4613,32 @@ namespace Agent.Acp.Schema
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "11.0.2.0 (Newtonsoft.Json v13.0.0.0)")]
+    public partial class Category
+    {
+
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "11.0.2.0 (Newtonsoft.Json v13.0.0.0)")]
+    public enum SessionConfigOptionType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"select")]
+        Select = 0,
+
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "11.0.2.0 (Newtonsoft.Json v13.0.0.0)")]
     public partial class ExitStatus
     {
 
@@ -4678,22 +4688,6 @@ namespace Agent.Acp.Schema
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "11.0.2.0 (Newtonsoft.Json v13.0.0.0)")]
     public partial class Status3
-    {
-
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "11.0.2.0 (Newtonsoft.Json v13.0.0.0)")]
-    public partial class Category
     {
 
 

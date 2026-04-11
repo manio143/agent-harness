@@ -21,4 +21,10 @@ public interface IAcpSessionAgent
     /// </summary>
     Task<SetSessionModeResponse>? SetSessionModeAsync(SetSessionModeRequest request, CancellationToken cancellationToken)
         => null;
+
+    /// <summary>
+    /// Optional: set a session config option.
+    /// </summary>
+    Task<SetSessionConfigOptionResponse>? SetSessionConfigOptionAsync(SetSessionConfigOptionRequest request, CancellationToken cancellationToken)
+        => null;
 }

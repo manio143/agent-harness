@@ -73,6 +73,48 @@ def main() -> int:
             "required": ["outcome"],
         }
 
+    # SessionConfigOption is a discriminator/oneOf that uses allOf to pull in the actual
+    # payload (currentValue/options) based on type. NJsonSchema sometimes drops those
+    # allOf fields, producing an incomplete DTO.
+    # We flatten the currently supported option kind (select) into a single object.
+    if "SessionConfigSelectOptions" in defs_rewritten:
+        # NOTE: ACP supports grouped select options, but the anyOf shape produces anonymous placeholder
+        # types in NJsonSchema. For now we flatten to the ungrouped form (array of SessionConfigSelectOption).
+        # Grouping can be reintroduced later via a custom union generator if needed.
+        defs_rewritten["SessionConfigSelectOptions"] = {
+            "description": "Possible values for a session configuration option (ungrouped).",
+            "type": "array",
+            "items": {"$ref": "#/definitions/SessionConfigSelectOption"},
+        }
+
+    if "SessionConfigOption" in defs_rewritten:
+        defs_rewritten["SessionConfigOption"] = {
+            "description": "A session configuration option selector and its current state.",
+            "type": "object",
+            "properties": {
+                "_meta": {
+                    "type": ["object", "null"],
+                    "additionalProperties": True,
+                },
+                "id": {"$ref": "#/definitions/SessionConfigId"},
+                "name": {"type": "string"},
+                "description": {"type": ["string", "null"]},
+                "category": {
+                    "anyOf": [
+                        {"$ref": "#/definitions/SessionConfigOptionCategory"},
+                        {"type": "null"},
+                    ]
+                },
+                "type": {
+                    "type": "string",
+                    "enum": ["select"],
+                },
+                "currentValue": {"$ref": "#/definitions/SessionConfigValueId"},
+                "options": {"$ref": "#/definitions/SessionConfigSelectOptions"},
+            },
+            "required": ["id", "name", "type", "currentValue", "options"],
+        }
+
     # Note: we keep all defs in the codegen schema.
     # Some union-heavy refs and some schema patterns still require deterministic postprocessing
     # of the generated C# (performed by tools/Agent.Acp.TypeGen).
