@@ -161,7 +161,58 @@ public sealed class AcpAgentServer
                 case "initialize":
                 {
                     var init = Deserialize<InitializeRequest>(req.Params);
+
+                    if (init.ProtocolVersion <= 0)
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = "protocolVersion must be a positive integer" },
+                        }, cancellationToken);
+                        break;
+                    }
+
                     var result = await _factory.InitializeAsync(init, cancellationToken).ConfigureAwait(false);
+
+                    if (result.AgentInfo is null)
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = "InitializeResponse.agentInfo is required" },
+                        }, cancellationToken);
+                        break;
+                    }
+
+                    if (result.AgentCapabilities is null)
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = "InitializeResponse.agentCapabilities is required" },
+                        }, cancellationToken);
+                        break;
+                    }
+
+                    if (result.AgentCapabilities.PromptCapabilities is null)
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = "InitializeResponse.agentCapabilities.promptCapabilities is required" },
+                        }, cancellationToken);
+                        break;
+                    }
+
+                    if (result.AuthMethods is null)
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = "InitializeResponse.authMethods is required" },
+                        }, cancellationToken);
+                        break;
+                    }
 
                     // Version negotiation (per docs): if requested is supported, echo it; otherwise respond with latest supported.
                     result.ProtocolVersion = init.ProtocolVersion == _supportedProtocolVersion

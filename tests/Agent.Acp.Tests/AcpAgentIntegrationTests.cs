@@ -72,7 +72,7 @@ public class AcpAgentIntegrationTests
                         ["version"] = "0.0",
                     }
                 },
-                AgentCapabilities = new AgentCapabilities(),
+                AgentCapabilities = new AgentCapabilities { PromptCapabilities = new PromptCapabilities() },
                 AuthMethods = new List<AuthMethod>(),
             });
         }
@@ -82,7 +82,7 @@ public class AcpAgentIntegrationTests
             return Task.FromResult(new NewSessionResponse
             {
                 SessionId = "ses_test",
-                Modes = new Modes2(),
+                Modes = null,
                 ConfigOptions = null,
             });
         }
