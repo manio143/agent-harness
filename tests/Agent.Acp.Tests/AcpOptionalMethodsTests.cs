@@ -17,6 +17,11 @@ public class AcpOptionalMethodsTests
 
         await using var client = new AcpClientConnection(clientTransport);
 
+        _ = await client.RequestAsync<InitializeRequest, InitializeResponse>(
+            "initialize",
+            new InitializeRequest { ProtocolVersion = 1, ClientInfo = new ClientInfo { AdditionalProperties = new Dictionary<string, object> { ["name"] = "test", ["version"] = "0" } }, ClientCapabilities = new ClientCapabilities() },
+            cts.Token);
+
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => client.RequestAsync<LoadSessionRequest, LoadSessionResponse>(
             "session/load",
             new LoadSessionRequest { Cwd = "/tmp", McpServers = new List<McpServer>(), SessionId = "ses_1" },
@@ -40,9 +45,19 @@ public class AcpOptionalMethodsTests
 
         await using var client = new AcpClientConnection(clientTransport);
 
+        _ = await client.RequestAsync<InitializeRequest, InitializeResponse>(
+            "initialize",
+            new InitializeRequest { ProtocolVersion = 1, ClientInfo = new ClientInfo { AdditionalProperties = new Dictionary<string, object> { ["name"] = "test", ["version"] = "0" } }, ClientCapabilities = new ClientCapabilities() },
+            cts.Token);
+
+        var newSes = await client.RequestAsync<NewSessionRequest, NewSessionResponse>(
+            "session/new",
+            new NewSessionRequest { Cwd = "/tmp", McpServers = new List<McpServer>() },
+            cts.Token);
+
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => client.RequestAsync<SetSessionModeRequest, SetSessionModeResponse>(
             "session/set_mode",
-            new SetSessionModeRequest { SessionId = "ses_1", ModeId = "mode_1" },
+            new SetSessionModeRequest { SessionId = newSes.SessionId, ModeId = "mode_1" },
             cts.Token));
 
         Assert.Contains("-32601", ex.Message);
@@ -62,6 +77,11 @@ public class AcpOptionalMethodsTests
         var serverTask = Task.Run(() => server.RunAsync(serverTransport, cts.Token), cts.Token);
 
         await using var client = new AcpClientConnection(clientTransport);
+
+        _ = await client.RequestAsync<InitializeRequest, InitializeResponse>(
+            "initialize",
+            new InitializeRequest { ProtocolVersion = 1, ClientInfo = new ClientInfo { AdditionalProperties = new Dictionary<string, object> { ["name"] = "test", ["version"] = "0" } }, ClientCapabilities = new ClientCapabilities() },
+            cts.Token);
 
         var load = await client.RequestAsync<LoadSessionRequest, LoadSessionResponse>(
             "session/load",

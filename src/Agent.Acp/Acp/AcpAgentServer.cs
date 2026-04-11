@@ -76,6 +76,9 @@ public sealed class AcpAgentServer
     private readonly PendingRequests _pending = new();
     private readonly Dictionary<string, SessionAgentHandle> _sessions = new();
 
+    private bool _initialized;
+    private AgentCapabilities? _agentCapabilities;
+
     private readonly int _supportedProtocolVersion;
 
     public AcpAgentServer(IAcpAgentFactory factory, int supportedProtocolVersion = 1)
@@ -139,6 +142,16 @@ public sealed class AcpAgentServer
     {
         try
         {
+            if (!_initialized && req.Method != "initialize")
+            {
+                await transport.SendMessageAsync(new JsonRpcError
+                {
+                    Id = req.Id,
+                    Error = new JsonRpcErrorDetail { Code = -32000, Message = "Connection not initialized. Call initialize first." },
+                }, cancellationToken);
+                return;
+            }
+
             switch (req.Method)
             {
                 case "initialize":
@@ -150,6 +163,9 @@ public sealed class AcpAgentServer
                     result.ProtocolVersion = init.ProtocolVersion == _supportedProtocolVersion
                         ? init.ProtocolVersion
                         : _supportedProtocolVersion;
+
+                    _initialized = true;
+                    _agentCapabilities = result.AgentCapabilities;
 
                     await transport.SendMessageAsync(new JsonRpcResponse { Id = req.Id, Result = SerializeToElement(result) }, cancellationToken);
                     break;
@@ -278,6 +294,16 @@ public sealed class AcpAgentServer
                         break;
                     }
 
+                    if (!ValidatePromptCapabilities(prompt, _agentCapabilities, out var errorMessage))
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = -32602, Message = errorMessage },
+                        }, cancellationToken);
+                        break;
+                    }
+
                     var result = await handle.Agent.PromptAsync(prompt, handle.Cts.Token).ConfigureAwait(false);
 
                     await transport.SendMessageAsync(new JsonRpcResponse { Id = req.Id, Result = SerializeToElement(result) }, cancellationToken);
@@ -301,6 +327,58 @@ public sealed class AcpAgentServer
                 Error = new JsonRpcErrorDetail { Code = -32603, Message = ex.Message },
             }, cancellationToken);
         }
+    }
+
+    private static bool ValidatePromptCapabilities(PromptRequest prompt, AgentCapabilities? caps, out string errorMessage)
+    {
+        // Per docs: baseline support must include Text + ResourceLink.
+        // If agent did not advertise richer prompt capabilities, reject those content types.
+        var promptCaps = caps?.PromptCapabilities;
+        var allowImage = promptCaps?.Image == true;
+        var allowAudio = promptCaps?.Audio == true;
+        var allowEmbedded = promptCaps?.EmbeddedContext == true;
+
+        foreach (var block in prompt.Prompt)
+        {
+            switch (block)
+            {
+                case TextContent:
+                case ResourceLink:
+                case UnknownContentBlock:
+                    continue;
+
+                case ImageContent:
+                    if (!allowImage)
+                    {
+                        errorMessage = "Prompt contains image content but agent did not advertise promptCapabilities.image.";
+                        return false;
+                    }
+                    continue;
+
+                case AudioContent:
+                    if (!allowAudio)
+                    {
+                        errorMessage = "Prompt contains audio content but agent did not advertise promptCapabilities.audio.";
+                        return false;
+                    }
+                    continue;
+
+                case EmbeddedResource:
+                    if (!allowEmbedded)
+                    {
+                        errorMessage = "Prompt contains embedded resource content but agent did not advertise promptCapabilities.embeddedContext.";
+                        return false;
+                    }
+                    continue;
+
+                default:
+                    // forward-compatible: unknown derived types treated as allowed
+                    continue;
+            }
+        }
+
+        errorMessage = string.Empty;
+        return true;
     }
 
     private static T Deserialize<T>(JsonElement? element)
