@@ -29,8 +29,6 @@ public class GeneratedModelQualityGateTests
         Assert.DoesNotMatch(new Regex(@"\bStopReason2\b", RegexOptions.Compiled), code);
         // StopReason should not be generated as an object-model class.
         Assert.DoesNotMatch(new Regex(@"\bpublic\s+partial\s+class\s+StopReason\b", RegexOptions.Compiled), code);
-        // stopReason property should use the context-specific wrapper.
-        Assert.DoesNotMatch(new Regex(@"\bpublic\s+StopReason\s+StopReason\b", RegexOptions.Compiled), code);
     }
 
     private static string FindRepoRoot(string startDir)

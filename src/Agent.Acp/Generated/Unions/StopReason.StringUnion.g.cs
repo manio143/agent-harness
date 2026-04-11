@@ -6,8 +6,8 @@ using System.Text.Json.Serialization;
 namespace Agent.Acp.Schema;
 
 /// <summary>String-union wrapper for StopReason (context: PromptResponse.stopReason).</summary>
-[JsonConverter(typeof(PromptResponseStopReasonJsonConverter))]
-public readonly record struct PromptResponseStopReason(string Value)
+[JsonConverter(typeof(StopReasonJsonConverter))]
+public readonly record struct StopReason(string Value)
 {
     public const string EndTurn = "end_turn";
     public const string MaxTokens = "max_tokens";
@@ -17,20 +17,20 @@ public readonly record struct PromptResponseStopReason(string Value)
 
     public override string ToString() => Value;
 
-    public static implicit operator string(PromptResponseStopReason v) => v.Value;
-    public static implicit operator PromptResponseStopReason(string v) => new(v);
+    public static implicit operator string(StopReason v) => v.Value;
+    public static implicit operator StopReason(string v) => new(v);
 }
 
-public sealed class PromptResponseStopReasonJsonConverter : JsonConverter<PromptResponseStopReason>
+public sealed class StopReasonJsonConverter : JsonConverter<StopReason>
 {
-    public override PromptResponseStopReason Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override StopReason Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         if (reader.TokenType != JsonTokenType.String)
             throw new JsonException($"StopReason must be a string, got {reader.TokenType}.");
 
-        return new PromptResponseStopReason(reader.GetString() ?? string.Empty);
+        return new StopReason(reader.GetString() ?? string.Empty);
     }
 
-    public override void Write(Utf8JsonWriter writer, PromptResponseStopReason value, JsonSerializerOptions options)
+    public override void Write(Utf8JsonWriter writer, StopReason value, JsonSerializerOptions options)
         => writer.WriteStringValue(value.Value);
 }

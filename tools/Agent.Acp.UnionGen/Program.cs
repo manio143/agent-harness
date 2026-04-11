@@ -27,7 +27,7 @@ var defs = doc.RootElement.GetProperty("$defs");
 GenerateContentBlock(defs, Path.Combine(outDir, "ContentBlock.Union.g.cs"));
 GenerateSessionUpdate(defs, Path.Combine(outDir, "SessionUpdate.Union.g.cs"));
 GenerateToolCallContent(defs, Path.Combine(outDir, "ToolCallContent.Union.g.cs"));
-GenerateStringConstUnion(defs, defName: "StopReason", outTypeName: "PromptResponseStopReason", outFile: Path.Combine(outDir, "PromptResponseStopReason.StringUnion.g.cs"));
+GenerateStringConstUnion(defs, defName: "StopReason", outTypeName: "StopReason", outFile: Path.Combine(outDir, "StopReason.StringUnion.g.cs"));
 
 Console.WriteLine($"Generated unions into: {outDir}");
 
