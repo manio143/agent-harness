@@ -35,7 +35,7 @@ public class AcpCancellationTests
 
         var promptTask = client.RequestAsync<PromptRequest, PromptResponse>(
             "session/prompt",
-            new PromptRequest { SessionId = newSes.SessionId, Prompt = new List<Content1>() },
+            new PromptRequest { SessionId = newSes.SessionId, Prompt = new List<ContentBlock>() },
             cts.Token);
 
         // Give the agent time to start.

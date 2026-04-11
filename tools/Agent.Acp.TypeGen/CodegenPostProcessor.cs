@@ -26,6 +26,9 @@ public static class CodegenPostProcessor
             // Permission outcomes may be emitted as Outcome (placeholder)
             ("RequestPermissionOutcome", "Outcome\\d*", "RequestPermissionOutcome"),
             ("SelectedPermissionOutcome", "Outcome\\d*", "SelectedPermissionOutcome"),
+
+            // Session config options items
+            ("SessionConfigOption", "ConfigOptions", "SessionConfigOption"),
         };
 
         foreach (var spec in patchSpecs)
@@ -33,11 +36,15 @@ public static class CodegenPostProcessor
             if (!schema.Definitions.ContainsKey(spec.TargetDefName))
                 continue;
 
+            // Direct property refs
             var jsonPropertyNames = FindJsonPropertyNamesReferencing(schema, targetDefName: spec.TargetDefName);
             foreach (var jsonName in jsonPropertyNames)
-            {
                 code = PatchPropertyType(code, jsonName, spec.PlaceholderTypePattern, spec.ReplacementTypeName);
-            }
+
+            // Array item refs
+            var arrayItemNames = FindJsonPropertyNamesWhereItemsReference(schema, targetDefName: spec.TargetDefName);
+            foreach (var jsonName in arrayItemNames)
+                code = PatchCollectionItemType(code, jsonName, spec.PlaceholderTypePattern, spec.ReplacementTypeName);
         }
 
         return code;
@@ -54,6 +61,22 @@ public static class CodegenPostProcessor
             var placeholderType = m.Groups["type"].Value;
             var propName = m.Groups["name"].Value;
             return m.Value.Replace($"public {placeholderType} {propName}", $"public {replacementTypeName} {propName}");
+        });
+    }
+
+    private static string PatchCollectionItemType(string code, string jsonPropName, string placeholderTypePattern, string replacementTypeName)
+    {
+        var re = new Regex(
+            $"\\[System\\.Text\\.Json\\.Serialization\\.JsonPropertyName\\(\\\"{Regex.Escape(jsonPropName)}\\\"\\)\\]\\s*\\r?\\n\\s*public\\s+System\\.Collections\\.Generic\\.ICollection\\s*<\\s*(?<type>{placeholderTypePattern})\\s*>\\??\\s+(?<name>\\w+)\\b[^\\r\\n]*",
+            RegexOptions.Compiled);
+
+        return re.Replace(code, m =>
+        {
+            var placeholderType = m.Groups["type"].Value;
+            return m.Value
+                .Replace($"ICollection<{placeholderType}>", $"ICollection<{replacementTypeName}>")
+                .Replace($"Collection<{placeholderType}>", $"Collection<{replacementTypeName}>")
+                .Replace($"System.Collections.ObjectModel.Collection<{placeholderType}>", $"System.Collections.ObjectModel.Collection<{replacementTypeName}>");
         });
     }
 
@@ -105,6 +128,37 @@ public static class CodegenPostProcessor
             foreach (var prop in props.EnumerateObject())
             {
                 if (JsonElementReferencesDefinition(prop.Value, targetDefName))
+                    names.Add(prop.Name);
+            }
+        }
+
+        return names;
+    }
+
+    private static HashSet<string> FindJsonPropertyNamesWhereItemsReference(JsonSchema schema, string targetDefName)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+
+        var schemaJson = schema.ToJson();
+        using var doc = System.Text.Json.JsonDocument.Parse(schemaJson);
+
+        if (!doc.RootElement.TryGetProperty("definitions", out var defs) || defs.ValueKind != System.Text.Json.JsonValueKind.Object)
+            return names;
+
+        foreach (var def in defs.EnumerateObject())
+        {
+            if (!def.Value.TryGetProperty("properties", out var props) || props.ValueKind != System.Text.Json.JsonValueKind.Object)
+                continue;
+
+            foreach (var prop in props.EnumerateObject())
+            {
+                if (prop.Value.ValueKind != System.Text.Json.JsonValueKind.Object)
+                    continue;
+
+                if (!prop.Value.TryGetProperty("items", out var items))
+                    continue;
+
+                if (JsonElementReferencesDefinition(items, targetDefName))
                     names.Add(prop.Name);
             }
         }

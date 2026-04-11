@@ -55,7 +55,7 @@ public class AcpAgentRequestsTests
 
         var promptTask = client.RequestAsync<PromptRequest, PromptResponse>(
             "session/prompt",
-            new PromptRequest { SessionId = newSes.SessionId, Prompt = new List<Content1>() },
+            new PromptRequest { SessionId = newSes.SessionId, Prompt = new List<ContentBlock>() },
             cts.Token);
 
         // Assert it doesn't finish before we answer the agent->client request.

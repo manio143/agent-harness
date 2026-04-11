@@ -90,6 +90,38 @@ public class TypeGenPostProcessorTests
     }
 
     [Fact]
+    public void Rewrites_ArrayItem_PlaceholderType_To_SessionConfigOption()
+    {
+        var schema = new JsonSchema();
+        var opt = new JsonSchema { DocumentPath = "#/definitions/SessionConfigOption" };
+        schema.Definitions["SessionConfigOption"] = opt;
+
+        var holder = new JsonSchema { Title = "Holder" };
+        holder.Properties["configOptions"] = new JsonSchemaProperty
+        {
+            Type = NJsonSchema.JsonObjectType.Array,
+            Item = new JsonSchema { Reference = opt }
+        };
+        schema.Definitions["Holder"] = holder;
+
+        var input = """
+        namespace Agent.Acp.Schema
+        {
+            public partial class Holder
+            {
+                [System.Text.Json.Serialization.JsonPropertyName("configOptions")]
+                public System.Collections.Generic.ICollection<ConfigOptions> ConfigOptions { get; set; } = default!;
+            }
+        }
+        """;
+
+        var output = CodegenPostProcessor.PostProcessGeneratedCode(schema, input);
+
+        Assert.Contains("ICollection<SessionConfigOption> ConfigOptions", output);
+        Assert.DoesNotContain("ICollection<ConfigOptions> ConfigOptions", output);
+    }
+
+    [Fact]
     public void DoesNothing_When_No_Target_Definitions_Present()
     {
         var schema = new JsonSchema();

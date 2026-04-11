@@ -48,7 +48,7 @@ public class AcpPromptUpdateTests
             new PromptRequest
             {
                 SessionId = newSes.SessionId,
-                Prompt = new List<Content1>(),
+                Prompt = new List<ContentBlock>(),
             },
             cts.Token);
 

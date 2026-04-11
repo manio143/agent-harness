@@ -695,7 +695,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("configOptions")]
-        public System.Collections.Generic.ICollection<ConfigOptions> ConfigOptions { get; set; } = new System.Collections.ObjectModel.Collection<ConfigOptions>();
+        public System.Collections.Generic.ICollection<SessionConfigOption> ConfigOptions { get; set; } = new System.Collections.ObjectModel.Collection<SessionConfigOption>();
 
 
 
@@ -1826,7 +1826,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("configOptions")]
-        public System.Collections.Generic.ICollection<ConfigOptions>? ConfigOptions { get; set; } = default!;
+        public System.Collections.Generic.ICollection<SessionConfigOption>? ConfigOptions { get; set; } = default!;
 
         /// <summary>
         /// Initial mode state if supported by the Agent
@@ -2148,7 +2148,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("configOptions")]
-        public System.Collections.Generic.ICollection<ConfigOptions>? ConfigOptions { get; set; } = default!;
+        public System.Collections.Generic.ICollection<SessionConfigOption>? ConfigOptions { get; set; } = default!;
 
         /// <summary>
         /// Initial mode state if supported by the Agent
@@ -2503,7 +2503,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("prompt")]
-        public System.Collections.Generic.ICollection<Content1> Prompt { get; set; } = new System.Collections.ObjectModel.Collection<Content1>();
+        public System.Collections.Generic.ICollection<ContentBlock> Prompt { get; set; } = new System.Collections.ObjectModel.Collection<ContentBlock>();
 
         /// <summary>
         /// The ID of the session to send this user message to
@@ -3635,7 +3635,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("configOptions")]
-        public System.Collections.Generic.ICollection<ConfigOptions> ConfigOptions { get; set; } = new System.Collections.ObjectModel.Collection<ConfigOptions>();
+        public System.Collections.Generic.ICollection<SessionConfigOption> ConfigOptions { get; set; } = new System.Collections.ObjectModel.Collection<SessionConfigOption>();
 
 
 
