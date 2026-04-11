@@ -76,9 +76,12 @@ public sealed class AcpAgentServer
     private readonly PendingRequests _pending = new();
     private readonly Dictionary<string, SessionAgentHandle> _sessions = new();
 
-    public AcpAgentServer(IAcpAgentFactory factory)
+    private readonly int _supportedProtocolVersion;
+
+    public AcpAgentServer(IAcpAgentFactory factory, int supportedProtocolVersion = 1)
     {
         _factory = factory;
+        _supportedProtocolVersion = supportedProtocolVersion;
     }
 
     public async Task RunAsync(ITransport transport, CancellationToken cancellationToken = default)
@@ -142,6 +145,12 @@ public sealed class AcpAgentServer
                 {
                     var init = Deserialize<InitializeRequest>(req.Params);
                     var result = await _factory.InitializeAsync(init, cancellationToken).ConfigureAwait(false);
+
+                    // Version negotiation (per docs): if requested is supported, echo it; otherwise respond with latest supported.
+                    result.ProtocolVersion = init.ProtocolVersion == _supportedProtocolVersion
+                        ? init.ProtocolVersion
+                        : _supportedProtocolVersion;
+
                     await transport.SendMessageAsync(new JsonRpcResponse { Id = req.Id, Result = SerializeToElement(result) }, cancellationToken);
                     break;
                 }
