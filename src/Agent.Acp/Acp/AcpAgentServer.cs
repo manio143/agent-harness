@@ -195,6 +195,79 @@ public sealed class AcpAgentServer
                     break;
                 }
 
+                case "session/list":
+                {
+                    var listReq = Deserialize<ListSessionsRequest>(req.Params);
+
+                    if (_agentCapabilities?.SessionCapabilities?.List is null)
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = "Agent did not advertise sessionCapabilities.list capability" },
+                        }, cancellationToken);
+                        break;
+                    }
+
+                    if (listReq.Cwd is not null && !Path.IsPathRooted(listReq.Cwd))
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = "cwd must be an absolute path" },
+                        }, cancellationToken);
+                        break;
+                    }
+
+                    var list = _factory.ListSessionsAsync(listReq, cancellationToken);
+                    if (list is null)
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.MethodNotFound, Message = "session/list not supported" },
+                        }, cancellationToken);
+                        break;
+                    }
+
+                    var result = await list.ConfigureAwait(false);
+                    if (result.Sessions is null)
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = "ListSessionsResponse.sessions is required" },
+                        }, cancellationToken);
+                        break;
+                    }
+
+                    foreach (var s in result.Sessions)
+                    {
+                        if (string.IsNullOrWhiteSpace(s.SessionId))
+                        {
+                            await transport.SendMessageAsync(new JsonRpcError
+                            {
+                                Id = req.Id,
+                                Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = "SessionInfo.sessionId is required" },
+                            }, cancellationToken);
+                            return;
+                        }
+
+                        if (string.IsNullOrWhiteSpace(s.Cwd) || !Path.IsPathRooted(s.Cwd))
+                        {
+                            await transport.SendMessageAsync(new JsonRpcError
+                            {
+                                Id = req.Id,
+                                Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = "SessionInfo.cwd must be an absolute path" },
+                            }, cancellationToken);
+                            return;
+                        }
+                    }
+
+                    await transport.SendMessageAsync(new JsonRpcResponse { Id = req.Id, Result = SerializeToElement(result) }, cancellationToken);
+                    break;
+                }
+
                 case "session/new":
                 {
                     var newSession = Deserialize<NewSessionRequest>(req.Params);

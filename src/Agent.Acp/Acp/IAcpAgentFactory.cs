@@ -19,6 +19,13 @@ public interface IAcpAgentFactory
     Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Optional: list existing sessions.
+    /// Only available if initialize response advertises agentCapabilities.sessionCapabilities.list.
+    /// </summary>
+    Task<ListSessionsResponse>? ListSessionsAsync(ListSessionsRequest request, CancellationToken cancellationToken)
+        => null;
+
+    /// <summary>
     /// Optional: resume an existing session (requires loadSession capability).
     /// </summary>
     Task<LoadSessionResponse>? LoadSessionAsync(LoadSessionRequest request, CancellationToken cancellationToken)
