@@ -12,19 +12,22 @@ namespace Agent.Acp.Acp;
 /// </summary>
 public sealed class AcpAgentServer
 {
-    private sealed class AgentContext : IAcpClientCaller, IAcpSessionEvents
+    private sealed class AgentContext : IAcpClientCallerWithCapabilities, IAcpSessionEvents
     {
         private readonly ITransport _transport;
         private readonly PendingRequests _pending;
 
-        public AgentContext(string sessionId, ITransport transport, PendingRequests pending)
+        public AgentContext(string sessionId, ITransport transport, PendingRequests pending, ClientCapabilities clientCapabilities)
         {
             SessionId = sessionId;
             _transport = transport;
             _pending = pending;
+            ClientCapabilities = clientCapabilities;
         }
 
         public string SessionId { get; }
+
+        public ClientCapabilities ClientCapabilities { get; }
 
         public Task SendSessionUpdateAsync(object update, CancellationToken cancellationToken = default)
         {
@@ -78,6 +81,7 @@ public sealed class AcpAgentServer
 
     private bool _initialized;
     private AgentCapabilities? _agentCapabilities;
+    private ClientCapabilities? _clientCapabilities;
 
     private readonly int _supportedProtocolVersion;
 
@@ -166,6 +170,7 @@ public sealed class AcpAgentServer
 
                     _initialized = true;
                     _agentCapabilities = result.AgentCapabilities;
+                    _clientCapabilities = init.ClientCapabilities ?? new ClientCapabilities();
 
                     await transport.SendMessageAsync(new JsonRpcResponse { Id = req.Id, Result = SerializeToElement(result) }, cancellationToken);
                     break;
@@ -211,7 +216,7 @@ public sealed class AcpAgentServer
                         var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
                         // Build caller + events for this session and create the session agent.
-                        var clientCaller = new AgentContext(sessionId, transport, _pending);
+                        var clientCaller = new AgentContext(sessionId, transport, _pending, _clientCapabilities ?? new ClientCapabilities());
                         var sessionAgent = _factory.CreateSessionAgent(sessionId, clientCaller, clientCaller);
 
                         lock (_sessions)
@@ -266,7 +271,7 @@ public sealed class AcpAgentServer
                         var sessionId = loadReq.SessionId;
                         var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-                        var clientCaller = new AgentContext(sessionId, transport, _pending);
+                        var clientCaller = new AgentContext(sessionId, transport, _pending, _clientCapabilities ?? new ClientCapabilities());
                         var sessionAgent = _factory.CreateSessionAgent(sessionId, clientCaller, clientCaller);
 
                         lock (_sessions)
@@ -335,7 +340,7 @@ public sealed class AcpAgentServer
                         break;
                     }
 
-                    var toolCalls = new AcpToolCallTracker(new AgentContext(prompt.SessionId, transport, _pending));
+                    var toolCalls = new AcpToolCallTracker(new AgentContext(prompt.SessionId, transport, _pending, _clientCapabilities ?? new ClientCapabilities()));
                     var turn = new AcpPromptTurn(toolCalls);
 
                     PromptResponse result;
