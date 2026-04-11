@@ -4029,7 +4029,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("content")]
-        public System.Collections.Generic.ICollection<content> Content { get; set; } = default!;
+        public System.Collections.Generic.ICollection<ToolCallContent> Content { get; set; } = default!;
 
         /// <summary>
         /// The category of tool being invoked.
@@ -4218,7 +4218,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("content")]
-        public System.Collections.Generic.ICollection<content>? Content { get; set; } = default!;
+        public System.Collections.Generic.ICollection<ToolCallContent>? Content { get; set; } = default!;
 
         /// <summary>
         /// Update the tool kind.

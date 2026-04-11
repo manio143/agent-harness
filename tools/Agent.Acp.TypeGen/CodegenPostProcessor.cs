@@ -29,6 +29,9 @@ public static class CodegenPostProcessor
 
             // Session config options items
             ("SessionConfigOption", "ConfigOptions", "SessionConfigOption"),
+
+            // Tool call produced content union (NJsonSchema currently leaks a lowercase `content` type)
+            ("ToolCallContent", "content", "ToolCallContent"),
         };
 
         foreach (var spec in patchSpecs)

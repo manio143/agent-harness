@@ -21,6 +21,9 @@ public class GeneratedModelQualityGateTests
         // Placeholders that look like the intended type name (no suffix) but are wrong.
         Assert.DoesNotMatch(new Regex(@"\bpublic\s+Outcome\s+Outcome\b", RegexOptions.Compiled), code);
         Assert.DoesNotMatch(new Regex(@"\bpublic\s+Update\s+Update\b", RegexOptions.Compiled), code);
+
+        // Tool call content should be the union type, not a leaked lowercase placeholder.
+        Assert.DoesNotMatch(new Regex(@"\bICollection<content>\b", RegexOptions.Compiled), code);
     }
 
     private static string FindRepoRoot(string startDir)

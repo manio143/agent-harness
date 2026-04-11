@@ -37,11 +37,6 @@ public sealed class Outcome
     public Dictionary<string, object> AdditionalProperties { get; set; } = new();
 }
 
-public sealed class content
-{
-    [JsonExtensionData]
-    public Dictionary<string, object> AdditionalProperties { get; set; } = new();
-}
 
 public enum Kind { }
 public enum Kind2 { }
