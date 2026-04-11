@@ -19,8 +19,6 @@ dotnet run --project "$ROOT_DIR/tools/Agent.Acp.TypeGen" -- \
   "$OUT_FILE" \
   "Agent.Acp.Schema"
 
-python3 "$ROOT_DIR/scripts/patch_acp_codegen_cs.py"
-
 # Union helpers / discriminated unions
 bash "$ROOT_DIR/scripts/generate_acp_unions.sh"
 

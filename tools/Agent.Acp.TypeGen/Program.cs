@@ -40,8 +40,39 @@ settings.GenerateNullableReferenceTypes = true;
 var generator = new CSharpGenerator(schema, settings);
 var code = generator.GenerateFile();
 
+code = PostProcessGeneratedCode(schema, code);
+
 Directory.CreateDirectory(Path.GetDirectoryName(outFile)!);
 await File.WriteAllTextAsync(outFile, code, Encoding.UTF8);
 
 Console.WriteLine($"Generated {outFile}");
 return 0;
+
+static string PostProcessGeneratedCode(JsonSchema schema, string code)
+{
+    // NJsonSchema currently generates placeholder types (e.g. Content1) for some union references.
+    // We apply a deterministic, schema-driven patch:
+    // if a property is named "content" and its schema references the ContentBlock definition,
+    // ensure the generated C# property type is ContentBlock.
+    //
+    // This avoids ad-hoc Python patching and keeps the pipeline regeneratable.
+
+    // If ContentBlock doesn't exist, there's nothing to patch.
+    if (!schema.Definitions.TryGetValue("ContentBlock", out var _))
+        return code;
+
+    // Patch any property with [JsonPropertyName("content")] where the type is a Content* placeholder.
+    // We intentionally avoid renaming the property itself (just the type).
+    var re = new System.Text.RegularExpressions.Regex(
+        "\\[System\\.Text\\.Json\\.Serialization\\.JsonPropertyName\\(\\\"content\\\"\\)\\]\\s*\\r?\\n\\s*public\\s+(?<type>Content\\d+)\\s+(?<name>\\w+)\\b",
+        System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    code = re.Replace(code, m =>
+    {
+        var placeholderType = m.Groups["type"].Value;
+        var propCSharpName = m.Groups["name"].Value;
+        return m.Value.Replace($"public {placeholderType} {propCSharpName}", $"public ContentBlock {propCSharpName}");
+    });
+
+    return code;
+}
