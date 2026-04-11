@@ -88,7 +88,7 @@ public class AcpPromptUpdateTests
         {
             await context.SendSessionUpdateAsync(new { sessionUpdate = "agent_message_chunk", content = new { type = "text", text = "hello" } }, cancellationToken);
             await context.SendSessionUpdateAsync(new { sessionUpdate = "agent_message_chunk", content = new { type = "text", text = "world" } }, cancellationToken);
-            return new PromptResponse { StopReason = StopReason2.EndTurn };
+            return new PromptResponse { StopReason = new StopReason() };
         }
     }
 }

@@ -101,7 +101,7 @@ public class AcpAgentRequestsTests
 
             return new PromptResponse
             {
-                StopReason = StopReason2.EndTurn,
+                StopReason = new StopReason(),
                 AdditionalProperties = new Dictionary<string, object>
                 {
                     ["readTextFileContent"] = resp.Content,

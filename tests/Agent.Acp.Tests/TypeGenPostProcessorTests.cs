@@ -122,6 +122,127 @@ public class TypeGenPostProcessorTests
     }
 
     [Fact]
+    public void Rewrites_ToolCallKind_And_Status_Placeholders()
+    {
+        var schema = new JsonSchema();
+
+        var toolKind = new JsonSchema { DocumentPath = "#/definitions/ToolKind" };
+        var toolCallStatus = new JsonSchema { DocumentPath = "#/definitions/ToolCallStatus" };
+        schema.Definitions["ToolKind"] = toolKind;
+        schema.Definitions["ToolCallStatus"] = toolCallStatus;
+
+        var holder = new JsonSchema { Title = "Holder" };
+        holder.Properties["kind"] = new JsonSchemaProperty { Reference = toolKind };
+        holder.Properties["status"] = new JsonSchemaProperty { Reference = toolCallStatus };
+        schema.Definitions["Holder"] = holder;
+
+        var input = """
+        namespace Agent.Acp.Schema
+        {
+            public partial class Holder
+            {
+                [System.Text.Json.Serialization.JsonPropertyName("kind")]
+                public Kind2 Kind { get; set; } = default!;
+
+                [System.Text.Json.Serialization.JsonPropertyName("status")]
+                public Status3 Status { get; set; } = default!;
+            }
+        }
+        """;
+
+        var output = CodegenPostProcessor.PostProcessGeneratedCode(schema, input);
+
+        Assert.Contains("public ToolKind Kind", output);
+        Assert.Contains("public ToolCallStatus Status", output);
+    }
+
+    [Fact]
+    public void Rewrites_PermissionOptionKind_Placeholder()
+    {
+        var schema = new JsonSchema();
+        var kind = new JsonSchema { DocumentPath = "#/definitions/PermissionOptionKind" };
+        schema.Definitions["PermissionOptionKind"] = kind;
+
+        var holder = new JsonSchema { Title = "Holder" };
+        holder.Properties["kind"] = new JsonSchemaProperty { Reference = kind };
+        schema.Definitions["Holder"] = holder;
+
+        var input = """
+        namespace Agent.Acp.Schema
+        {
+            public partial class Holder
+            {
+                [System.Text.Json.Serialization.JsonPropertyName("kind")]
+                public Kind Kind { get; set; } = default!;
+            }
+        }
+        """;
+
+        var output = CodegenPostProcessor.PostProcessGeneratedCode(schema, input);
+        Assert.Contains("public PermissionOptionKind Kind", output);
+    }
+
+    [Fact]
+    public void Rewrites_PlanEntry_Enums_Placeholders()
+    {
+        var schema = new JsonSchema();
+        var prio = new JsonSchema { DocumentPath = "#/definitions/PlanEntryPriority" };
+        var status = new JsonSchema { DocumentPath = "#/definitions/PlanEntryStatus" };
+        schema.Definitions["PlanEntryPriority"] = prio;
+        schema.Definitions["PlanEntryStatus"] = status;
+
+        var holder = new JsonSchema { Title = "Holder" };
+        holder.Properties["priority"] = new JsonSchemaProperty { Reference = prio };
+        holder.Properties["status"] = new JsonSchemaProperty { Reference = status };
+        schema.Definitions["Holder"] = holder;
+
+        var input = """
+        namespace Agent.Acp.Schema
+        {
+            public partial class Holder
+            {
+                [System.Text.Json.Serialization.JsonPropertyName("priority")]
+                public Priority Priority { get; set; } = default!;
+
+                [System.Text.Json.Serialization.JsonPropertyName("status")]
+                public Status Status { get; set; } = default!;
+            }
+        }
+        """;
+
+        var output = CodegenPostProcessor.PostProcessGeneratedCode(schema, input);
+        Assert.Contains("public PlanEntryPriority Priority", output);
+        Assert.Contains("public PlanEntryStatus Status", output);
+    }
+
+    [Fact]
+    public void Rewrites_StopReason_Placeholder()
+    {
+        var schema = new JsonSchema();
+        var stop = new JsonSchema { DocumentPath = "#/definitions/StopReason" };
+        schema.Definitions["StopReason"] = stop;
+
+        var holder = new JsonSchema { Title = "Holder" };
+        holder.Properties["stopReason"] = new JsonSchemaProperty { Reference = stop };
+        schema.Definitions["Holder"] = holder;
+
+        var input = """
+        namespace Agent.Acp.Schema
+        {
+            public partial class Holder
+            {
+                [System.Text.Json.Serialization.JsonPropertyName("stopReason")]
+                public StopReason2 StopReason { get; set; } = default!;
+            }
+        }
+        """;
+
+        var output = CodegenPostProcessor.PostProcessGeneratedCode(schema, input);
+        Assert.Contains("public StopReason StopReason", output);
+        Assert.DoesNotContain("public StopReason2 StopReason", output);
+    }
+
+    [Fact]
     public void DoesNothing_When_No_Target_Definitions_Present()
     {
         var schema = new JsonSchema();

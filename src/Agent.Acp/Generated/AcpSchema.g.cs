@@ -2203,7 +2203,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("kind")]
-        public Kind Kind { get; set; } = default!;
+        public ToolKind Kind { get; set; } = default!;
 
         /// <summary>
         /// Human-readable label to display to the user.
@@ -2333,14 +2333,14 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("priority")]
-        public Priority Priority { get; set; } = default!;
+        public PlanEntryPriority Priority { get; set; } = default!;
 
         /// <summary>
         /// Current execution status of this task.
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("status")]
-        public Status Status { get; set; } = default!;
+        public ToolCallStatus Status { get; set; } = default!;
 
 
 
@@ -2549,7 +2549,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("stopReason")]
-        public StopReason2 StopReason { get; set; } = default!;
+        public StopReason StopReason { get; set; } = default!;
 
 
 
@@ -4037,7 +4037,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("kind")]
-        public Kind2 Kind { get; set; } = default!;
+        public ToolKind Kind { get; set; } = default!;
 
         /// <summary>
         /// File locations affected by this tool call.
@@ -4066,7 +4066,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("status")]
-        public Status2 Status { get; set; } = default!;
+        public ToolCallStatus Status { get; set; } = default!;
 
         /// <summary>
         /// Human-readable title describing what the tool is doing.
@@ -4225,7 +4225,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("kind")]
-        public Kind3 Kind { get; set; } = default!;
+        public ToolKind Kind { get; set; } = default!;
 
         /// <summary>
         /// Replace the locations collection.
@@ -4253,7 +4253,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("status")]
-        public Status3 Status { get; set; } = default!;
+        public ToolCallStatus Status { get; set; } = default!;
 
         /// <summary>
         /// Update the human-readable title.

@@ -32,6 +32,20 @@ public static class CodegenPostProcessor
 
             // Tool call produced content union (NJsonSchema currently leaks a lowercase `content` type)
             ("ToolCallContent", "content", "ToolCallContent"),
+
+            // Tool call kind + status
+            ("ToolKind", "Kind\\d*", "ToolKind"),
+            ("ToolCallStatus", "Status\\d*", "ToolCallStatus"),
+
+            // Permission option kind
+            ("PermissionOptionKind", "Kind\\d*", "PermissionOptionKind"),
+
+            // Plan entry enums
+            ("PlanEntryPriority", "Priority", "PlanEntryPriority"),
+            ("PlanEntryStatus", "Status\\d*", "PlanEntryStatus"),
+
+            // Stop reason is a string-union in schema; NJsonSchema produces a placeholder StopReason2 in our build.
+            ("StopReason", "StopReason\\d*", "StopReason"),
         };
 
         foreach (var spec in patchSpecs)
