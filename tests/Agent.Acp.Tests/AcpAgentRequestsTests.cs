@@ -19,10 +19,15 @@ public class AcpAgentRequestsTests
         var serverTask = Task.Run(() => server.RunAsync(serverTransport, cts.Token), cts.Token);
 
         await using var client = new AcpClientConnection(clientTransport);
-        client.RequestHandler = (req, _) =>
+        var allowRespond = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        client.RequestHandler = async (req, _) =>
         {
             if (req.Method != "client/readTextFile")
                 throw new InvalidOperationException($"Unexpected request: {req.Method}");
+
+            // Ensure the agent really waits for the client response (ping-pong).
+            await allowRespond.Task;
 
             var p = req.Params!.Value;
             var sessionId = p.GetProperty("sessionId").GetString();
@@ -30,7 +35,7 @@ public class AcpAgentRequestsTests
             var respObj = new ReadTextFileResponse { Content = $"hello from {sessionId}" };
             var respJson = JsonSerializer.Serialize(respObj, AcpJson.Options);
             using var doc = JsonDocument.Parse(respJson);
-            return Task.FromResult(doc.RootElement.Clone());
+            return doc.RootElement.Clone();
         };
 
         _ = await client.RequestAsync<InitializeRequest, InitializeResponse>(
@@ -48,10 +53,19 @@ public class AcpAgentRequestsTests
             new NewSessionRequest { Cwd = "/tmp", McpServers = new List<McpServer>() },
             cts.Token);
 
-        var promptResp = await client.RequestAsync<PromptRequest, PromptResponse>(
+        var promptTask = client.RequestAsync<PromptRequest, PromptResponse>(
             "session/prompt",
             new PromptRequest { SessionId = newSes.SessionId, Prompt = new List<Content1>() },
             cts.Token);
+
+        // Assert it doesn't finish before we answer the agent->client request.
+        var early = await Task.WhenAny(promptTask, Task.Delay(150, cts.Token));
+        Assert.NotSame(promptTask, early);
+
+        // Now let the client respond.
+        allowRespond.SetResult();
+
+        var promptResp = await promptTask;
 
         // Agent should have embedded proof in meta.
         Assert.True(promptResp.AdditionalProperties.TryGetValue("readTextFileContent", out var v));
