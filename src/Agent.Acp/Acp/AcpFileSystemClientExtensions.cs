@@ -25,9 +25,6 @@ public static class AcpFileSystemClientExtensions
 
     private static ClientCapabilities GetCaps(IAcpClientCaller client)
     {
-        if (client is not IAcpClientCallerWithCapabilities c)
-            throw new InvalidOperationException("Client capabilities are not available on this IAcpClientCaller instance");
-
-        return c.ClientCapabilities;
+        return client.ClientCapabilities;
     }
 }

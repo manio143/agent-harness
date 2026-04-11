@@ -30,7 +30,7 @@ public class AcpFileSystemCapabilityTests
         }));
     }
 
-    private sealed class FakeClientCaller : IAcpClientCallerWithCapabilities
+    private sealed class FakeClientCaller : IAcpClientCaller
     {
         public FakeClientCaller(ClientCapabilities caps)
         {

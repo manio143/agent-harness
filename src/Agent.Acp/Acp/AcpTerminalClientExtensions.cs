@@ -36,10 +36,7 @@ public static class AcpTerminalClientExtensions
 
     private static void EnsureSupported(IAcpClientCaller client)
     {
-        if (client is not IAcpClientCallerWithCapabilities c)
-            throw new InvalidOperationException("Client capabilities are not available on this IAcpClientCaller instance");
-
-        if (c.ClientCapabilities.Terminal != true)
+        if (client.ClientCapabilities.Terminal != true)
             throw new InvalidOperationException("Client did not advertise terminal capability");
     }
 }

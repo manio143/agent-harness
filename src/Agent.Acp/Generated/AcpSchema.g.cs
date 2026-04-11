@@ -2702,6 +2702,28 @@ namespace Agent.Acp.Schema
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "11.0.2.0 (Newtonsoft.Json v13.0.0.0)")]
     public partial class RequestPermissionOutcome
     {
+        /// <summary>
+        /// The _meta property is reserved by ACP to allow clients and agents to attach additional metadata.
+        /// </summary>
+
+        [System.Text.Json.Serialization.JsonPropertyName("_meta")]
+        public object? _meta { get; set; } = default!;
+
+        /// <summary>
+        /// Either 'cancelled' or 'selected'.
+        /// </summary>
+
+        [System.Text.Json.Serialization.JsonPropertyName("outcome")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
+        public RequestPermissionOutcomeOutcome Outcome { get; set; } = default!;
+
+        /// <summary>
+        /// The ID of the option the user selected (only present when outcome == 'selected').
+        /// </summary>
+
+        [System.Text.Json.Serialization.JsonPropertyName("optionId")]
+        public string? OptionId { get; set; } = default!;
+
 
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
@@ -2792,7 +2814,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("outcome")]
-        public RequestPermissionOutcome Outcome { get; set; } = default!;
+        public RequestPermissionOutcome Outcome { get; set; } = new RequestPermissionOutcome();
 
 
 
@@ -4557,6 +4579,20 @@ namespace Agent.Acp.Schema
             get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "11.0.2.0 (Newtonsoft.Json v13.0.0.0)")]
+    public enum RequestPermissionOutcomeOutcome
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"cancelled")]
+        Cancelled = 0,
+
+
+        [System.Runtime.Serialization.EnumMember(Value = @"selected")]
+        Selected = 1,
+
 
     }
 

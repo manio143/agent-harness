@@ -12,7 +12,7 @@ namespace Agent.Acp.Acp;
 /// </summary>
 public sealed class AcpAgentServer
 {
-    private sealed class AgentContext : IAcpClientCallerWithCapabilities, IAcpSessionEvents
+    private sealed class AgentContext : IAcpClientCaller, IAcpSessionEvents
     {
         private readonly ITransport _transport;
         private readonly PendingRequests _pending;

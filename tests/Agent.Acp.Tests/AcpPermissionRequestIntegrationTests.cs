@@ -28,7 +28,7 @@ public class AcpPermissionRequestIntegrationTests
             {
                 Outcome = new RequestPermissionOutcome
                 {
-                    Outcome = RequestPermissionOutcome.Selected,
+                    Outcome = RequestPermissionOutcomeOutcome.Selected,
                     OptionId = "allow-once",
                 },
             };
@@ -106,7 +106,7 @@ public class AcpPermissionRequestIntegrationTests
                     Options = options,
                 }, cancellationToken);
 
-                if (outcome.Outcome.Outcome != RequestPermissionOutcome.Selected)
+                if (outcome.Outcome.Outcome != RequestPermissionOutcomeOutcome.Selected)
                     throw new InvalidOperationException("Expected selected");
 
                 return new PromptResponse { StopReason = StopReason.EndTurn };

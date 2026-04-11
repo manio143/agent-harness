@@ -2488,41 +2488,34 @@
     },
     "RequestPermissionOutcome": {
       "description": "The outcome of a permission request.",
-      "discriminator": {
-        "propertyName": "outcome"
-      },
-      "oneOf": [
-        {
-          "description": "The prompt turn was cancelled before the user responded.\n\nWhen a client sends a `session/cancel` notification to cancel an ongoing\nprompt turn, it MUST respond to all pending `session/request_permission`\nrequests with this `Cancelled` outcome.\n\nSee protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/prompt-turn#cancellation)",
-          "properties": {
-            "outcome": {
-              "const": "cancelled",
-              "type": "string"
-            }
-          },
-          "required": [
-            "outcome"
+      "type": "object",
+      "properties": {
+        "_meta": {
+          "type": [
+            "object",
+            "null"
           ],
-          "type": "object"
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional metadata."
         },
-        {
-          "allOf": [
-            {
-              "$ref": "#/definitions/SelectedPermissionOutcome"
-            }
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "cancelled",
+            "selected"
           ],
-          "description": "The user selected one of the provided options.",
-          "properties": {
-            "outcome": {
-              "const": "selected",
-              "type": "string"
-            }
-          },
-          "required": [
-            "outcome"
-          ],
-          "type": "object"
+          "description": "Either 'cancelled' or 'selected'."
+        },
+        "optionId": {
+          "description": "The ID of the option the user selected (only present when outcome == 'selected').",
+          "type": [
+            "string",
+            "null"
+          ]
         }
+      },
+      "required": [
+        "outcome"
       ]
     },
     "RequestPermissionRequest": {

@@ -41,6 +41,38 @@ def main() -> int:
 
     defs_rewritten = rewrite_refs(defs)
 
+    # NJsonSchema struggles with some discriminator/oneOf shapes and may generate empty DTOs.
+    # We normalize a few known cases into codegen-friendly object schemas.
+    #
+    # RequestPermissionOutcome is a discriminated union in the ACP schema:
+    # - { outcome: "cancelled" }
+    # - { outcome: "selected", optionId: PermissionOptionId }
+    #
+    # We flatten it into a single object with optional optionId so the generated model
+    # has real properties (regen-safe) and can still represent both cases.
+    if "RequestPermissionOutcome" in defs_rewritten:
+        defs_rewritten["RequestPermissionOutcome"] = {
+            "description": "The outcome of a permission request.",
+            "type": "object",
+            "properties": {
+                "_meta": {
+                    "type": ["object", "null"],
+                    "additionalProperties": True,
+                    "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional metadata.",
+                },
+                "outcome": {
+                    "type": "string",
+                    "enum": ["cancelled", "selected"],
+                    "description": "Either 'cancelled' or 'selected'.",
+                },
+                "optionId": {
+                    "description": "The ID of the option the user selected (only present when outcome == 'selected').",
+                    "type": ["string", "null"],
+                },
+            },
+            "required": ["outcome"],
+        }
+
     # Note: we keep all defs in the codegen schema.
     # Some union-heavy refs and some schema patterns still require deterministic postprocessing
     # of the generated C# (performed by tools/Agent.Acp.TypeGen).
