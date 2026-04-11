@@ -335,7 +335,16 @@ public sealed class AcpAgentServer
                         break;
                     }
 
-                    var result = await handle.Agent.PromptAsync(prompt, handle.Cts.Token).ConfigureAwait(false);
+                    PromptResponse result;
+                    try
+                    {
+                        result = await handle.Agent.PromptAsync(prompt, handle.Cts.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Per docs: cancellation is not an error; must return StopReason=cancelled.
+                        result = new PromptResponse { StopReason = StopReason.Cancelled };
+                    }
 
                     if (string.IsNullOrWhiteSpace(result.StopReason.Value))
                     {
