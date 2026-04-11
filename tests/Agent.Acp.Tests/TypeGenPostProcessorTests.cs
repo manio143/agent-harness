@@ -238,9 +238,8 @@ public class TypeGenPostProcessorTests
         """;
 
         var output = CodegenPostProcessor.PostProcessGeneratedCode(schema, input);
-        Assert.Contains("public string StopReason", output);
+        Assert.Contains("public StopReasonValue StopReason", output);
         Assert.DoesNotContain("public StopReason2 StopReason", output);
-        Assert.DoesNotContain("public StopReason StopReason", output);
     }
 
     [Fact]

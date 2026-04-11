@@ -2549,7 +2549,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("stopReason")]
-        public string StopReason { get; set; } = default!;
+        public StopReasonValue StopReason { get; set; } = default!;
 
 
 

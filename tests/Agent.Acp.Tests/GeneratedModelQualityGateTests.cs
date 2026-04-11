@@ -27,7 +27,8 @@ public class GeneratedModelQualityGateTests
 
         // Misc placeholder suffixes we explicitly patch.
         Assert.DoesNotMatch(new Regex(@"\bStopReason2\b", RegexOptions.Compiled), code);
-        Assert.DoesNotMatch(new Regex(@"\bStopReason\s+StopReason\b", RegexOptions.Compiled), code);
+        // StopReasonValue should be the wrapper type (defined in src/Agent.Acp/Schema/StopReason.cs).
+        Assert.DoesNotMatch(new Regex(@"\bpublic\s+partial\s+class\s+StopReasonValue\b", RegexOptions.Compiled), code);
     }
 
     private static string FindRepoRoot(string startDir)

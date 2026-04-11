@@ -44,9 +44,9 @@ public static class CodegenPostProcessor
             ("PlanEntryPriority", "Priority", "PlanEntryPriority"),
             ("PlanEntryStatus", "Status\\d*", "PlanEntryStatus"),
 
-            // Stop reason is a string-union in schema. We model it as string for forward compatibility.
-            ("StopReason", "StopReason\\d*", "string"),
-            ("StopReason", "StopReason", "string"),
+            // Stop reason is a string-union in schema; we model it as a wrapper type StopReasonValue.
+            ("StopReason", "StopReason\\d*", "StopReasonValue"),
+            ("StopReason", "string", "StopReasonValue"),
         };
 
         foreach (var spec in patchSpecs)
