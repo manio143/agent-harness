@@ -337,6 +337,16 @@ public sealed class AcpAgentServer
 
                     var result = await handle.Agent.PromptAsync(prompt, handle.Cts.Token).ConfigureAwait(false);
 
+                    if (string.IsNullOrWhiteSpace(result.StopReason.Value))
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = "PromptResponse.stopReason is required" },
+                        }, cancellationToken);
+                        break;
+                    }
+
                     await transport.SendMessageAsync(new JsonRpcResponse { Id = req.Id, Result = SerializeToElement(result) }, cancellationToken);
                     break;
                 }
