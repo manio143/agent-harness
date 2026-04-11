@@ -169,6 +169,53 @@ public sealed class AcpAgentServer
                     break;
                 }
 
+                case "session/load":
+                {
+                    var loadReq = Deserialize<LoadSessionRequest>(req.Params);
+                    var load = _agent.LoadSessionAsync(loadReq, cancellationToken);
+                    if (load is null)
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = -32601, Message = "session/load not supported" },
+                        }, cancellationToken);
+                        break;
+                    }
+
+                    var result = await load.ConfigureAwait(false);
+
+                    if (!string.IsNullOrWhiteSpace(loadReq.SessionId))
+                    {
+                        lock (_sessionCts)
+                        {
+                            _sessionCts[loadReq.SessionId] = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                        }
+                    }
+
+                    await transport.SendMessageAsync(new JsonRpcResponse { Id = req.Id, Result = SerializeToElement(result) }, cancellationToken);
+                    break;
+                }
+
+                case "session/set_mode":
+                {
+                    var setModeReq = Deserialize<SetSessionModeRequest>(req.Params);
+                    var setMode = _agent.SetSessionModeAsync(setModeReq, cancellationToken);
+                    if (setMode is null)
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = -32601, Message = "session/set_mode not supported" },
+                        }, cancellationToken);
+                        break;
+                    }
+
+                    var result = await setMode.ConfigureAwait(false);
+                    await transport.SendMessageAsync(new JsonRpcResponse { Id = req.Id, Result = SerializeToElement(result) }, cancellationToken);
+                    break;
+                }
+
                 case "session/prompt":
                 {
                     var prompt = Deserialize<PromptRequest>(req.Params);
