@@ -88,9 +88,9 @@ public class AcpSessionUpdateStreamingContractTests
 
             public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken)
             {
-                await _events.SendSessionUpdateAsync(new { sessionUpdate = "message", content = "one" }, cancellationToken);
-                await _events.SendSessionUpdateAsync(new { sessionUpdate = "message", content = "two" }, cancellationToken);
-                await _events.SendSessionUpdateAsync(new { sessionUpdate = "message", content = "three" }, cancellationToken);
+                await _events.SendSessionUpdateAsync(new AgentMessageChunk { Content = new TextContent { Text = "one" } }, cancellationToken);
+                await _events.SendSessionUpdateAsync(new AgentMessageChunk { Content = new TextContent { Text = "two" } }, cancellationToken);
+                await _events.SendSessionUpdateAsync(new AgentMessageChunk { Content = new TextContent { Text = "three" } }, cancellationToken);
 
                 return new PromptResponse { StopReason = StopReason.EndTurn };
             }

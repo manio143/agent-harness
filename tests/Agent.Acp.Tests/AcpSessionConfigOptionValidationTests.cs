@@ -54,7 +54,7 @@ public class AcpSessionConfigOptionValidationTests
             Task.FromResult(new NewSessionResponse
             {
                 SessionId = "ses_test",
-                Modes = new Modes2(),
+                Modes = null,
                 ConfigOptions = new List<SessionConfigOption>
                 {
                     new SessionConfigOption

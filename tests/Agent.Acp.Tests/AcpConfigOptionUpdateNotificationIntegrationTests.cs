@@ -79,7 +79,7 @@ public class AcpConfigOptionUpdateNotificationIntegrationTests
             });
 
         public Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new NewSessionResponse { SessionId = "ses_test", Modes = new Modes2() });
+            Task.FromResult(new NewSessionResponse { SessionId = "ses_test", Modes = null });
 
         public IAcpSessionAgent CreateSessionAgent(string sessionId, IAcpClientCaller client, IAcpSessionEvents events) =>
             new Agent(sessionId, events);

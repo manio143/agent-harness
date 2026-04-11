@@ -2716,35 +2716,24 @@
     },
     "SessionConfigOption": {
       "description": "A session configuration option selector and its current state.",
-      "discriminator": {
-        "propertyName": "type"
-      },
-      "oneOf": [
-        {
-          "allOf": [
-            {
-              "$ref": "#/definitions/SessionConfigSelect"
-            }
-          ],
-          "description": "Single-value selector (dropdown).",
-          "properties": {
-            "type": {
-              "const": "select",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type"
-          ],
-          "type": "object"
-        }
-      ],
+      "type": "object",
       "properties": {
         "_meta": {
-          "additionalProperties": true,
-          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
           "type": [
             "object",
+            "null"
+          ],
+          "additionalProperties": true
+        },
+        "id": {
+          "$ref": "#/definitions/SessionConfigId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": [
+            "string",
             "null"
           ]
         },
@@ -2756,34 +2745,28 @@
             {
               "type": "null"
             }
-          ],
-          "description": "Optional semantic category for this option (UX only)."
-        },
-        "description": {
-          "description": "Optional description for the Client to display to the user.",
-          "type": [
-            "string",
-            "null"
           ]
         },
-        "id": {
-          "allOf": [
-            {
-              "$ref": "#/definitions/SessionConfigId"
-            }
-          ],
-          "description": "Unique identifier for the configuration option."
+        "type": {
+          "type": "string",
+          "enum": [
+            "select"
+          ]
         },
-        "name": {
-          "description": "Human-readable label for the option.",
-          "type": "string"
+        "currentValue": {
+          "$ref": "#/definitions/SessionConfigValueId"
+        },
+        "options": {
+          "$ref": "#/definitions/SessionConfigSelectOptions"
         }
       },
       "required": [
         "id",
-        "name"
-      ],
-      "type": "object"
+        "name",
+        "type",
+        "currentValue",
+        "options"
+      ]
     },
     "SessionConfigOptionCategory": {
       "anyOf": [
@@ -2912,25 +2895,11 @@
       "type": "object"
     },
     "SessionConfigSelectOptions": {
-      "anyOf": [
-        {
-          "description": "A flat list of options with no grouping.",
-          "items": {
-            "$ref": "#/definitions/SessionConfigSelectOption"
-          },
-          "title": "Ungrouped",
-          "type": "array"
-        },
-        {
-          "description": "A list of options grouped under headers.",
-          "items": {
-            "$ref": "#/definitions/SessionConfigSelectGroup"
-          },
-          "title": "Grouped",
-          "type": "array"
-        }
-      ],
-      "description": "Possible values for a session configuration option."
+      "description": "Possible values for a session configuration option (ungrouped).",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/SessionConfigSelectOption"
+      }
     },
     "SessionConfigValueId": {
       "description": "Unique identifier for a session configuration option value.",
