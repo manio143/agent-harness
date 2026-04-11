@@ -13,7 +13,7 @@ internal sealed class AcpPromptTurn : IAcpPromptTurn
     public IAcpToolCalls ToolCalls { get; }
 }
 
-public sealed class AcpToolCallTracker : IAcpToolCalls
+internal sealed class AcpToolCallTracker : IAcpToolCalls
 {
     private enum State
     {
