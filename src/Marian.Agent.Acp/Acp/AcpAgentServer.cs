@@ -12,7 +12,59 @@ namespace Marian.Agent.Acp.Acp;
 /// </summary>
 public sealed class AcpAgentServer
 {
+    private sealed class AgentContext : IAcpAgentContext
+    {
+        private readonly ITransport _transport;
+        private readonly PendingRequests _pending;
+
+        public AgentContext(string sessionId, ITransport transport, PendingRequests pending)
+        {
+            SessionId = sessionId;
+            _transport = transport;
+            _pending = pending;
+        }
+
+        public string SessionId { get; }
+
+        public Task SendSessionUpdateAsync(object update, CancellationToken cancellationToken = default)
+        {
+            // We keep the payload flexible for now because the generated schema types contain
+            // unions that are not fully materialized by the generator.
+            var notif = new JsonRpcNotification
+            {
+                Method = "session/update",
+                Params = SerializeToElement(new
+                {
+                    sessionId = SessionId,
+                    update,
+                }),
+            };
+
+            return _transport.SendMessageAsync(notif, cancellationToken);
+        }
+
+        public async Task<TResponse> RequestAsync<TRequest, TResponse>(string method, TRequest request, CancellationToken cancellationToken = default)
+        {
+            var (id, task) = _pending.Create();
+            var msg = new JsonRpcRequest
+            {
+                Id = id,
+                Method = method,
+                Params = SerializeToElement(request),
+            };
+
+            await _transport.SendMessageAsync(msg, cancellationToken).ConfigureAwait(false);
+
+            var resultElement = await task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            var result = JsonSerializer.Deserialize<TResponse>(resultElement.GetRawText(), AcpJson.Options);
+            return result ?? throw new InvalidOperationException($"Failed to deserialize result as {typeof(TResponse).Name}");
+        }
+    }
+
+
     private readonly IAcpAgent _agent;
+    private readonly PendingRequests _pending = new();
+    private readonly Dictionary<string, CancellationTokenSource> _sessionCts = new();
 
     public AcpAgentServer(IAcpAgent agent)
     {
@@ -30,20 +82,40 @@ public sealed class AcpAgentServer
                     break;
 
                 case JsonRpcNotification notif:
-                    _ = Task.Run(() => HandleNotificationAsync(notif, cancellationToken), cancellationToken);
+                    _ = Task.Run(() => HandleNotificationAsync(transport, notif, cancellationToken), cancellationToken);
+                    break;
+
+                case JsonRpcResponse resp:
+                    _pending.TryResolve(resp.Id, resp.Result, error: null);
+                    break;
+
+                case JsonRpcError err:
+                    _pending.TryResolve(err.Id, result: null, error: new InvalidOperationException($"JSON-RPC error {err.Error.Code}: {err.Error.Message}"));
                     break;
             }
         }
     }
 
-    private async Task HandleNotificationAsync(JsonRpcNotification notif, CancellationToken cancellationToken)
+    private async Task HandleNotificationAsync(ITransport transport, JsonRpcNotification notif, CancellationToken cancellationToken)
     {
-        // For now we only wire cancellation.
+        // Session cancellation.
         if (notif.Method == "session/cancel" && notif.Params is { } p)
         {
             var cancel = Deserialize<CancelNotification>(p);
+
+            lock (_sessionCts)
+            {
+                if (_sessionCts.TryGetValue(cancel.SessionId, out var cts))
+                {
+                    cts.Cancel();
+                }
+            }
+
             await _agent.CancelAsync(cancel, cancellationToken).ConfigureAwait(false);
+            return;
         }
+
+        // Ignore other notifications for now.
     }
 
     private async Task HandleRequestAsync(ITransport transport, JsonRpcRequest req, CancellationToken cancellationToken)
@@ -83,6 +155,16 @@ public sealed class AcpAgentServer
                 {
                     var newSession = Deserialize<NewSessionRequest>(req.Params);
                     var result = await _agent.NewSessionAsync(newSession, cancellationToken).ConfigureAwait(false);
+
+                    // Create CTS for future prompt cancellation (best-effort; sessionId comes from response).
+                    if (!string.IsNullOrWhiteSpace(result.SessionId))
+                    {
+                        lock (_sessionCts)
+                        {
+                            _sessionCts[result.SessionId] = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                        }
+                    }
+
                     await transport.SendMessageAsync(new JsonRpcResponse { Id = req.Id, Result = SerializeToElement(result) }, cancellationToken);
                     break;
                 }
@@ -90,7 +172,27 @@ public sealed class AcpAgentServer
                 case "session/prompt":
                 {
                     var prompt = Deserialize<PromptRequest>(req.Params);
-                    var result = await _agent.PromptAsync(prompt, cancellationToken).ConfigureAwait(false);
+
+                    CancellationToken promptToken = cancellationToken;
+                    lock (_sessionCts)
+                    {
+                        if (_sessionCts.TryGetValue(prompt.SessionId, out var cts))
+                        {
+                            promptToken = cts.Token;
+                        }
+                    }
+
+                    PromptResponse result;
+                    if (_agent is IAcpAgentWithContext agentWithCtx)
+                    {
+                        var ctx = new AgentContext(prompt.SessionId, transport, _pending);
+                        result = await agentWithCtx.PromptAsync(prompt, ctx, promptToken).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        result = await _agent.PromptAsync(prompt, promptToken).ConfigureAwait(false);
+                    }
+
                     await transport.SendMessageAsync(new JsonRpcResponse { Id = req.Id, Result = SerializeToElement(result) }, cancellationToken);
                     break;
                 }

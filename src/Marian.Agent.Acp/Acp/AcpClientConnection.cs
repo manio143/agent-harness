@@ -10,6 +10,14 @@ namespace Marian.Agent.Acp.Acp;
 /// </summary>
 public sealed class AcpClientConnection : IAsyncDisposable
 {
+    public event Action<JsonRpcNotification>? NotificationReceived;
+
+    /// <summary>
+    /// Optional handler for incoming requests (agent->client). If set, the client connection will
+    /// automatically respond.
+    /// </summary>
+    public Func<JsonRpcRequest, CancellationToken, Task<JsonElement>>? RequestHandler { get; set; }
+
     private readonly ITransport _transport;
     private long _nextId = 1;
 
@@ -79,6 +87,31 @@ public sealed class AcpClientConnection : IAsyncDisposable
                         }
                         break;
                     }
+                    case JsonRpcNotification n:
+                        NotificationReceived?.Invoke(n);
+                        break;
+
+                    case JsonRpcRequest req:
+                        if (RequestHandler is not null)
+                        {
+                            _ = Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    var result = await RequestHandler(req, _cts.Token).ConfigureAwait(false);
+                                    await _transport.SendMessageAsync(new JsonRpcResponse { Id = req.Id, Result = result }, _cts.Token).ConfigureAwait(false);
+                                }
+                                catch (Exception ex)
+                                {
+                                    await _transport.SendMessageAsync(new JsonRpcError
+                                    {
+                                        Id = req.Id,
+                                        Error = new JsonRpcErrorDetail { Code = -32603, Message = ex.Message },
+                                    }, _cts.Token).ConfigureAwait(false);
+                                }
+                            }, _cts.Token);
+                        }
+                        break;
                 }
             }
         }

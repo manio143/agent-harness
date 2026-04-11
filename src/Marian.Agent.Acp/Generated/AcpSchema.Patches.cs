@@ -48,4 +48,10 @@ public enum Kind2 { }
 public enum Status { }
 public enum Status2 { }
 public enum Priority { }
-public enum StopReason2 { }
+
+public enum StopReason2
+{
+    EndTurn,
+    Cancelled,
+    Error,
+}
