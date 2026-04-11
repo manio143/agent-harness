@@ -6,11 +6,8 @@ namespace Agent.Acp.Tests;
 public class TypeGenPostProcessorTests
 {
     [Fact]
-    public void Rewrites_PlaceholderType_To_ContentBlock_BasedOnSchemaRef_NotPropertyName()
+    public void Rewrites_ContentBlock_PlaceholderType_BasedOnSchemaRef_NotPropertyName()
     {
-        // Arrange a minimal schema:
-        // - defines ContentBlock
-        // - defines Holder with property "payload" referencing ContentBlock
         var schema = new JsonSchema();
         var contentBlock = new JsonSchema { Title = "ContentBlock" };
         schema.Definitions["ContentBlock"] = contentBlock;
@@ -37,17 +34,73 @@ public class TypeGenPostProcessorTests
     }
 
     [Fact]
-    public void DoesNothing_When_ContentBlock_Definition_Missing()
+    public void Rewrites_SessionUpdate_PlaceholderType()
+    {
+        var schema = new JsonSchema();
+        var sessionUpdate = new JsonSchema { DocumentPath = "#/definitions/SessionUpdate" };
+        schema.Definitions["SessionUpdate"] = sessionUpdate;
+
+        var holder = new JsonSchema { Title = "Holder" };
+        holder.Properties["update"] = new JsonSchemaProperty { Reference = sessionUpdate };
+        schema.Definitions["Holder"] = holder;
+
+        var input = """
+        namespace Agent.Acp.Schema
+        {
+            public partial class Holder
+            {
+                [System.Text.Json.Serialization.JsonPropertyName("update")]
+                public Update Update { get; set; } = default!;
+            }
+        }
+        """;
+
+        var output = CodegenPostProcessor.PostProcessGeneratedCode(schema, input);
+
+        Assert.Contains("public SessionUpdate Update", output);
+        Assert.DoesNotContain("public Update Update", output);
+    }
+
+    [Fact]
+    public void Rewrites_RequestPermissionOutcome_PlaceholderType()
+    {
+        var schema = new JsonSchema();
+        var outcome = new JsonSchema { DocumentPath = "#/definitions/RequestPermissionOutcome" };
+        schema.Definitions["RequestPermissionOutcome"] = outcome;
+
+        var holder = new JsonSchema { Title = "Holder" };
+        holder.Properties["outcome"] = new JsonSchemaProperty { Reference = outcome };
+        schema.Definitions["Holder"] = holder;
+
+        var input = """
+        namespace Agent.Acp.Schema
+        {
+            public partial class Holder
+            {
+                [System.Text.Json.Serialization.JsonPropertyName("outcome")]
+                public Outcome Outcome { get; set; } = default!;
+            }
+        }
+        """;
+
+        var output = CodegenPostProcessor.PostProcessGeneratedCode(schema, input);
+
+        Assert.Contains("public RequestPermissionOutcome Outcome", output);
+        Assert.DoesNotContain("public Outcome Outcome", output);
+    }
+
+    [Fact]
+    public void DoesNothing_When_No_Target_Definitions_Present()
     {
         var schema = new JsonSchema();
 
         var input = """
         namespace Agent.Acp.Schema
         {
-            public partial class ContentChunk
+            public partial class Holder
             {
-                [System.Text.Json.Serialization.JsonPropertyName("content")]
-                public Content1 Content { get; set; } = default!;
+                [System.Text.Json.Serialization.JsonPropertyName("payload")]
+                public Content1 Payload { get; set; } = default!;
             }
         }
         """;
@@ -61,7 +114,7 @@ public class TypeGenPostProcessorTests
     public void Is_Idempotent()
     {
         var schema = new JsonSchema();
-        schema.Definitions["ContentBlock"] = new JsonSchema();
+        schema.Definitions["ContentBlock"] = new JsonSchema { Title = "ContentBlock" };
 
         var input = """
         namespace Agent.Acp.Schema

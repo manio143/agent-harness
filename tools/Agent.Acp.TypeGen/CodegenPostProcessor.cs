@@ -15,43 +15,60 @@ public static class CodegenPostProcessor
     /// </summary>
     public static string PostProcessGeneratedCode(JsonSchema schema, string code)
     {
-        // For now, we have one proven placeholder pattern:
-        // - properties that reference ContentBlock may be generated as Content{n} placeholder types.
-        // We compute which JSON property names reference ContentBlock from the schema and patch
-        // any matching properties in generated C#.
-
-        if (!schema.Definitions.TryGetValue("ContentBlock", out var contentBlockDef))
-            return code;
-
-        var jsonPropertyNames = FindJsonPropertyNamesReferencing(schema, targetDefName: "ContentBlock");
-        if (jsonPropertyNames.Count == 0)
-            return code;
-
-        foreach (var jsonName in jsonPropertyNames)
+        var patchSpecs = new (string TargetDefName, string PlaceholderTypePattern, string ReplacementTypeName)[]
         {
-            // Patch any property with [JsonPropertyName("<jsonName>")] where the type is a Content{n} placeholder.
-            // Example:
-            //   [JsonPropertyName("payload")]
-            //   public Content1 Payload { get; set; }
-            // becomes:
-            //   public ContentBlock Payload { get; set; }
-            var re = new Regex(
-                $"\\[System\\.Text\\.Json\\.Serialization\\.JsonPropertyName\\(\\\"{Regex.Escape(jsonName)}\\\"\\)\\]\\s*\\r?\\n\\s*public\\s+(?<type>Content\\d+)\\s+(?<name>\\w+)\\b",
-                RegexOptions.Compiled);
+            // ContentBlock refs are often emitted as Content{n}
+            ("ContentBlock", "Content\\d+", "ContentBlock"),
 
-            code = re.Replace(code, m =>
+            // SessionUpdate refs may be emitted as Update (placeholder)
+            ("SessionUpdate", "Update\\d*", "SessionUpdate"),
+
+            // Permission outcomes may be emitted as Outcome (placeholder)
+            ("RequestPermissionOutcome", "Outcome\\d*", "RequestPermissionOutcome"),
+            ("SelectedPermissionOutcome", "Outcome\\d*", "SelectedPermissionOutcome"),
+        };
+
+        foreach (var spec in patchSpecs)
+        {
+            if (!schema.Definitions.ContainsKey(spec.TargetDefName))
+                continue;
+
+            var jsonPropertyNames = FindJsonPropertyNamesReferencing(schema, targetDefName: spec.TargetDefName);
+            foreach (var jsonName in jsonPropertyNames)
             {
-                var placeholderType = m.Groups["type"].Value;
-                var propName = m.Groups["name"].Value;
-                return m.Value.Replace($"public {placeholderType} {propName}", $"public ContentBlock {propName}");
-            });
+                code = PatchPropertyType(code, jsonName, spec.PlaceholderTypePattern, spec.ReplacementTypeName);
+            }
         }
 
         return code;
     }
 
+    private static string PatchPropertyType(string code, string jsonPropName, string placeholderTypePattern, string replacementTypeName)
+    {
+        var re = new Regex(
+            $"\\[System\\.Text\\.Json\\.Serialization\\.JsonPropertyName\\(\\\"{Regex.Escape(jsonPropName)}\\\"\\)\\]\\s*\\r?\\n\\s*public\\s+(?<type>{placeholderTypePattern})\\s+(?<name>\\w+)\\b",
+            RegexOptions.Compiled);
+
+        return re.Replace(code, m =>
+        {
+            var placeholderType = m.Groups["type"].Value;
+            var propName = m.Groups["name"].Value;
+            return m.Value.Replace($"public {placeholderType} {propName}", $"public {replacementTypeName} {propName}");
+        });
+    }
+
     private static HashSet<string> FindJsonPropertyNamesReferencing(JsonSchema schema, string targetDefName)
     {
+        // Prefer scanning the JSON representation of the schema, because NJsonSchema's object model
+        // does not consistently preserve reference metadata for allOf/$ref scenarios.
+        var byJson = FindJsonPropertyNamesReferencing_ByJson(schema, targetDefName);
+        if (byJson.Count > 0)
+            return byJson;
+
+        // Fallback to object-model scan.
+        if (!schema.Definitions.TryGetValue(targetDefName, out var targetDef))
+            return new HashSet<string>(StringComparer.Ordinal);
+
         var names = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var def in schema.Definitions.Values)
@@ -62,7 +79,7 @@ public static class CodegenPostProcessor
 
             foreach (var (jsonPropName, prop) in props)
             {
-                if (ReferencesDefinition(prop, targetDefName))
+                if (ReferencesDefinition(prop, targetDefName, targetDef))
                     names.Add(jsonPropName);
             }
         }
@@ -70,9 +87,68 @@ public static class CodegenPostProcessor
         return names;
     }
 
-    private static bool ReferencesDefinition(JsonSchemaProperty prop, string targetDefName)
+    private static HashSet<string> FindJsonPropertyNamesReferencing_ByJson(JsonSchema schema, string targetDefName)
     {
-        // NJsonSchema may represent unions/refs via Reference directly or via AllOf entries.
+        var names = new HashSet<string>(StringComparer.Ordinal);
+
+        var schemaJson = schema.ToJson();
+        using var doc = System.Text.Json.JsonDocument.Parse(schemaJson);
+
+        if (!doc.RootElement.TryGetProperty("definitions", out var defs) || defs.ValueKind != System.Text.Json.JsonValueKind.Object)
+            return names;
+
+        foreach (var def in defs.EnumerateObject())
+        {
+            if (!def.Value.TryGetProperty("properties", out var props) || props.ValueKind != System.Text.Json.JsonValueKind.Object)
+                continue;
+
+            foreach (var prop in props.EnumerateObject())
+            {
+                if (JsonElementReferencesDefinition(prop.Value, targetDefName))
+                    names.Add(prop.Name);
+            }
+        }
+
+        return names;
+    }
+
+    private static bool JsonElementReferencesDefinition(System.Text.Json.JsonElement el, string targetDefName)
+    {
+        // Detect any nested { "$ref": "#/definitions/<target>" }
+        if (el.ValueKind == System.Text.Json.JsonValueKind.Object)
+        {
+            if (el.TryGetProperty("$ref", out var r) && r.ValueKind == System.Text.Json.JsonValueKind.String)
+            {
+                var s = r.GetString() ?? string.Empty;
+                if (s.EndsWith($"/definitions/{targetDefName}", StringComparison.Ordinal) || s.EndsWith($"#/definitions/{targetDefName}", StringComparison.Ordinal))
+                    return true;
+            }
+
+            foreach (var p in el.EnumerateObject())
+            {
+                if (JsonElementReferencesDefinition(p.Value, targetDefName))
+                    return true;
+            }
+        }
+        else if (el.ValueKind == System.Text.Json.JsonValueKind.Array)
+        {
+            foreach (var item in el.EnumerateArray())
+            {
+                if (JsonElementReferencesDefinition(item, targetDefName))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ReferencesDefinition(JsonSchemaProperty prop, string targetDefName, JsonSchema targetDef)
+    {
+        // Prefer object identity when possible (most robust).
+        if (ReferenceEquals(prop.Reference, targetDef)) return true;
+        if (ReferenceEquals(prop.ActualSchema?.Reference, targetDef)) return true;
+
+        // Fallback to name extraction.
         if (RefName(prop.Reference) == targetDefName) return true;
         if (RefName(prop.ActualSchema?.Reference) == targetDefName) return true;
 
@@ -81,6 +157,9 @@ public static class CodegenPostProcessor
         {
             foreach (var s in allOf)
             {
+                if (ReferenceEquals(s.Reference, targetDef)) return true;
+                if (ReferenceEquals(s.ActualSchema?.Reference, targetDef)) return true;
+
                 if (RefName(s.Reference) == targetDefName) return true;
                 if (RefName(s.ActualSchema?.Reference) == targetDefName) return true;
             }
@@ -91,7 +170,21 @@ public static class CodegenPostProcessor
 
     private static string? RefName(JsonSchema? schema)
     {
-        // NJsonSchema stores definition keys under schema.Definitions, and referenced schemas often have Title set.
-        return schema?.Title;
+        if (schema is null) return null;
+
+        if (!string.IsNullOrWhiteSpace(schema.Title))
+            return schema.Title;
+
+        // When loading from JSON, Title may not be set on referenced schemas.
+        // DocumentPath is typically something like "#/definitions/Foo".
+        if (!string.IsNullOrWhiteSpace(schema.DocumentPath))
+        {
+            var p = schema.DocumentPath;
+            var idx = p.LastIndexOf('/');
+            if (idx >= 0 && idx + 1 < p.Length)
+                return p[(idx + 1)..];
+        }
+
+        return null;
     }
 }
