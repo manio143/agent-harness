@@ -88,7 +88,8 @@ public class AcpOptionalMethodsTests
             new LoadSessionRequest { Cwd = "/tmp", McpServers = new List<McpServer>(), SessionId = "ses_123" },
             cts.Token);
 
-        Assert.NotNull(load.Modes);
+        // modes are deprecated in favor of session config options; may be null.
+        Assert.NotNull(load);
 
         var setMode = await client.RequestAsync<SetSessionModeRequest, SetSessionModeResponse>(
             "session/set_mode",
@@ -107,7 +108,7 @@ public class AcpOptionalMethodsTests
             Task.FromResult(new InitializeResponse { ProtocolVersion = 1, AgentInfo = new AgentInfo(), AgentCapabilities = new AgentCapabilities { LoadSession = true, PromptCapabilities = new PromptCapabilities() }, AuthMethods = new List<AuthMethod>() });
 
         public Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new NewSessionResponse { SessionId = "ses_test", Modes = new Modes2(), ConfigOptions = null });
+            Task.FromResult(new NewSessionResponse { SessionId = "ses_test", Modes = null, ConfigOptions = null });
 
         public IAcpSessionAgent CreateSessionAgent(string sessionId, IAcpClientCaller client, IAcpSessionEvents events) =>
             new MinimalSessionAgent();
@@ -125,10 +126,10 @@ public class AcpOptionalMethodsTests
             Task.FromResult(new InitializeResponse { ProtocolVersion = 1, AgentInfo = new AgentInfo(), AgentCapabilities = new AgentCapabilities { LoadSession = true, PromptCapabilities = new PromptCapabilities() }, AuthMethods = new List<AuthMethod>() });
 
         public Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new NewSessionResponse { SessionId = "ses_test", Modes = new Modes2(), ConfigOptions = null });
+            Task.FromResult(new NewSessionResponse { SessionId = "ses_test", Modes = null, ConfigOptions = null });
 
         public Task<LoadSessionResponse>? LoadSessionAsync(LoadSessionRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new LoadSessionResponse { Modes = new Modes(), ConfigOptions = null });
+            Task.FromResult(new LoadSessionResponse { Modes = null, ConfigOptions = null });
 
         public IAcpSessionAgent CreateSessionAgent(string sessionId, IAcpClientCaller client, IAcpSessionEvents events) =>
             new SessionAgentWithSetMode();

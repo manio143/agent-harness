@@ -1835,7 +1835,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("modes")]
-        public Modes Modes { get; set; } = default!;
+        public SessionModeState? Modes { get; set; } = default!;
 
 
 
@@ -2157,7 +2157,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("modes")]
-        public Modes2 Modes { get; set; } = default!;
+        public SessionModeState? Modes { get; set; } = default!;
 
         /// <summary>
         /// Unique identifier for the created session.

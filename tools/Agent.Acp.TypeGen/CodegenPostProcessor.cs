@@ -44,6 +44,9 @@ public static class CodegenPostProcessor
             ("PlanEntryPriority", "Priority", "PlanEntryPriority"),
             ("PlanEntryStatus", "Status\\d*", "PlanEntryStatus"),
 
+            // Session modes: schema references SessionModeState (nullable), but NJsonSchema emits anonymous Modes/Modes2 placeholders.
+            ("SessionModeState", "Modes\\d*", "SessionModeState?"),
+
             // Stop reason is a string-union in schema; we model it as a global wrapper type.
             ("StopReason", "StopReason\\d*", "StopReason"),
             ("StopReason", "StopReason", "StopReason"),

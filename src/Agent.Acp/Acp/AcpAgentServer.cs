@@ -275,6 +275,15 @@ public sealed class AcpAgentServer
                     }
 
                     var result = await load.ConfigureAwait(false);
+                    if (!ValidateSessionConfigOptions(result.ConfigOptions, out var configError))
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = configError },
+                        }, cancellationToken);
+                        break;
+                    }
 
                     if (!string.IsNullOrWhiteSpace(loadReq.SessionId))
                     {
@@ -348,6 +357,16 @@ public sealed class AcpAgentServer
                         {
                             Id = req.Id,
                             Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = "SetSessionConfigOptionResponse.configOptions is required" },
+                        }, cancellationToken);
+                        break;
+                    }
+
+                    if (!ValidateSessionConfigOptions(result.ConfigOptions, out var configError))
+                    {
+                        await transport.SendMessageAsync(new JsonRpcError
+                        {
+                            Id = req.Id,
+                            Error = new JsonRpcErrorDetail { Code = AcpErrors.InvalidParams, Message = configError },
                         }, cancellationToken);
                         break;
                     }

@@ -84,10 +84,10 @@ public class AcpSessionSetupTests
             });
 
         public Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new NewSessionResponse { SessionId = "ses_test", Modes = new Modes2() });
+            Task.FromResult(new NewSessionResponse { SessionId = "ses_test", Modes = null });
 
         public Task<LoadSessionResponse>? LoadSessionAsync(LoadSessionRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new LoadSessionResponse { Modes = new Modes(), ConfigOptions = null });
+            Task.FromResult(new LoadSessionResponse { Modes = null, ConfigOptions = null });
 
         public IAcpSessionAgent CreateSessionAgent(string sessionId, IAcpClientCaller client, IAcpSessionEvents events) =>
             new NoopSessionAgent();
