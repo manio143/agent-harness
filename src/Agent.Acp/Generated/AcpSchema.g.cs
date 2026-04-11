@@ -732,7 +732,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("content")]
-        public Content1 Content1 { get; set; } = default!;
+        public ContentBlock Content1 { get; set; } = default!;
 
 
 
@@ -801,7 +801,7 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("content")]
-        public Content1 Content { get; set; } = default!;
+        public ContentBlock Content { get; set; } = default!;
 
 
 

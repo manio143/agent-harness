@@ -41,6 +41,10 @@ def main() -> int:
 
     defs_rewritten = rewrite_refs(defs)
 
+    # Note: we currently keep all defs in the codegen schema.
+    # Some union-heavy refs still produce placeholder types in the generated C#.
+    # Those are patched post-generation (see scripts/generate_acp_types.sh).
+
     # NJsonSchema (and many generators) expect draft-07 style `definitions` rather than `$defs`.
     # So we rewrite to `definitions` and re-point all refs to `#/definitions/...`.
     codegen = {
