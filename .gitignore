@@ -7,3 +7,4 @@ TestResults/
 *.nupkg
 *.snupkg
 schema/*.unstable.json
+.acpx/

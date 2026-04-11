@@ -50,8 +50,8 @@ public class AcpSessionUpdateStreamingContractTests
             cts.Token);
 
         // Contract: updates may be interleaved before the final response.
-        var first = await Task.WhenAny(gotThreeUpdates.Task, responseTask);
-        Assert.Same(gotThreeUpdates.Task, first);
+        await gotThreeUpdates.Task;
+        Assert.False(responseTask.IsCompleted, "Expected to receive 3 session/update notifications before the final response completed");
 
         var resp = await responseTask;
         Assert.Equal(StopReason.EndTurn, resp.StopReason.Value);
