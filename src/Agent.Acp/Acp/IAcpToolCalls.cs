@@ -19,5 +19,7 @@ public interface IAcpToolCall
 
     Task CompletedAsync(IReadOnlyList<ToolCallContent> content, CancellationToken cancellationToken = default);
 
+    Task FailedAsync(string message, IReadOnlyList<ToolCallContent>? content = null, CancellationToken cancellationToken = default);
+
     Task CancelledAsync(CancellationToken cancellationToken = default);
 }

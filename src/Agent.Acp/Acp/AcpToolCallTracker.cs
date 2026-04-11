@@ -20,6 +20,7 @@ internal sealed class AcpToolCallTracker : IAcpToolCalls
         Pending,
         InProgress,
         Completed,
+        Failed,
         Cancelled,
     }
 
@@ -72,16 +73,19 @@ internal sealed class AcpToolCallTracker : IAcpToolCalls
         public string ToolCallId { get; }
 
         public Task InProgressAsync(CancellationToken cancellationToken = default) =>
-            _tracker.TransitionAsync(ToolCallId, to: State.InProgress, content: null, cancellationToken);
+            _tracker.TransitionAsync(ToolCallId, to: State.InProgress, message: null, content: null, cancellationToken);
 
         public Task CompletedAsync(IReadOnlyList<ToolCallContent> content, CancellationToken cancellationToken = default) =>
-            _tracker.TransitionAsync(ToolCallId, to: State.Completed, content: content, cancellationToken);
+            _tracker.TransitionAsync(ToolCallId, to: State.Completed, message: null, content: content, cancellationToken);
+
+        public Task FailedAsync(string message, IReadOnlyList<ToolCallContent>? content = null, CancellationToken cancellationToken = default) =>
+            _tracker.TransitionAsync(ToolCallId, to: State.Failed, message: message, content: content, cancellationToken);
 
         public Task CancelledAsync(CancellationToken cancellationToken = default) =>
-            _tracker.TransitionAsync(ToolCallId, to: State.Cancelled, content: null, cancellationToken);
+            _tracker.TransitionAsync(ToolCallId, to: State.Cancelled, message: "cancelled", content: null, cancellationToken);
     }
 
-    private async Task TransitionAsync(string toolCallId, State to, IReadOnlyList<ToolCallContent>? content, CancellationToken cancellationToken)
+    private async Task TransitionAsync(string toolCallId, State to, string? message, IReadOnlyList<ToolCallContent>? content, CancellationToken cancellationToken)
     {
         if (!_state.TryGetValue(toolCallId, out var from))
             throw new InvalidOperationException($"Unknown toolCallId: {toolCallId}");
@@ -89,9 +93,14 @@ internal sealed class AcpToolCallTracker : IAcpToolCalls
         var ok = (from, to) switch
         {
             (State.Pending, State.InProgress) => true,
+            (State.Pending, State.Completed) => true,
+            (State.Pending, State.Failed) => true,
             (State.Pending, State.Cancelled) => true,
+
             (State.InProgress, State.Completed) => true,
+            (State.InProgress, State.Failed) => true,
             (State.InProgress, State.Cancelled) => true,
+
             _ => false,
         };
 
@@ -105,6 +114,7 @@ internal sealed class AcpToolCallTracker : IAcpToolCalls
         {
             State.InProgress => ToolCallStatus.InProgress,
             State.Completed => ToolCallStatus.Completed,
+            State.Failed => ToolCallStatus.Failed,
             // ACP schema models cancellation as a prompt-turn StopReason, not a ToolCallStatus.
             // We map cancellation to failed for now (clients can infer cancellation from the turn-level stopReason).
             State.Cancelled => ToolCallStatus.Failed,
@@ -117,6 +127,7 @@ internal sealed class AcpToolCallTracker : IAcpToolCalls
             toolCallId,
             status,
             content,
+            rawOutput = message is null ? null : new { error = message },
         }, cancellationToken).ConfigureAwait(false);
     }
 }
