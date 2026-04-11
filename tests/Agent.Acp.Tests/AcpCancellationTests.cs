@@ -78,7 +78,7 @@ public class AcpCancellationTests
 
         private sealed class BlockingSessionAgent : IAcpSessionAgent
         {
-            public async Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken)
+            public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken)
             {
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
                 return new PromptResponse();

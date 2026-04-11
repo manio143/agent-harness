@@ -93,7 +93,7 @@ public class AcpPromptUpdateTests
                 _events = events;
             }
 
-            public async Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken)
+            public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken)
             {
                 await _events.SendSessionUpdateAsync(new { sessionUpdate = "agent_message_chunk", content = new { type = "text", text = "hello" } }, cancellationToken);
                 await _events.SendSessionUpdateAsync(new { sessionUpdate = "agent_message_chunk", content = new { type = "text", text = "world" } }, cancellationToken);

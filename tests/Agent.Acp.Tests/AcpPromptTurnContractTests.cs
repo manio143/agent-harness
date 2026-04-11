@@ -57,7 +57,7 @@ public class AcpPromptTurnContractTests
 
         private sealed class SessionAgentReturningMissingStopReason : IAcpSessionAgent
         {
-            public Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken) =>
+            public Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken) =>
                 // Intentionally violate spec.
                 Task.FromResult(new PromptResponse());
         }

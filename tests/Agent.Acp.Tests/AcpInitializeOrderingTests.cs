@@ -47,7 +47,7 @@ public class AcpInitializeOrderingTests
 
         private sealed class NoopSessionAgent : IAcpSessionAgent
         {
-            public Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken) =>
+            public Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken) =>
                 Task.FromResult(new PromptResponse());
         }
     }

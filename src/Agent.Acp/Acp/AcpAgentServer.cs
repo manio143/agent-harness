@@ -335,14 +335,22 @@ public sealed class AcpAgentServer
                         break;
                     }
 
+                    var toolCalls = new AcpToolCallTracker(new AgentContext(prompt.SessionId, transport, _pending));
+                    var turn = new AcpPromptTurn(toolCalls);
+
                     PromptResponse result;
                     try
                     {
-                        result = await handle.Agent.PromptAsync(prompt, handle.Cts.Token).ConfigureAwait(false);
+                        result = await handle.Agent.PromptAsync(prompt, turn, handle.Cts.Token).ConfigureAwait(false);
+
+                        // Spec: if tool calls are still active, agent must not end the turn.
+                        if (toolCalls.ActiveToolCallIds.Count > 0)
+                            throw new InvalidOperationException("Cannot complete prompt while tool calls are still active.");
                     }
                     catch (OperationCanceledException)
                     {
                         // Per docs: cancellation is not an error; must return StopReason=cancelled.
+                        await toolCalls.CancelAllAsync(cancellationToken).ConfigureAwait(false);
                         result = new PromptResponse { StopReason = StopReason.Cancelled };
                     }
 

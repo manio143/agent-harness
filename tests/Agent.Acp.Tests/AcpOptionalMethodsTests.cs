@@ -114,8 +114,8 @@ public class AcpOptionalMethodsTests
 
         private sealed class MinimalSessionAgent : IAcpSessionAgent
         {
-            public Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken) =>
-                Task.FromResult(new PromptResponse());
+            public Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken) =>
+                Task.FromResult(new PromptResponse { StopReason = StopReason.EndTurn });
         }
     }
 
@@ -135,8 +135,8 @@ public class AcpOptionalMethodsTests
 
         private sealed class SessionAgentWithSetMode : IAcpSessionAgent
         {
-            public Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken) =>
-                Task.FromResult(new PromptResponse());
+            public Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken) =>
+                Task.FromResult(new PromptResponse { StopReason = StopReason.EndTurn });
 
             Task<SetSessionModeResponse>? IAcpSessionAgent.SetSessionModeAsync(SetSessionModeRequest request, CancellationToken cancellationToken) =>
                 Task.FromResult(new SetSessionModeResponse());

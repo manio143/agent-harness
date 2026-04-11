@@ -8,7 +8,7 @@ namespace Agent.Acp.Acp;
 /// </summary>
 public interface IAcpSessionAgent
 {
-    Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken);
+    Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken);
 
     /// <summary>
     /// Optional cancellation hook.

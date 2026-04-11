@@ -103,7 +103,7 @@ public class AcpAgentRequestsTests
                 _sessionId = sessionId;
             }
 
-            public async Task<PromptResponse> PromptAsync(PromptRequest request, CancellationToken cancellationToken)
+            public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken)
             {
                 var resp = await _client.RequestAsync<ReadTextFileRequest, ReadTextFileResponse>(
                     "client/readTextFile",
