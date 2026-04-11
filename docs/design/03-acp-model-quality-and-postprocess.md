@@ -32,10 +32,12 @@ Selected.
 
 - **NJsonSchema** generates the bulk DTO file: `src/Agent.Acp/Generated/AcpSchema.g.cs`.
 - `tools/Agent.Acp.TypeGen` applies a deterministic postprocess step (`CodegenPostProcessor`).
-- **UnionGen** generates discriminated unions (inheritance + `JsonConverter` dispatch):
-  - `ContentBlock`
-  - `SessionUpdate` (with distinct chunk update derived types)
-  - `ToolCallContent`
+- **UnionGen** generates:
+  - discriminated unions (inheritance + `JsonConverter` dispatch):
+    - `ContentBlock`
+    - `SessionUpdate` (with distinct chunk update derived types)
+    - `ToolCallContent`
+  - **string-const unions** (wrapper record structs + converter + public const values) for *any* `$defs.<X>` whose shape is `oneOf` of string `const` values.
 
 Unknown/extension union variants are represented as `Unknown*` wrappers over `JsonElement`.
 
@@ -84,3 +86,4 @@ Current gate: `GeneratedModelQualityGateTests` ensures `AcpSchema.g.cs` does not
 - **Unknowns:** prefer `JsonElement` wrappers for forward compatibility.
 - **Patch file policy:** keep `AcpSchema.Patches.cs` present, but prefer it to be empty; only allow placeholder types there as a last resort.
 - **Quality gates:** keep them targeted (avoid noisy overreach).
+- **String unions:** for schema defs that are `oneOf` of string constants, generate a wrapper type (not raw string) that exposes known values as `public const string ...`, while remaining forward compatible.

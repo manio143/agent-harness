@@ -27,7 +27,7 @@ var defs = doc.RootElement.GetProperty("$defs");
 GenerateContentBlock(defs, Path.Combine(outDir, "ContentBlock.Union.g.cs"));
 GenerateSessionUpdate(defs, Path.Combine(outDir, "SessionUpdate.Union.g.cs"));
 GenerateToolCallContent(defs, Path.Combine(outDir, "ToolCallContent.Union.g.cs"));
-GenerateStringConstUnion(defs, defName: "StopReason", outTypeName: "StopReason", outFile: Path.Combine(outDir, "StopReason.StringUnion.g.cs"));
+GenerateAllStringConstUnions(defs, outDir);
 
 Console.WriteLine($"Generated unions into: {outDir}");
 
@@ -202,17 +202,39 @@ static void GenerateToolCallContent(JsonElement defs, string outFile)
     File.WriteAllText(outFile, sb.ToString(), Encoding.UTF8);
 }
 
-static void GenerateStringConstUnion(JsonElement defs, string defName, string outTypeName, string outFile)
+static void GenerateAllStringConstUnions(JsonElement defs, string outDir)
 {
-    var union = defs.GetProperty(defName);
-    var oneOf = union.GetProperty("oneOf");
-
-    var constValues = new List<string>();
-    foreach (var item in oneOf.EnumerateArray())
+    foreach (var def in defs.EnumerateObject())
     {
-        if (item.TryGetProperty("const", out var c) && c.ValueKind == JsonValueKind.String)
-            constValues.Add(c.GetString()!);
+        var defName = def.Name;
+        if (!def.Value.TryGetProperty("oneOf", out var oneOf) || oneOf.ValueKind != JsonValueKind.Array)
+            continue;
+
+        // Only handle unions that are exclusively `const` strings.
+        var values = new List<string>();
+        var ok = true;
+        foreach (var item in oneOf.EnumerateArray())
+        {
+            if (item.TryGetProperty("const", out var c) && c.ValueKind == JsonValueKind.String)
+            {
+                values.Add(c.GetString()!);
+                continue;
+            }
+
+            ok = false;
+            break;
+        }
+
+        if (!ok || values.Count == 0)
+            continue;
+
+        GenerateStringConstUnion(defName: defName, constValues: values, outFile: Path.Combine(outDir, $"{defName}.StringUnion.g.cs"));
     }
+}
+
+static void GenerateStringConstUnion(string defName, List<string> constValues, string outFile)
+{
+    var outTypeName = defName;
 
     static string ToPascal(string s)
     {
