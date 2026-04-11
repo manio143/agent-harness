@@ -87,3 +87,4 @@ Current gate: `GeneratedModelQualityGateTests` ensures `AcpSchema.g.cs` does not
 - **Patch file policy:** keep `AcpSchema.Patches.cs` present, but prefer it to be empty; only allow placeholder types there as a last resort.
 - **Quality gates:** keep them targeted (avoid noisy overreach).
 - **String unions:** for schema defs that are `oneOf` of string constants, generate a wrapper type (not raw string) that exposes known values as `public const string ...`, while remaining forward compatible.
+- **Tool call content merge assumption:** when sending `tool_call_update.content`, the agent treats content as **additive** (append-only stream). Each update includes only the newly produced items. Terminal transitions (`completed`/`failed`, and turn cancellation mapped to `failed`) finalize the tool call; further content updates are invalid.

@@ -15,11 +15,16 @@ public interface IAcpToolCall
 {
     string ToolCallId { get; }
 
+    /// <summary>
+    /// Append content to the tool call. Valid only while the call is pending or in-progress.
+    /// </summary>
+    Task AddContentAsync(ToolCallContent content, CancellationToken cancellationToken = default);
+
     Task InProgressAsync(CancellationToken cancellationToken = default);
 
-    Task CompletedAsync(IReadOnlyList<ToolCallContent> content, CancellationToken cancellationToken = default);
+    Task CompletedAsync(CancellationToken cancellationToken = default);
 
-    Task FailedAsync(string message, IReadOnlyList<ToolCallContent>? content = null, CancellationToken cancellationToken = default);
+    Task FailedAsync(string message, CancellationToken cancellationToken = default);
 
     Task CancelledAsync(CancellationToken cancellationToken = default);
 }
