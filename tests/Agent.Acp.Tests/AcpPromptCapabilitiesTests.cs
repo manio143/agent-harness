@@ -43,7 +43,6 @@ public class AcpPromptCapabilitiesTests
                     {
                         Data = "AA==",
                         MimeType = "image/png",
-                        AdditionalProperties = new Dictionary<string, object> { ["type"] = "image" },
                     }
                 },
             },
