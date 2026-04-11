@@ -44,8 +44,9 @@ public static class CodegenPostProcessor
             ("PlanEntryPriority", "Priority", "PlanEntryPriority"),
             ("PlanEntryStatus", "Status\\d*", "PlanEntryStatus"),
 
-            // Stop reason is a string-union in schema; NJsonSchema produces a placeholder StopReason2 in our build.
-            ("StopReason", "StopReason\\d*", "StopReason"),
+            // Stop reason is a string-union in schema. We model it as string for forward compatibility.
+            ("StopReason", "StopReason\\d*", "string"),
+            ("StopReason", "StopReason", "string"),
         };
 
         foreach (var spec in patchSpecs)

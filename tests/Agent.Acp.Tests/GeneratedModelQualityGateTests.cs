@@ -27,6 +27,7 @@ public class GeneratedModelQualityGateTests
 
         // Misc placeholder suffixes we explicitly patch.
         Assert.DoesNotMatch(new Regex(@"\bStopReason2\b", RegexOptions.Compiled), code);
+        Assert.DoesNotMatch(new Regex(@"\bStopReason\s+StopReason\b", RegexOptions.Compiled), code);
     }
 
     private static string FindRepoRoot(string startDir)
