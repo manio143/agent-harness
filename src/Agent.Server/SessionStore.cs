@@ -80,20 +80,37 @@ public sealed class SessionStore
 
             switch (type)
             {
+                case "user_message":
+                    list.Add(new UserMessage(root.GetProperty("text").GetString() ?? string.Empty));
+                    break;
+
+                case "assistant_message":
+                    list.Add(new AssistantMessage(root.GetProperty("text").GetString() ?? string.Empty));
+                    break;
+
+                case "assistant_text_delta":
+                    list.Add(new AssistantTextDelta(root.GetProperty("textDelta").GetString() ?? string.Empty));
+                    break;
+
+                case "reasoning_text_delta":
+                    list.Add(new ReasoningTextDelta(root.GetProperty("textDelta").GetString() ?? string.Empty));
+                    break;
+
+                // Back-compat (pre-rename)
                 case "user_message_added":
-                    list.Add(new UserMessageAdded(root.GetProperty("text").GetString() ?? string.Empty));
+                    list.Add(new UserMessage(root.GetProperty("text").GetString() ?? string.Empty));
                     break;
 
                 case "assistant_message_added":
-                    list.Add(new AssistantMessageAdded(root.GetProperty("text").GetString() ?? string.Empty));
+                    list.Add(new AssistantMessage(root.GetProperty("text").GetString() ?? string.Empty));
                     break;
 
                 case "assistant_message_delta_added":
-                    list.Add(new AssistantMessageDeltaAdded(root.GetProperty("textDelta").GetString() ?? string.Empty));
+                    list.Add(new AssistantTextDelta(root.GetProperty("textDelta").GetString() ?? string.Empty));
                     break;
 
                 case "reasoning_delta_added":
-                    list.Add(new ReasoningDeltaAdded(root.GetProperty("textDelta").GetString() ?? string.Empty));
+                    list.Add(new ReasoningTextDelta(root.GetProperty("textDelta").GetString() ?? string.Empty));
                     break;
 
                 // Intentionally ignore unknown event types for forward compatibility.
@@ -112,10 +129,10 @@ public sealed class SessionStore
 
             object? payload = evt switch
             {
-                UserMessageAdded u => new { type = "user_message_added", text = u.Text },
-                AssistantMessageAdded a => new { type = "assistant_message_added", text = a.Text },
-                AssistantMessageDeltaAdded d => new { type = "assistant_message_delta_added", textDelta = d.TextDelta },
-                ReasoningDeltaAdded r => new { type = "reasoning_delta_added", textDelta = r.TextDelta },
+                UserMessage u => new { type = "user_message", text = u.Text },
+                AssistantMessage a => new { type = "assistant_message", text = a.Text },
+                AssistantTextDelta d => new { type = "assistant_text_delta", textDelta = d.TextDelta },
+                ReasoningTextDelta r => new { type = "reasoning_text_delta", textDelta = r.TextDelta },
                 _ => null,
             };
 

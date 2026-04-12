@@ -175,7 +175,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory
 
                 switch (committed)
                 {
-                    case AssistantMessageAdded a:
+                    case AssistantMessage a:
                         if (!_coreOptions.CommitAssistantTextDeltas)
                         {
                             await _events.SendSessionUpdateAsync(new AgentMessageChunk
@@ -185,14 +185,14 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory
                         }
                         break;
 
-                    case AssistantMessageDeltaAdded d:
+                    case AssistantTextDelta d:
                         await _events.SendSessionUpdateAsync(new AgentMessageChunk
                         {
                             Content = new Agent.Acp.Schema.TextContent { Text = d.TextDelta },
                         }, cancellationToken).ConfigureAwait(false);
                         break;
 
-                    case ReasoningDeltaAdded r when _publishOptions.PublishReasoning:
+                    case ReasoningTextDelta r when _publishOptions.PublishReasoning:
                         await _events.SendSessionUpdateAsync(new AgentThoughtChunk
                         {
                             Content = new Agent.Acp.Schema.TextContent { Text = r.TextDelta },

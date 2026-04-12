@@ -24,6 +24,6 @@ public sealed class ReasoningCommitModeTests
             new ObservedReasoningTextDelta("think"),
             new CoreOptions(CommitReasoningTextDeltas: true));
 
-        result.NewlyCommitted.Should().ContainSingle().Which.Should().Be(new ReasoningDeltaAdded("think"));
+        result.NewlyCommitted.Should().ContainSingle().Which.Should().Be(new ReasoningTextDelta("think"));
     }
 }

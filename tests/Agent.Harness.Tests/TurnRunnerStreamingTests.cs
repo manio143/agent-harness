@@ -19,8 +19,8 @@ public sealed class TurnRunnerStreamingTests
         }
 
         committed.Should().Equal(
-            new UserMessageAdded("Hello"),
-            new AssistantMessageAdded("Hello back"));
+            new UserMessage("Hello"),
+            new AssistantMessage("Hello back"));
 
         return;
 
@@ -51,8 +51,8 @@ public sealed class TurnRunnerStreamingTests
         final.Should().NotBeNull();
         final!.Committed.Should().Equal(
             ImmutableArray.Create<SessionEvent>(
-                new UserMessageAdded("Hello"),
-                new AssistantMessageAdded("Hello back")));
+                new UserMessage("Hello"),
+                new AssistantMessage("Hello back")));
 
         return;
 

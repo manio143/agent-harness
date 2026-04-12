@@ -14,9 +14,9 @@ public sealed class CoreReducerHelloTests
         var result = Core.Reduce(state, new ObservedUserMessage("Hello"));
 
         result.NewlyCommitted.Should().ContainSingle();
-        result.NewlyCommitted[0].Should().Be(new UserMessageAdded("Hello"));
+        result.NewlyCommitted[0].Should().Be(new UserMessage("Hello"));
 
-        result.Next.Committed.Should().Contain(new UserMessageAdded("Hello"));
+        result.Next.Committed.Should().Contain(new UserMessage("Hello"));
     }
 
     [Fact]
@@ -28,7 +28,7 @@ public sealed class CoreReducerHelloTests
 
         var result = Core.Reduce(state, new ObservedAssistantMessageCompleted());
 
-        result.NewlyCommitted.Should().ContainSingle(e => e is AssistantMessageAdded);
+        result.NewlyCommitted.Should().ContainSingle(e => e is AssistantMessage);
         result.Next.Buffer.AssistantMessageOpen.Should().BeFalse();
         result.Next.Buffer.AssistantText.Should().BeEmpty();
     }
@@ -38,8 +38,8 @@ public sealed class CoreReducerHelloTests
     {
         var state = new SessionState(
             Committed: ImmutableArray.Create<SessionEvent>(
-                new UserMessageAdded("Hello"),
-                new AssistantMessageAdded("Hello back")),
+                new UserMessage("Hello"),
+                new AssistantMessage("Hello back")),
             Buffer: TurnBuffer.Empty);
 
         var rendered = Core.RenderPrompt(state);

@@ -11,9 +11,9 @@ public sealed record CoreOptions(
 /// Functional core reducer.
 ///
 /// Rules (initial slice):
-/// - ObservedUserMessage commits UserMessageAdded.
+/// - ObservedUserMessage commits UserMessage.
 /// - ObservedAssistantTextDelta appends to the in-flight assistant buffer.
-/// - ObservedAssistantMessageCompleted flushes the assistant buffer into AssistantMessageAdded.
+/// - ObservedAssistantMessageCompleted flushes the assistant buffer into AssistantMessage.
 /// - RenderPrompt uses ONLY committed user/assistant messages (debug events are ignored).
 /// </summary>
 public static class Core
@@ -26,7 +26,7 @@ public static class Core
         switch (evt)
         {
             case ObservedUserMessage m:
-                return Commit(state, new UserMessageAdded(m.Text));
+                return Commit(state, new UserMessage(m.Text));
 
             case ObservedAssistantTextDelta d:
             {
@@ -41,7 +41,7 @@ public static class Core
 
                 if (options?.CommitAssistantTextDeltas == true)
                 {
-                    var delta = new AssistantMessageDeltaAdded(d.Text);
+                    var delta = new AssistantTextDelta(d.Text);
                     var committed = next.Committed.Add(delta);
                     return new ReduceResult(next with { Committed = committed }, ImmutableArray.Create<SessionEvent>(delta));
                 }
@@ -53,7 +53,7 @@ public static class Core
             {
                 if (options?.CommitReasoningTextDeltas == true)
                 {
-                    var delta = new ReasoningDeltaAdded(d.Text);
+                    var delta = new ReasoningTextDelta(d.Text);
                     var committed = state.Committed.Add(delta);
                     return new ReduceResult(state with { Committed = committed }, ImmutableArray.Create<SessionEvent>(delta));
                 }
@@ -79,10 +79,10 @@ public static class Core
         {
             switch (evt)
             {
-                case UserMessageAdded u:
+                case UserMessage u:
                     builder.Add(new ChatMessage(ChatRole.User, u.Text));
                     break;
-                case AssistantMessageAdded a:
+                case AssistantMessage a:
                     builder.Add(new ChatMessage(ChatRole.Assistant, a.Text));
                     break;
                 default:
@@ -114,6 +114,6 @@ public static class Core
 
         // Commit even if text is empty: treat boundary as a message completion.
         // (We can tighten this later if desired.)
-        return Commit(nextState, new AssistantMessageAdded(text));
+        return Commit(nextState, new AssistantMessage(text));
     }
 }

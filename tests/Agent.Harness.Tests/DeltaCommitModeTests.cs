@@ -16,7 +16,7 @@ public sealed class DeltaCommitModeTests
             new CoreOptions(CommitAssistantTextDeltas: true));
 
         result.NewlyCommitted.Should().ContainSingle();
-        result.NewlyCommitted[0].Should().Be(new AssistantMessageDeltaAdded("Hel"));
+        result.NewlyCommitted[0].Should().Be(new AssistantTextDelta("Hel"));
     }
 
     [Fact]
@@ -42,9 +42,9 @@ public sealed class DeltaCommitModeTests
         }
 
         committed.Should().Equal(
-            new UserMessageAdded("Hello"),
-            new AssistantMessageDeltaAdded("Hel"),
-            new AssistantMessageDeltaAdded("lo"),
-            new AssistantMessageAdded("Hello"));
+            new UserMessage("Hello"),
+            new AssistantTextDelta("Hel"),
+            new AssistantTextDelta("lo"),
+            new AssistantMessage("Hello"));
     }
 }

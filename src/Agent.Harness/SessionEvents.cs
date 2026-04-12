@@ -8,19 +8,19 @@ namespace Agent.Harness;
 /// </summary>
 public abstract record SessionEvent;
 
-public sealed record UserMessageAdded(string Text) : SessionEvent;
-public sealed record AssistantMessageAdded(string Text) : SessionEvent;
+public sealed record UserMessage(string Text) : SessionEvent;
+public sealed record AssistantMessage(string Text) : SessionEvent;
 
 /// <summary>
 /// Committed assistant text delta. Useful for streaming modes where we want to publish progress
 /// without waiting for message completion.
 /// </summary>
-public sealed record AssistantMessageDeltaAdded(string TextDelta) : SessionEvent;
+public sealed record AssistantTextDelta(string TextDelta) : SessionEvent;
 
 /// <summary>
 /// Committed reasoning/thought delta. Publishing is controlled separately from committing.
 /// </summary>
-public sealed record ReasoningDeltaAdded(string TextDelta) : SessionEvent;
+public sealed record ReasoningTextDelta(string TextDelta) : SessionEvent;
 
 /// <summary>
 /// Debug/test-only committed event that records the exact messages rendered for the model.

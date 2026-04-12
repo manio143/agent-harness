@@ -50,7 +50,7 @@ public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
             // Publish committed assistant output.
             switch (committed)
             {
-                case AssistantMessageAdded a:
+                case AssistantMessage a:
                     // In delta-commit mode, the UI has already received the full text via deltas.
                     // Publishing the full message again would typically duplicate content.
                     if (!_coreOptions.CommitAssistantTextDeltas)
@@ -62,14 +62,14 @@ public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
                     }
                     break;
 
-                case AssistantMessageDeltaAdded d:
+                case AssistantTextDelta d:
                     await _events.SendSessionUpdateAsync(new AgentMessageChunk
                     {
                         Content = new TextContent { Text = d.TextDelta },
                     }, cancellationToken).ConfigureAwait(false);
                     break;
 
-                case ReasoningDeltaAdded r when _publishOptions.PublishReasoning:
+                case ReasoningTextDelta r when _publishOptions.PublishReasoning:
                     await _events.SendSessionUpdateAsync(new AgentThoughtChunk
                     {
                         Content = new TextContent { Text = r.TextDelta },
