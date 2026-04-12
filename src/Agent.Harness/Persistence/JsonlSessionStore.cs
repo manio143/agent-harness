@@ -98,6 +98,10 @@ public sealed class JsonlSessionStore : ISessionStore
                     list.Add(new ReasoningTextDelta(root.GetProperty("textDelta").GetString() ?? string.Empty));
                     break;
 
+                case "session_title_set":
+                    list.Add(new SessionTitleSet(root.GetProperty("title").GetString() ?? string.Empty));
+                    break;
+
                 // Forward-compat: ignore unknown event types.
             }
         }
@@ -118,6 +122,7 @@ public sealed class JsonlSessionStore : ISessionStore
                 AssistantMessage a => new { type = "assistant_message", text = a.Text },
                 AssistantTextDelta d => new { type = "assistant_text_delta", textDelta = d.TextDelta },
                 ReasoningTextDelta r => new { type = "reasoning_text_delta", textDelta = r.TextDelta },
+                SessionTitleSet t => new { type = "session_title_set", title = t.Title },
                 _ => null,
             };
 
@@ -127,12 +132,18 @@ public sealed class JsonlSessionStore : ISessionStore
             var line = JsonSerializer.Serialize(payload, JsonOptions);
             File.AppendAllText(GetEventsPath(sessionId), line + "\n");
 
-            // Best-effort updatedAt bump.
+            // Best-effort metadata projection (updatedAt bump + title updates).
             var meta = TryLoadMetadata(sessionId);
             if (meta is not null)
             {
-                var updated = meta with { UpdatedAtIso = DateTimeOffset.UtcNow.ToString("O") };
-                WriteMetadata(sessionId, updated);
+                var now = DateTimeOffset.UtcNow.ToString("O");
+                var projected = evt switch
+                {
+                    SessionTitleSet t => meta with { Title = t.Title, UpdatedAtIso = now },
+                    _ => meta with { UpdatedAtIso = now },
+                };
+
+                WriteMetadata(sessionId, projected);
             }
         }
     }

@@ -23,6 +23,11 @@ public sealed record AssistantTextDelta(string TextDelta) : SessionEvent;
 public sealed record ReasoningTextDelta(string TextDelta) : SessionEvent;
 
 /// <summary>
+/// Committed session metadata update. Metadata files are projections of committed events.
+/// </summary>
+public sealed record SessionTitleSet(string Title) : SessionEvent;
+
+/// <summary>
 /// Debug/test-only committed event that records the exact messages rendered for the model.
 /// Must be gated via options and disabled by default.
 /// </summary>

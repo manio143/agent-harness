@@ -215,6 +215,8 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             IAsyncEnumerable<ObservedChatEvent> observed,
             CancellationToken cancellationToken)
         {
+            var sawAssistantMessage = false;
+
             await foreach (var committed in TurnRunner.RunAsync(
                 _state,
                 observed,
@@ -223,6 +225,9 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
                 cancellationToken: cancellationToken))
             {
                 _store.AppendCommitted(_sessionId, committed);
+
+                if (committed is AssistantMessage)
+                    sawAssistantMessage = true;
 
                 switch (committed)
                 {
@@ -252,7 +257,51 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
                 }
             }
 
+            // After first completed turn: generate a session title (metadata is a projection of committed events).
+            var meta = _store.TryLoadMetadata(_sessionId);
+            if (meta is not null && meta.Title is null && sawAssistantMessage)
+            {
+                var title = await GenerateTitleAsync(cancellationToken).ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(title))
+                {
+                    var evt = new SessionTitleSet(title);
+                    _store.AppendCommitted(_sessionId, evt);
+                    _state = _state with { Committed = _state.Committed.Add(evt) };
+                }
+            }
+
             return new PromptResponse { StopReason = StopReason.EndTurn };
+        }
+
+        private async Task<string?> GenerateTitleAsync(CancellationToken cancellationToken)
+        {
+            const string systemPrompt = "You're a title generator based on the following conversation <conversation>...</conversation> you must output precisely one short line that contains a title for this conversation.";
+
+            var conversation = Core.RenderPrompt(_state)
+                .Select(m => $"{m.Role}: {m.Text}")
+                .ToList();
+
+            var user = "<conversation>\n" + string.Join("\n", conversation) + "\n</conversation>";
+
+            var resp = await _chat.GetResponseAsync(
+                [
+                    new MeaiChatMessage(MeaiChatRole.System, systemPrompt),
+                    new MeaiChatMessage(MeaiChatRole.User, user),
+                ],
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            var lastMsg = resp.Messages.LastOrDefault();
+            var text = resp.Text
+                ?? lastMsg?.Text
+                ?? lastMsg?.Contents?.OfType<Microsoft.Extensions.AI.TextContent>().FirstOrDefault()?.Text;
+
+            if (string.IsNullOrWhiteSpace(text)) return null;
+
+            var line = text.Trim().Split('\n', '\r', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
+            if (string.IsNullOrWhiteSpace(line)) return null;
+
+            // Small safety clamp.
+            return line.Length <= 80 ? line : line[..80];
         }
 
         private static string ExtractUserText(PromptRequest request)

@@ -42,12 +42,16 @@ public sealed class JsonlSessionStoreTests
         store.AppendCommitted("sess1", new AssistantTextDelta("Hel"));
         store.AppendCommitted("sess1", new AssistantTextDelta("lo"));
         store.AppendCommitted("sess1", new AssistantMessage("Hello"));
+        store.AppendCommitted("sess1", new SessionTitleSet("Greeting"));
 
         store.LoadCommitted("sess1").Should().Equal(
             new UserMessage("hi"),
             new AssistantTextDelta("Hel"),
             new AssistantTextDelta("lo"),
-            new AssistantMessage("Hello"));
+            new AssistantMessage("Hello"),
+            new SessionTitleSet("Greeting"));
+
+        store.TryLoadMetadata("sess1")!.Title.Should().Be("Greeting");
     }
 
     [Fact]
