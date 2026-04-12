@@ -3,6 +3,7 @@ namespace Agent.Server;
 public sealed class AgentServerOptions
 {
     public OpenAiOptions OpenAI { get; set; } = new();
+    public SessionStoreOptions Sessions { get; set; } = new();
     public CoreOptions Core { get; set; } = new();
     public AcpOptions Acp { get; set; } = new();
 
@@ -11,6 +12,11 @@ public sealed class AgentServerOptions
         public string BaseUrl { get; set; } = "http://ollama-api:11434/v1";
         public string Model { get; set; } = "qwen2.5:3b";
         public string ApiKey { get; set; } = "ollama";
+    }
+
+    public sealed class SessionStoreOptions
+    {
+        public string Directory { get; set; } = ".acpx/sessions";
     }
 
     public sealed class CoreOptions

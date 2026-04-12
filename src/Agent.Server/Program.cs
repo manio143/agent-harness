@@ -37,6 +37,13 @@ public static class Program
             return opts;
         });
 
+        builder.Services.AddSingleton(sp =>
+        {
+            var opts = sp.GetRequiredService<AgentServerOptions>();
+            var root = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), opts.Sessions.Directory));
+            return new SessionStore(root);
+        });
+
         // MEAI OpenAI adapter (Ollama is OpenAI-compatible when pointed at /v1).
         builder.Services.AddSingleton<Microsoft.Extensions.AI.IChatClient>(sp =>
         {
@@ -57,7 +64,8 @@ public static class Program
         {
             var chat = sp.GetRequiredService<Microsoft.Extensions.AI.IChatClient>();
             var opts = sp.GetRequiredService<AgentServerOptions>();
-            return new AcpHarnessAgentFactory(chat, opts);
+            var store = sp.GetRequiredService<SessionStore>();
+            return new AcpHarnessAgentFactory(chat, opts, store);
         });
 
         using var host = builder.Build();

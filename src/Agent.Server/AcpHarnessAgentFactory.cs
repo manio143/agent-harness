@@ -15,11 +15,13 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory
 {
     private readonly Microsoft.Extensions.AI.IChatClient _chat;
     private readonly AgentServerOptions _options;
+    private readonly SessionStore _store;
 
-    public AcpHarnessAgentFactory(Microsoft.Extensions.AI.IChatClient chat, AgentServerOptions options)
+    public AcpHarnessAgentFactory(Microsoft.Extensions.AI.IChatClient chat, AgentServerOptions options, SessionStore store)
     {
         _chat = chat;
         _options = options;
+        _store = store;
     }
 
     public Task<InitializeResponse> InitializeAsync(InitializeRequest request, CancellationToken cancellationToken)
@@ -38,8 +40,9 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory
             AgentCapabilities = new AgentCapabilities
             {
                 PromptCapabilities = new PromptCapabilities(),
-                // We intentionally don't advertise loadSession etc. yet.
-                LoadSession = false,
+                McpCapabilities = new McpCapabilities(),
+                SessionCapabilities = new SessionCapabilities { List = new Agent.Acp.Schema.List() },
+                LoadSession = true,
             },
             AuthMethods = new List<AuthMethod>(),
         });
@@ -47,12 +50,38 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory
 
     public Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken)
     {
+        var sessionId = Guid.NewGuid().ToString();
+        _store.CreateNew(sessionId);
+
         return Task.FromResult(new NewSessionResponse
         {
-            SessionId = Guid.NewGuid().ToString(),
+            SessionId = sessionId,
             Modes = null,
             ConfigOptions = new List<SessionConfigOption>(),
         });
+    }
+
+    public Task<LoadSessionResponse>? LoadSessionAsync(LoadSessionRequest request, CancellationToken cancellationToken)
+    {
+        if (!_store.Exists(request.SessionId))
+            return Task.FromResult(new LoadSessionResponse { ConfigOptions = new List<SessionConfigOption>(), Modes = null });
+
+        return Task.FromResult(new LoadSessionResponse
+        {
+            Modes = null,
+            ConfigOptions = new List<SessionConfigOption>(),
+        });
+    }
+
+    public Task<ListSessionsResponse>? ListSessionsAsync(ListSessionsRequest request, CancellationToken cancellationToken)
+    {
+        var cwd = Path.GetFullPath(Directory.GetCurrentDirectory());
+
+        var sessions = _store.ListSessions()
+            .Select(id => new SessionInfo { SessionId = id, Cwd = cwd })
+            .ToList();
+
+        return Task.FromResult(new ListSessionsResponse { Sessions = sessions });
     }
 
     public IAcpSessionAgent CreateSessionAgent(string sessionId, IAcpClientCaller client, IAcpSessionEvents events)
@@ -63,7 +92,12 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory
 
         var publishOptions = new AcpPublishOptions(PublishReasoning: _options.Acp.PublishReasoning);
 
-        return new MeaiAcpSessionAgent(sessionId, _chat, events, coreOptions, publishOptions);
+        var committed = _store.LoadCommitted(sessionId);
+        var initial = committed.IsDefaultOrEmpty
+            ? SessionState.Empty
+            : new SessionState(committed, TurnBuffer.Empty);
+
+        return new MeaiAcpSessionAgent(sessionId, _chat, events, coreOptions, publishOptions, _store, initial);
     }
 
     private sealed class MeaiAcpSessionAgent : IAcpSessionAgent
@@ -73,21 +107,26 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory
         private readonly IAcpSessionEvents _events;
         private readonly CoreOptions _coreOptions;
         private readonly AcpPublishOptions _publishOptions;
+        private readonly SessionStore _store;
 
-        private SessionState _state = SessionState.Empty;
+        private SessionState _state;
 
         public MeaiAcpSessionAgent(
             string sessionId,
             Microsoft.Extensions.AI.IChatClient chat,
             IAcpSessionEvents events,
             CoreOptions coreOptions,
-            AcpPublishOptions publishOptions)
+            AcpPublishOptions publishOptions,
+            SessionStore store,
+            SessionState initialState)
         {
             _sessionId = sessionId;
             _chat = chat;
             _events = events;
             _coreOptions = coreOptions;
             _publishOptions = publishOptions;
+            _store = store;
+            _state = initialState;
         }
 
         public Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken)
@@ -132,6 +171,8 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory
                 onState: s => _state = s,
                 cancellationToken: cancellationToken))
             {
+                _store.Append(_sessionId, committed);
+
                 switch (committed)
                 {
                     case AssistantMessageAdded a:
