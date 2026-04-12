@@ -2,7 +2,9 @@ using System.Collections.Immutable;
 
 namespace Agent.Harness;
 
-public sealed record CoreOptions(bool EmitModelInvokedEvents = false);
+public sealed record CoreOptions(
+    bool EmitModelInvokedEvents = false,
+    bool CommitAssistantTextDeltas = false);
 
 /// <summary>
 /// Functional core reducer.
@@ -20,26 +22,38 @@ public static class Core
         if (state is null) throw new ArgumentNullException(nameof(state));
         if (evt is null) throw new ArgumentNullException(nameof(evt));
 
-        return evt switch
+        switch (evt)
         {
-            ObservedUserMessage m => Commit(state, new UserMessageAdded(m.Text)),
+            case ObservedUserMessage m:
+                return Commit(state, new UserMessageAdded(m.Text));
 
-            ObservedAssistantTextDelta d =>
-                new ReduceResult(
-                    Next: state with
+            case ObservedAssistantTextDelta d:
+            {
+                var next = state with
+                {
+                    Buffer = state.Buffer with
                     {
-                        Buffer = state.Buffer with
-                        {
-                            AssistantMessageOpen = true,
-                            AssistantText = state.Buffer.AssistantText + d.Text,
-                        },
+                        AssistantMessageOpen = true,
+                        AssistantText = state.Buffer.AssistantText + d.Text,
                     },
-                    NewlyCommitted: ImmutableArray<SessionEvent>.Empty),
+                };
 
-            ObservedAssistantMessageCompleted => FlushAssistant(state),
+                if (options?.CommitAssistantTextDeltas == true)
+                {
+                    var delta = new AssistantMessageDeltaAdded(d.Text);
+                    var committed = next.Committed.Add(delta);
+                    return new ReduceResult(next with { Committed = committed }, ImmutableArray.Create<SessionEvent>(delta));
+                }
 
-            _ => new ReduceResult(state, ImmutableArray<SessionEvent>.Empty),
-        };
+                return new ReduceResult(next, ImmutableArray<SessionEvent>.Empty);
+            }
+
+            case ObservedAssistantMessageCompleted:
+                return FlushAssistant(state);
+
+            default:
+                return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty);
+        }
     }
 
     public static ImmutableArray<ChatMessage> RenderPrompt(SessionState state)

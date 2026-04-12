@@ -16,17 +16,20 @@ public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
     private readonly string _sessionId;
     private readonly IAcpSessionEvents _events;
     private readonly Func<PromptRequest, IAsyncEnumerable<ObservedChatEvent>> _observed;
+    private readonly CoreOptions _coreOptions;
 
     private SessionState _state = SessionState.Empty;
 
     public AcpSessionAgentAdapter(
         string sessionId,
         IAcpSessionEvents events,
-        Func<PromptRequest, IAsyncEnumerable<ObservedChatEvent>> observed)
+        Func<PromptRequest, IAsyncEnumerable<ObservedChatEvent>> observed,
+        CoreOptions? coreOptions = null)
     {
         _sessionId = sessionId;
         _events = events;
         _observed = observed;
+        _coreOptions = coreOptions ?? new CoreOptions();
     }
 
     public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken)
@@ -35,17 +38,26 @@ public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
         await foreach (var committed in TurnRunner.RunAsync(
             _state,
             _observed(request),
-            options: null,
+            options: _coreOptions,
             onState: s => _state = s,
             cancellationToken: cancellationToken))
         {
-            // Only assistant committed content is currently published.
-            if (committed is AssistantMessageAdded a)
+            // Publish committed assistant output.
+            switch (committed)
             {
-                await _events.SendSessionUpdateAsync(new AgentMessageChunk
-                {
-                    Content = new TextContent { Text = a.Text },
-                }, cancellationToken).ConfigureAwait(false);
+                case AssistantMessageAdded a:
+                    await _events.SendSessionUpdateAsync(new AgentMessageChunk
+                    {
+                        Content = new TextContent { Text = a.Text },
+                    }, cancellationToken).ConfigureAwait(false);
+                    break;
+
+                case AssistantMessageDeltaAdded d:
+                    await _events.SendSessionUpdateAsync(new AgentMessageChunk
+                    {
+                        Content = new TextContent { Text = d.TextDelta },
+                    }, cancellationToken).ConfigureAwait(false);
+                    break;
             }
         }
 
