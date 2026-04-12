@@ -40,3 +40,8 @@ The harness should be reusable outside ACP (other adapters, UIs, tests). Therefo
 ## Notes on event naming
 
 We prefer event names without redundant suffixes like `Added`, since events already represent facts in an append-only log.
+
+## Notes on ACP load semantics
+
+- For `session/load`, ACP requires replay of conversation history via `session/update` before the `session/load` response is completed.
+- When a `sessionId` is unknown/missing, we return JSON-RPC `-32602` (invalid params): missing session id is treated as invalid input.
