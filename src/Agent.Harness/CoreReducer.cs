@@ -7,19 +7,86 @@ public sealed record CoreOptions(bool EmitModelInvokedEvents = false);
 /// <summary>
 /// Functional core reducer.
 ///
-/// This type is intentionally minimal right now. We will evolve behavior TDD-style.
+/// Rules (initial slice):
+/// - ObservedUserMessage commits UserMessageAdded.
+/// - ObservedAssistantTextDelta appends to the in-flight assistant buffer.
+/// - ObservedAssistantMessageCompleted flushes the assistant buffer into AssistantMessageAdded.
+/// - RenderPrompt uses ONLY committed user/assistant messages (debug events are ignored).
 /// </summary>
 public static class Core
 {
     public static ReduceResult Reduce(SessionState state, ObservedChatEvent evt, CoreOptions? options = null)
     {
-        // TDD: implement in later steps.
-        throw new NotImplementedException();
+        if (state is null) throw new ArgumentNullException(nameof(state));
+        if (evt is null) throw new ArgumentNullException(nameof(evt));
+
+        return evt switch
+        {
+            ObservedUserMessage m => Commit(state, new UserMessageAdded(m.Text)),
+
+            ObservedAssistantTextDelta d =>
+                new ReduceResult(
+                    Next: state with
+                    {
+                        Buffer = state.Buffer with
+                        {
+                            AssistantMessageOpen = true,
+                            AssistantText = state.Buffer.AssistantText + d.Text,
+                        },
+                    },
+                    NewlyCommitted: ImmutableArray<SessionEvent>.Empty),
+
+            ObservedAssistantMessageCompleted => FlushAssistant(state),
+
+            _ => new ReduceResult(state, ImmutableArray<SessionEvent>.Empty),
+        };
     }
 
     public static ImmutableArray<ChatMessage> RenderPrompt(SessionState state)
     {
-        // TDD: implement in later steps.
-        throw new NotImplementedException();
+        if (state is null) throw new ArgumentNullException(nameof(state));
+
+        var builder = ImmutableArray.CreateBuilder<ChatMessage>();
+
+        foreach (var evt in state.Committed)
+        {
+            switch (evt)
+            {
+                case UserMessageAdded u:
+                    builder.Add(new ChatMessage(ChatRole.User, u.Text));
+                    break;
+                case AssistantMessageAdded a:
+                    builder.Add(new ChatMessage(ChatRole.Assistant, a.Text));
+                    break;
+                default:
+                    // Ignore debug-only and non-chat committed events for prompt rendering.
+                    break;
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static ReduceResult Commit(SessionState state, SessionEvent evt)
+    {
+        var committed = state.Committed.Add(evt);
+        var next = state with { Committed = committed };
+        return new ReduceResult(next, ImmutableArray.Create(evt));
+    }
+
+    private static ReduceResult FlushAssistant(SessionState state)
+    {
+        if (!state.Buffer.AssistantMessageOpen && string.IsNullOrEmpty(state.Buffer.AssistantText))
+        {
+            // Nothing to flush.
+            return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty);
+        }
+
+        var text = state.Buffer.AssistantText;
+        var nextState = state with { Buffer = TurnBuffer.Empty };
+
+        // Commit even if text is empty: treat boundary as a message completion.
+        // (We can tighten this later if desired.)
+        return Commit(nextState, new AssistantMessageAdded(text));
     }
 }
