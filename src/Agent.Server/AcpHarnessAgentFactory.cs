@@ -139,7 +139,14 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
                     break;
 
                 // Deltas are omitted from replay because we have the final committed messages.
-                // Reasoning is also omitted unless we explicitly decide to persist/replay it.
+                // Reasoning is replayed only when explicitly published.
+
+                case ReasoningTextDelta r when _options.Acp.PublishReasoning:
+                    await events.SendSessionUpdateAsync(new AgentThoughtChunk
+                    {
+                        Content = new TextContent { Text = r.TextDelta },
+                    }, cancellationToken).ConfigureAwait(false);
+                    break;
             }
         }
     }

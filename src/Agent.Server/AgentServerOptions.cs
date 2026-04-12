@@ -4,6 +4,7 @@ public sealed class AgentServerOptions
 {
     public OpenAiOptions OpenAI { get; set; } = new();
     public SessionStoreOptions Sessions { get; set; } = new();
+    public LoggingOptions Logging { get; set; } = new();
     public CoreOptions Core { get; set; } = new();
     public AcpOptions Acp { get; set; } = new();
 
@@ -17,6 +18,11 @@ public sealed class AgentServerOptions
     public sealed class SessionStoreOptions
     {
         public string Directory { get; set; } = ".agent/sessions";
+    }
+
+    public sealed class LoggingOptions
+    {
+        public bool LogRpc { get; set; } = false;
     }
 
     public sealed class CoreOptions

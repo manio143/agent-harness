@@ -76,10 +76,14 @@ public static class Program
         var factory = host.Services.GetRequiredService<IAcpAgentFactory>();
         var server = new AcpAgentServer(factory);
 
-        await using var transport = new LineDelimitedStreamTransport(
+        await using var baseTransport = new LineDelimitedStreamTransport(
             input: Console.OpenStandardInput(),
             output: Console.OpenStandardOutput(),
             name: "stdio");
+
+        await using Agent.Acp.Transport.ITransport transport = host.Services.GetRequiredService<AgentServerOptions>().Logging.LogRpc
+            ? new RpcLoggingTransport(baseTransport)
+            : baseTransport;
 
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) =>
