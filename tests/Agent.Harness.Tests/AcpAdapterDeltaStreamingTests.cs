@@ -70,13 +70,13 @@ public sealed class AcpAdapterDeltaStreamingTests
 
         resp.StopReason.Value.Should().Be(StopReason.EndTurn);
 
-        // Assert: we got more than one chunk (2 deltas + final message).
+        // Assert: in delta mode we publish ONLY deltas (no final full-message chunk to avoid duplicates).
         var chunks = updates.OfType<AgentMessageChunk>()
             .Select(c => (c.Content as TextContent)?.Text)
             .Where(t => t is not null)
             .ToList();
 
-        chunks.Should().ContainInOrder("Hel", "lo", "Hello");
+        chunks.Should().Equal("Hel", "lo");
 
         cts.Cancel();
         try { await serverTask; } catch { }

@@ -46,10 +46,15 @@ public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
             switch (committed)
             {
                 case AssistantMessageAdded a:
-                    await _events.SendSessionUpdateAsync(new AgentMessageChunk
+                    // In delta-commit mode, the UI has already received the full text via deltas.
+                    // Publishing the full message again would typically duplicate content.
+                    if (!_coreOptions.CommitAssistantTextDeltas)
                     {
-                        Content = new TextContent { Text = a.Text },
-                    }, cancellationToken).ConfigureAwait(false);
+                        await _events.SendSessionUpdateAsync(new AgentMessageChunk
+                        {
+                            Content = new TextContent { Text = a.Text },
+                        }, cancellationToken).ConfigureAwait(false);
+                    }
                     break;
 
                 case AssistantMessageDeltaAdded d:
