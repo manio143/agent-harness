@@ -1,7 +1,10 @@
+using System.Collections.Immutable;
+
 namespace Agent.Harness;
 
 /// <summary>
-/// Append-only typed event stream used as the primary truth source for a session.
+/// Stable, publishable session events ("committed" events).
+/// These are the only events that downstream adapters (ACP/UI) are allowed to publish.
 /// </summary>
 public abstract record SessionEvent;
 
@@ -9,10 +12,10 @@ public sealed record UserMessageAdded(string Text) : SessionEvent;
 public sealed record AssistantMessageAdded(string Text) : SessionEvent;
 
 /// <summary>
-/// Debug/test-only event that records the exact prompt messages sent to the model.
-/// This event MUST be gated behind configuration so it is not emitted in production by default.
+/// Debug/test-only committed event that records the exact messages rendered for the model.
+/// Must be gated via options and disabled by default.
 /// </summary>
-public sealed record ModelInvoked(IReadOnlyList<ChatMessage> RenderedMessages) : SessionEvent;
+public sealed record ModelInvoked(ImmutableArray<ChatMessage> RenderedMessages) : SessionEvent;
 
 public enum ChatRole
 {

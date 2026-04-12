@@ -1,46 +1,51 @@
+using System.Collections.Immutable;
 using Agent.Harness;
 using FluentAssertions;
 
 namespace Agent.Harness.Tests;
 
-public sealed class SessionCoreHelloTests
+public sealed class CoreReducerHelloTests
 {
     [Fact]
-    public async Task GivenEmptySession_WhenUserSaysHello_LogsUserAndCallsModel_ThenLogsAssistant()
+    public void GivenEmptyState_WhenObservedUserMessage_ThenCommitsUserMessageEvent()
     {
-        var log = new InMemoryEventLog();
-        var chat = new ScriptedChatClient().WhenCalledReturn("Hello back");
+        var state = SessionState.Empty;
 
-        var core = new SessionCore(log, chat, new SessionCoreOptions(EmitModelInvokedEvents: true));
+        var result = Core.Reduce(state, new ObservedUserMessage("Hello"));
 
-        var result = await core.HandleUserMessageAsync("Hello", CancellationToken.None);
+        result.NewlyCommitted.Should().ContainSingle();
+        result.NewlyCommitted[0].Should().Be(new UserMessageAdded("Hello"));
 
-        result.AssistantText.Should().Be("Hello back");
-
-        log.Events.Should().HaveCount(3);
-        log.Events[0].Should().BeOfType<UserMessageAdded>().Which.Text.Should().Be("Hello");
-
-        var invoked = log.Events[1].Should().BeOfType<ModelInvoked>().Which;
-        invoked.RenderedMessages.Should().Equal(new ChatMessage(ChatRole.User, "Hello"));
-
-        log.Events[2].Should().BeOfType<AssistantMessageAdded>().Which.Text.Should().Be("Hello back");
-
-        chat.Calls.Should().HaveCount(1);
-        chat.Calls[0].Should().Equal(new ChatMessage(ChatRole.User, "Hello"));
+        result.Next.Committed.Should().Contain(new UserMessageAdded("Hello"));
     }
 
     [Fact]
-    public async Task ModelInvokedEvent_IsNotEmitted_WhenDisabled()
+    public void GivenBufferedAssistantText_WhenCompleted_ThenCommitsAssistantMessage()
     {
-        var log = new InMemoryEventLog();
-        var chat = new ScriptedChatClient().WhenCalledReturn("Hello back");
+        var state = new SessionState(
+            Committed: ImmutableArray<SessionEvent>.Empty,
+            Buffer: new TurnBuffer(AssistantText: "Hello back", AssistantMessageOpen: true));
 
-        var core = new SessionCore(log, chat, new SessionCoreOptions(EmitModelInvokedEvents: false));
+        var result = Core.Reduce(state, new ObservedAssistantMessageCompleted());
 
-        await core.HandleUserMessageAsync("Hello", CancellationToken.None);
+        result.NewlyCommitted.Should().ContainSingle(e => e is AssistantMessageAdded);
+        result.Next.Buffer.AssistantMessageOpen.Should().BeFalse();
+        result.Next.Buffer.AssistantText.Should().BeEmpty();
+    }
 
-        log.Events.Should().NotContain(e => e is ModelInvoked);
-        log.Events.Should().Contain(new UserMessageAdded("Hello"));
-        log.Events.Should().Contain(new AssistantMessageAdded("Hello back"));
+    [Fact]
+    public void RenderPrompt_ContainsCommittedUserAndAssistantMessages_InOrder()
+    {
+        var state = new SessionState(
+            Committed: ImmutableArray.Create<SessionEvent>(
+                new UserMessageAdded("Hello"),
+                new AssistantMessageAdded("Hello back")),
+            Buffer: TurnBuffer.Empty);
+
+        var rendered = Core.RenderPrompt(state);
+
+        rendered.Should().Equal(
+            new ChatMessage(ChatRole.User, "Hello"),
+            new ChatMessage(ChatRole.Assistant, "Hello back"));
     }
 }

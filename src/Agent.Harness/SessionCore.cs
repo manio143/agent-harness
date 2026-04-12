@@ -1,47 +1,24 @@
 namespace Agent.Harness;
 
+// NOTE: This class is intentionally kept temporarily as a thin imperative helper.
+// The long-term direction is: MEAI streaming -> ObservedChatEvent -> Core.Reduce -> committed SessionEvent.
+//
+// TDD will migrate callers off this type.
+
 public sealed record TurnResult(string AssistantText);
 
-public sealed record SessionCoreOptions(bool EmitModelInvokedEvents = false);
-
-/// <summary>
-/// Functional core for a single-session, single-threaded conversational loop.
-/// Owns the truth event stream; external adapters can translate events to transports (ACP, UI, etc.).
-/// </summary>
 public sealed class SessionCore
 {
-    private readonly IEventLog _log;
     private readonly IChatClient _chat;
-    private readonly SessionCoreOptions _options;
 
-    public SessionCore(IEventLog log, IChatClient chat, SessionCoreOptions? options = null)
+    public SessionCore(IChatClient chat)
     {
-        _log = log;
         _chat = chat;
-        _options = options ?? new SessionCoreOptions();
     }
 
-    public async Task<TurnResult> HandleUserMessageAsync(string text, CancellationToken cancellationToken)
+    public async Task<TurnResult> HandleUserMessageAsync(SessionState state, string text, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(text))
-            throw new ArgumentException("User message text is required", nameof(text));
-
-        _log.Append(new UserMessageAdded(text));
-
-        var rendered = new List<ChatMessage>
-        {
-            new(ChatRole.User, text),
-        };
-
-        if (_options.EmitModelInvokedEvents)
-            _log.Append(new ModelInvoked(rendered));
-
-        var assistant = await _chat.CompleteAsync(rendered, cancellationToken).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(assistant))
-            assistant = "";
-
-        _log.Append(new AssistantMessageAdded(assistant));
-
-        return new TurnResult(assistant);
+        // TDD: implement by driving Core + chat client streaming.
+        throw new NotImplementedException();
     }
 }
