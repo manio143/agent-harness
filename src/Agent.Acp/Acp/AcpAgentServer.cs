@@ -436,6 +436,10 @@ public sealed class AcpAgentServer
                         {
                             _sessions[sessionId] = new SessionAgentHandle(sessionAgent, cts);
                         }
+
+                        // ACP contract: replay conversation history via session/update before completing session/load.
+                        if (_factory is IAcpSessionReplayProvider replay)
+                            await replay.ReplaySessionAsync(sessionId, clientCaller, cancellationToken).ConfigureAwait(false);
                     }
 
                     await transport.SendMessageAsync(new JsonRpcResponse { Id = req.Id, Result = SerializeToElement(result) }, cancellationToken);

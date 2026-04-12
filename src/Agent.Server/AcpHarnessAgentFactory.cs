@@ -11,7 +11,7 @@ using MeaiChatRole = Microsoft.Extensions.AI.ChatRole;
 
 namespace Agent.Server;
 
-public sealed class AcpHarnessAgentFactory : IAcpAgentFactory
+public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAcpSessionReplayProvider
 {
     private readonly Microsoft.Extensions.AI.IChatClient _chat;
     private readonly AgentServerOptions _options;
@@ -113,6 +113,35 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory
             : new SessionState(committed, TurnBuffer.Empty);
 
         return new MeaiAcpSessionAgent(sessionId, _chat, events, coreOptions, publishOptions, _store, initial);
+    }
+
+    public async Task ReplaySessionAsync(string sessionId, IAcpSessionEvents events, CancellationToken cancellationToken)
+    {
+        var committed = _store.LoadCommitted(sessionId);
+
+        // Replay stable history: full user/assistant messages only.
+        foreach (var evt in committed)
+        {
+            switch (evt)
+            {
+                case UserMessage u:
+                    await events.SendSessionUpdateAsync(new UserMessageChunk
+                    {
+                        Content = new TextContent { Text = u.Text },
+                    }, cancellationToken).ConfigureAwait(false);
+                    break;
+
+                case AssistantMessage a:
+                    await events.SendSessionUpdateAsync(new AgentMessageChunk
+                    {
+                        Content = new TextContent { Text = a.Text },
+                    }, cancellationToken).ConfigureAwait(false);
+                    break;
+
+                // Deltas are omitted from replay because we have the final committed messages.
+                // Reasoning is also omitted unless we explicitly decide to persist/replay it.
+            }
+        }
     }
 
     private sealed class MeaiAcpSessionAgent : IAcpSessionAgent
