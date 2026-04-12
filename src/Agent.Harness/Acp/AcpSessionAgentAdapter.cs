@@ -11,12 +11,15 @@ namespace Agent.Harness.Acp;
 /// - Runs observed events through the core reducer via <see cref="TurnRunner"/>.
 /// - Publishes ONLY committed events as ACP <c>session/update</c> notifications.
 /// </summary>
+public sealed record AcpPublishOptions(bool PublishReasoning = false);
+
 public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
 {
     private readonly string _sessionId;
     private readonly IAcpSessionEvents _events;
     private readonly Func<PromptRequest, IAsyncEnumerable<ObservedChatEvent>> _observed;
     private readonly CoreOptions _coreOptions;
+    private readonly AcpPublishOptions _publishOptions;
 
     private SessionState _state = SessionState.Empty;
 
@@ -24,12 +27,14 @@ public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
         string sessionId,
         IAcpSessionEvents events,
         Func<PromptRequest, IAsyncEnumerable<ObservedChatEvent>> observed,
-        CoreOptions? coreOptions = null)
+        CoreOptions? coreOptions = null,
+        AcpPublishOptions? publishOptions = null)
     {
         _sessionId = sessionId;
         _events = events;
         _observed = observed;
         _coreOptions = coreOptions ?? new CoreOptions();
+        _publishOptions = publishOptions ?? new AcpPublishOptions();
     }
 
     public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken)
@@ -61,6 +66,13 @@ public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
                     await _events.SendSessionUpdateAsync(new AgentMessageChunk
                     {
                         Content = new TextContent { Text = d.TextDelta },
+                    }, cancellationToken).ConfigureAwait(false);
+                    break;
+
+                case ReasoningDeltaAdded r when _publishOptions.PublishReasoning:
+                    await _events.SendSessionUpdateAsync(new AgentThoughtChunk
+                    {
+                        Content = new TextContent { Text = r.TextDelta },
                     }, cancellationToken).ConfigureAwait(false);
                     break;
             }

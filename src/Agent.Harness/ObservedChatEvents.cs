@@ -18,4 +18,9 @@ public sealed record ObservedUserMessage(string Text) : ObservedChatEvent;
 
 public sealed record ObservedAssistantTextDelta(string Text) : ObservedChatEvent;
 
+/// <summary>
+/// Reasoning/thought delta (e.g., MEAI TextReasoningContent).
+/// </summary>
+public sealed record ObservedReasoningTextDelta(string Text) : ObservedChatEvent;
+
 public sealed record ObservedAssistantMessageCompleted(string? FinishReason = null) : ObservedChatEvent;

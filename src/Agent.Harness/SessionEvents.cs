@@ -18,6 +18,11 @@ public sealed record AssistantMessageAdded(string Text) : SessionEvent;
 public sealed record AssistantMessageDeltaAdded(string TextDelta) : SessionEvent;
 
 /// <summary>
+/// Committed reasoning/thought delta. Publishing is controlled separately from committing.
+/// </summary>
+public sealed record ReasoningDeltaAdded(string TextDelta) : SessionEvent;
+
+/// <summary>
 /// Debug/test-only committed event that records the exact messages rendered for the model.
 /// Must be gated via options and disabled by default.
 /// </summary>

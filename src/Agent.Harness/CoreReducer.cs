@@ -4,7 +4,8 @@ namespace Agent.Harness;
 
 public sealed record CoreOptions(
     bool EmitModelInvokedEvents = false,
-    bool CommitAssistantTextDeltas = false);
+    bool CommitAssistantTextDeltas = false,
+    bool CommitReasoningTextDeltas = false);
 
 /// <summary>
 /// Functional core reducer.
@@ -46,6 +47,18 @@ public static class Core
                 }
 
                 return new ReduceResult(next, ImmutableArray<SessionEvent>.Empty);
+            }
+
+            case ObservedReasoningTextDelta d:
+            {
+                if (options?.CommitReasoningTextDeltas == true)
+                {
+                    var delta = new ReasoningDeltaAdded(d.Text);
+                    var committed = state.Committed.Add(delta);
+                    return new ReduceResult(state with { Committed = committed }, ImmutableArray.Create<SessionEvent>(delta));
+                }
+
+                return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty);
             }
 
             case ObservedAssistantMessageCompleted:
