@@ -9,3 +9,5 @@ TestResults/
 schema/*.unstable.json
 .acpx/
 .agent/
+core
+core.*
