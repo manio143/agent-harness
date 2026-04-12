@@ -215,19 +215,15 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             IAsyncEnumerable<ObservedChatEvent> observed,
             CancellationToken cancellationToken)
         {
-            var sawAssistantMessage = false;
+            var titleGen = new Agent.Harness.TitleGeneration.SessionTitleGenerator(new MeaiTitleChatClientAdapter(_chat));
+            var runner = new Agent.Harness.SessionRunner(_coreOptions, titleGen);
 
-            await foreach (var committed in TurnRunner.RunAsync(
-                _state,
-                observed,
-                options: _coreOptions,
-                onState: s => _state = s,
-                cancellationToken: cancellationToken))
+            var result = await runner.RunTurnAsync(_state, observed, cancellationToken).ConfigureAwait(false);
+            _state = result.Next;
+
+            foreach (var committed in result.NewlyCommitted)
             {
                 _store.AppendCommitted(_sessionId, committed);
-
-                if (committed is AssistantMessage)
-                    sawAssistantMessage = true;
 
                 switch (committed)
                 {
@@ -254,20 +250,6 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
                             Content = new Agent.Acp.Schema.TextContent { Text = r.TextDelta },
                         }, cancellationToken).ConfigureAwait(false);
                         break;
-                }
-            }
-
-            // After first completed turn: generate a session title.
-            // (Title is a projection of committed events: SessionTitleSet.)
-            var meta = _store.TryLoadMetadata(_sessionId);
-            if (meta is not null && meta.Title is null && sawAssistantMessage)
-            {
-                var gen = new Agent.Harness.TitleGeneration.SessionTitleGenerator(new MeaiTitleChatClientAdapter(_chat));
-                var evt = await gen.MaybeGenerateAfterTurnAsync(_state, cancellationToken).ConfigureAwait(false);
-                if (evt is not null)
-                {
-                    _store.AppendCommitted(_sessionId, evt);
-                    _state = _state with { Committed = _state.Committed.Add(evt) };
                 }
             }
 
