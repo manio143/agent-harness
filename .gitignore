@@ -8,3 +8,4 @@ TestResults/
 *.snupkg
 schema/*.unstable.json
 .acpx/
+.agent/
