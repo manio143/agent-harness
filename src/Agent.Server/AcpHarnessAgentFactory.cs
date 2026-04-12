@@ -127,14 +127,14 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
                 case UserMessage u:
                     await events.SendSessionUpdateAsync(new UserMessageChunk
                     {
-                        Content = new TextContent { Text = u.Text },
+                        Content = new Agent.Acp.Schema.TextContent { Text = u.Text },
                     }, cancellationToken).ConfigureAwait(false);
                     break;
 
                 case AssistantMessage a:
                     await events.SendSessionUpdateAsync(new AgentMessageChunk
                     {
-                        Content = new TextContent { Text = a.Text },
+                        Content = new Agent.Acp.Schema.TextContent { Text = a.Text },
                     }, cancellationToken).ConfigureAwait(false);
                     break;
 
@@ -144,7 +144,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
                 case ReasoningTextDelta r when _options.Acp.PublishReasoning:
                     await events.SendSessionUpdateAsync(new AgentThoughtChunk
                     {
-                        Content = new TextContent { Text = r.TextDelta },
+                        Content = new Agent.Acp.Schema.TextContent { Text = r.TextDelta },
                     }, cancellationToken).ConfigureAwait(false);
                     break;
             }

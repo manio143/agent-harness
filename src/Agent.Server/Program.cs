@@ -81,9 +81,14 @@ public static class Program
             output: Console.OpenStandardOutput(),
             name: "stdio");
 
-        await using Agent.Acp.Transport.ITransport transport = host.Services.GetRequiredService<AgentServerOptions>().Logging.LogRpc
+        var serverOptions = host.Services.GetRequiredService<AgentServerOptions>();
+
+        await using Agent.Acp.Transport.ITransport transport = serverOptions.Logging.LogRpc
             ? new RpcLoggingTransport(baseTransport)
             : baseTransport;
+
+        if (serverOptions.Logging.LogRpc)
+            logger.LogWarning("RPC logging enabled (stderr). May include user content.");
 
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) =>
