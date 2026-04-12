@@ -1,66 +1,64 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Text.Json;
-using Agent.Harness;
 
-namespace Agent.Server;
+namespace Agent.Harness.Persistence;
 
 /// <summary>
-/// Very small, append-only JSONL session store.
+/// Append-only JSONL store for committed session events + a small session metadata file.
 ///
-/// Purpose:
-/// - Persist committed events (publishable truth) so a session can be resumed.
-/// - Load by replaying committed events into SessionState.
-///
-/// Format: one JSON object per line with a stable "type" discriminator.
+/// - events: {root}/{sessionId}/events.jsonl
+/// - metadata: {root}/{sessionId}/session.json
 /// </summary>
-public sealed class SessionStore
+public sealed class JsonlSessionStore : ISessionStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly string _rootDir;
     private readonly ConcurrentDictionary<string, object> _locks = new();
 
-    public SessionStore(string rootDir)
+    public JsonlSessionStore(string rootDir)
     {
         _rootDir = rootDir;
     }
 
     public string RootDir => _rootDir;
 
-    public string GetSessionDir(string sessionId) => Path.Combine(_rootDir, sessionId);
-
-    public string GetEventsPath(string sessionId) => Path.Combine(GetSessionDir(sessionId), "events.jsonl");
-
-    public void EnsureRootDir() => Directory.CreateDirectory(_rootDir);
-
-    public void CreateNew(string sessionId)
+    public void CreateNew(string sessionId, SessionMetadata metadata)
     {
-        EnsureRootDir();
+        EnsureRoot();
         Directory.CreateDirectory(GetSessionDir(sessionId));
 
-        // Touch the file so existence is a quick proxy for session existence.
-        var path = GetEventsPath(sessionId);
-        if (!File.Exists(path))
-            File.WriteAllText(path, string.Empty);
+        WriteMetadata(sessionId, metadata);
+
+        var eventsPath = GetEventsPath(sessionId);
+        if (!File.Exists(eventsPath))
+            File.WriteAllText(eventsPath, string.Empty);
     }
 
     public bool Exists(string sessionId) => File.Exists(GetEventsPath(sessionId));
 
-    public ImmutableArray<string> ListSessions()
+    public ImmutableArray<string> ListSessionIds()
     {
-        EnsureRootDir();
+        EnsureRoot();
         if (!Directory.Exists(_rootDir))
             return ImmutableArray<string>.Empty;
 
-        var ids = Directory.EnumerateDirectories(_rootDir)
+        return Directory.EnumerateDirectories(_rootDir)
             .Select(Path.GetFileName)
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Select(x => x!)
             .OrderBy(x => x, StringComparer.Ordinal)
             .ToImmutableArray();
+    }
 
-        return ids;
+    public SessionMetadata? TryLoadMetadata(string sessionId)
+    {
+        var path = GetMetadataPath(sessionId);
+        if (!File.Exists(path)) return null;
+
+        var json = File.ReadAllText(path);
+        return JsonSerializer.Deserialize<SessionMetadata>(json, JsonOptions);
     }
 
     public ImmutableArray<SessionEvent> LoadCommitted(string sessionId)
@@ -76,7 +74,11 @@ public sealed class SessionStore
 
             using var doc = JsonDocument.Parse(line);
             var root = doc.RootElement;
-            var type = root.GetProperty("type").GetString();
+
+            if (!root.TryGetProperty("type", out var typeEl))
+                continue;
+
+            var type = typeEl.GetString();
 
             switch (type)
             {
@@ -96,31 +98,14 @@ public sealed class SessionStore
                     list.Add(new ReasoningTextDelta(root.GetProperty("textDelta").GetString() ?? string.Empty));
                     break;
 
-                // Back-compat (pre-rename)
-                case "user_message_added":
-                    list.Add(new UserMessage(root.GetProperty("text").GetString() ?? string.Empty));
-                    break;
-
-                case "assistant_message_added":
-                    list.Add(new AssistantMessage(root.GetProperty("text").GetString() ?? string.Empty));
-                    break;
-
-                case "assistant_message_delta_added":
-                    list.Add(new AssistantTextDelta(root.GetProperty("textDelta").GetString() ?? string.Empty));
-                    break;
-
-                case "reasoning_delta_added":
-                    list.Add(new ReasoningTextDelta(root.GetProperty("textDelta").GetString() ?? string.Empty));
-                    break;
-
-                // Intentionally ignore unknown event types for forward compatibility.
+                // Forward-compat: ignore unknown event types.
             }
         }
 
         return list.ToImmutableArray();
     }
 
-    public void Append(string sessionId, SessionEvent evt)
+    public void AppendCommitted(string sessionId, SessionEvent evt)
     {
         var gate = _locks.GetOrAdd(sessionId, _ => new object());
         lock (gate)
@@ -141,6 +126,38 @@ public sealed class SessionStore
 
             var line = JsonSerializer.Serialize(payload, JsonOptions);
             File.AppendAllText(GetEventsPath(sessionId), line + "\n");
+
+            // Best-effort updatedAt bump.
+            var meta = TryLoadMetadata(sessionId);
+            if (meta is not null)
+            {
+                var updated = meta with { UpdatedAtIso = DateTimeOffset.UtcNow.ToString("O") };
+                WriteMetadata(sessionId, updated);
+            }
         }
     }
+
+    public void UpdateMetadata(string sessionId, SessionMetadata metadata)
+    {
+        var gate = _locks.GetOrAdd(sessionId, _ => new object());
+        lock (gate)
+        {
+            Directory.CreateDirectory(GetSessionDir(sessionId));
+            WriteMetadata(sessionId, metadata);
+        }
+    }
+
+    private void WriteMetadata(string sessionId, SessionMetadata metadata)
+    {
+        var json = JsonSerializer.Serialize(metadata, JsonOptions);
+        File.WriteAllText(GetMetadataPath(sessionId), json);
+    }
+
+    private void EnsureRoot() => Directory.CreateDirectory(_rootDir);
+
+    private string GetSessionDir(string sessionId) => Path.Combine(_rootDir, sessionId);
+
+    private string GetEventsPath(string sessionId) => Path.Combine(GetSessionDir(sessionId), "events.jsonl");
+
+    private string GetMetadataPath(string sessionId) => Path.Combine(GetSessionDir(sessionId), "session.json");
 }

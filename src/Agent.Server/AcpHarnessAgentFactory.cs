@@ -15,9 +15,9 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory
 {
     private readonly Microsoft.Extensions.AI.IChatClient _chat;
     private readonly AgentServerOptions _options;
-    private readonly SessionStore _store;
+    private readonly Agent.Harness.Persistence.ISessionStore _store;
 
-    public AcpHarnessAgentFactory(Microsoft.Extensions.AI.IChatClient chat, AgentServerOptions options, SessionStore store)
+    public AcpHarnessAgentFactory(Microsoft.Extensions.AI.IChatClient chat, AgentServerOptions options, Agent.Harness.Persistence.ISessionStore store)
     {
         _chat = chat;
         _options = options;
@@ -51,7 +51,12 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory
     public Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken)
     {
         var sessionId = Guid.NewGuid().ToString();
-        _store.CreateNew(sessionId);
+        _store.CreateNew(sessionId, new Agent.Harness.Persistence.SessionMetadata(
+            SessionId: sessionId,
+            Cwd: request.Cwd,
+            Title: null,
+            CreatedAtIso: DateTimeOffset.UtcNow.ToString("O"),
+            UpdatedAtIso: DateTimeOffset.UtcNow.ToString("O")));
 
         return Task.FromResult(new NewSessionResponse
         {
@@ -64,7 +69,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory
     public Task<LoadSessionResponse>? LoadSessionAsync(LoadSessionRequest request, CancellationToken cancellationToken)
     {
         if (!_store.Exists(request.SessionId))
-            return Task.FromResult(new LoadSessionResponse { ConfigOptions = new List<SessionConfigOption>(), Modes = null });
+            throw new Agent.Acp.Acp.AcpJsonRpcException(-32602, $"Session not found: {request.SessionId}");
 
         return Task.FromResult(new LoadSessionResponse
         {
@@ -77,8 +82,18 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory
     {
         var cwd = Path.GetFullPath(Directory.GetCurrentDirectory());
 
-        var sessions = _store.ListSessions()
-            .Select(id => new SessionInfo { SessionId = id, Cwd = cwd })
+        var sessions = _store.ListSessionIds()
+            .Select(id =>
+            {
+                var meta = _store.TryLoadMetadata(id);
+                return new SessionInfo
+                {
+                    SessionId = id,
+                    Cwd = meta?.Cwd ?? cwd,
+                    Title = meta?.Title,
+                    UpdatedAt = meta?.UpdatedAtIso,
+                };
+            })
             .ToList();
 
         return Task.FromResult(new ListSessionsResponse { Sessions = sessions });
@@ -107,7 +122,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory
         private readonly IAcpSessionEvents _events;
         private readonly CoreOptions _coreOptions;
         private readonly AcpPublishOptions _publishOptions;
-        private readonly SessionStore _store;
+        private readonly Agent.Harness.Persistence.ISessionStore _store;
 
         private SessionState _state;
 
@@ -117,7 +132,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory
             IAcpSessionEvents events,
             CoreOptions coreOptions,
             AcpPublishOptions publishOptions,
-            SessionStore store,
+            Agent.Harness.Persistence.ISessionStore store,
             SessionState initialState)
         {
             _sessionId = sessionId;
@@ -171,7 +186,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory
                 onState: s => _state = s,
                 cancellationToken: cancellationToken))
             {
-                _store.Append(_sessionId, committed);
+                _store.AppendCommitted(_sessionId, committed);
 
                 switch (committed)
                 {

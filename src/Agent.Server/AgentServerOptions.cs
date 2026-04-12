@@ -16,7 +16,7 @@ public sealed class AgentServerOptions
 
     public sealed class SessionStoreOptions
     {
-        public string Directory { get; set; } = ".acpx/sessions";
+        public string Directory { get; set; } = ".agent/sessions";
     }
 
     public sealed class CoreOptions

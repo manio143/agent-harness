@@ -37,11 +37,11 @@ public static class Program
             return opts;
         });
 
-        builder.Services.AddSingleton(sp =>
+        builder.Services.AddSingleton<Agent.Harness.Persistence.ISessionStore>(sp =>
         {
             var opts = sp.GetRequiredService<AgentServerOptions>();
             var root = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), opts.Sessions.Directory));
-            return new SessionStore(root);
+            return new Agent.Harness.Persistence.JsonlSessionStore(root);
         });
 
         // MEAI OpenAI adapter (Ollama is OpenAI-compatible when pointed at /v1).
@@ -64,7 +64,7 @@ public static class Program
         {
             var chat = sp.GetRequiredService<Microsoft.Extensions.AI.IChatClient>();
             var opts = sp.GetRequiredService<AgentServerOptions>();
-            var store = sp.GetRequiredService<SessionStore>();
+            var store = sp.GetRequiredService<Agent.Harness.Persistence.ISessionStore>();
             return new AcpHarnessAgentFactory(chat, opts, store);
         });
 

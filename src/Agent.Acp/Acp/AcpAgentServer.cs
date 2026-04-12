@@ -387,18 +387,33 @@ public sealed class AcpAgentServer
                         break;
                     }
 
-                    var load = _factory.LoadSessionAsync(loadReq, cancellationToken);
-                    if (load is null)
+                    Task<LoadSessionResponse>? load;
+                    LoadSessionResponse result;
+
+                    try
+                    {
+                        load = _factory.LoadSessionAsync(loadReq, cancellationToken);
+                        if (load is null)
+                        {
+                            await transport.SendMessageAsync(new JsonRpcError
+                            {
+                                Id = req.Id,
+                                Error = new JsonRpcErrorDetail { Code = AcpErrors.MethodNotFound, Message = "session/load not supported" },
+                            }, cancellationToken);
+                            break;
+                        }
+
+                        result = await load.ConfigureAwait(false);
+                    }
+                    catch (AcpJsonRpcException ex)
                     {
                         await transport.SendMessageAsync(new JsonRpcError
                         {
                             Id = req.Id,
-                            Error = new JsonRpcErrorDetail { Code = AcpErrors.MethodNotFound, Message = "session/load not supported" },
+                            Error = new JsonRpcErrorDetail { Code = ex.Code, Message = ex.Message },
                         }, cancellationToken);
                         break;
                     }
-
-                    var result = await load.ConfigureAwait(false);
                     if (!ValidateSessionConfigOptions(result.ConfigOptions, out var configError))
                     {
                         await transport.SendMessageAsync(new JsonRpcError
