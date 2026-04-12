@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Agent.Acp/Agent.Acp.csproj" />
     <Project Path="src/Agent.Harness/Agent.Harness.csproj" />
+    <Project Path="src/Agent.Server/Agent.Server.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Agent.Acp.Tests/Agent.Acp.Tests.csproj" />
