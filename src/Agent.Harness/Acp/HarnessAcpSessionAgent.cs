@@ -26,6 +26,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     private readonly CoreOptions _coreOptions;
     private readonly AcpPublishOptions _publishOptions;
     private readonly ISessionStore _store;
+    private readonly IMcpToolInvoker _mcp;
 
     private SessionState _state;
     private readonly Dictionary<string, IAcpToolCall> _toolCalls = new();
@@ -38,7 +39,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         CoreOptions coreOptions,
         AcpPublishOptions publishOptions,
         ISessionStore store,
-        SessionState initialState)
+        SessionState initialState,
+        IMcpToolInvoker? mcp = null)
     {
         _sessionId = sessionId;
         _client = client;
@@ -48,6 +50,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         _publishOptions = publishOptions;
         _store = store;
         _state = initialState;
+        _mcp = mcp ?? NullMcpToolInvoker.Instance;
     }
 
     public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken)
@@ -73,7 +76,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         }
 
         var titleGen = new SessionTitleGenerator(new Llm.MeaiTitleChatClientAdapter(_chat));
-        var effects = new AcpEffectExecutor(_sessionId, _client, _chat);
+        var effects = new AcpEffectExecutor(_sessionId, _client, _chat, _mcp);
         var runner = new SessionRunner(_coreOptions, titleGen, effects);
 
         var result = await runner.RunTurnAsync(_state, ObservedUserInput(), cancellationToken).ConfigureAwait(false);

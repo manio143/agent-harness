@@ -14,12 +14,14 @@ public sealed class AcpEffectExecutor : IEffectExecutor
     private readonly string _sessionId;
     private readonly IAcpClientCaller _client;
     private readonly MeaiIChatClient _chat;
+    private readonly IMcpToolInvoker _mcp;
 
-    public AcpEffectExecutor(string sessionId, IAcpClientCaller client, MeaiIChatClient chat)
+    public AcpEffectExecutor(string sessionId, IAcpClientCaller client, MeaiIChatClient chat, IMcpToolInvoker? mcp = null)
     {
         _sessionId = sessionId;
         _client = client;
         _chat = chat;
+        _mcp = mcp ?? NullMcpToolInvoker.Instance;
     }
 
     public async Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
@@ -83,7 +85,7 @@ public sealed class AcpEffectExecutor : IEffectExecutor
                 var path = GetRequiredString(args, "path");
                 var resp = await _client.ReadTextFileAsync(new Agent.Acp.Schema.ReadTextFileRequest { SessionId = _sessionId, Path = path }, cancellationToken)
                     .ConfigureAwait(false);
-                return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, new { content = resp.Content }));
+                return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { content = resp.Content })));
             }
 
             case "write_text_file":
@@ -92,7 +94,7 @@ public sealed class AcpEffectExecutor : IEffectExecutor
                 var content = GetRequiredString(args, "content");
                 await _client.WriteTextFileAsync(new Agent.Acp.Schema.WriteTextFileRequest { SessionId = _sessionId, Path = path, Content = content }, cancellationToken)
                     .ConfigureAwait(false);
-                return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, new { ok = true }));
+                return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { ok = true })));
             }
 
             case "execute_command":
@@ -109,16 +111,24 @@ public sealed class AcpEffectExecutor : IEffectExecutor
                 var output = await _client.GetTerminalOutputAsync(new Agent.Acp.Schema.TerminalOutputRequest { SessionId = _sessionId, TerminalId = created.TerminalId }, cancellationToken)
                     .ConfigureAwait(false);
 
-                return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, new
+                return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new
                 {
                     exitStatus = output.ExitStatus,
                     output = output.Output,
                     truncated = output.Truncated,
-                }));
+                })));
             }
 
             default:
+            {
+                if (_mcp.CanInvoke(t.ToolName))
+                {
+                    var payload = await _mcp.InvokeAsync(t.ToolId, t.ToolName, t.Args, cancellationToken).ConfigureAwait(false);
+                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, payload));
+                }
+
                 return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallFailed(t.ToolId, "unknown_tool"));
+            }
         }
     }
 
