@@ -4,7 +4,7 @@ namespace Agent.Harness;
 
 public static partial class TurnRunner
 {
-    private static ImmutableArray<Effect> DeduplicateEffects(ImmutableArray<Effect> effects)
+    public static ImmutableArray<Effect> DeduplicateEffects(ImmutableArray<Effect> effects)
     {
         if (effects.IsDefaultOrEmpty) return ImmutableArray<Effect>.Empty;
 
