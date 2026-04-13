@@ -190,15 +190,122 @@ internal class ToolCallSessionRunner
         Effect effect,
         CancellationToken cancellationToken)
     {
-        // RED: Not implemented yet
-        // This is where the implementation driver will:
-        // 1. Pattern match on Effect type
-        // 2. Execute the appropriate side effect
-        // 3. Return observations
-        
-        await Task.CompletedTask; // Suppress async warning
-        throw new NotImplementedException(
-            $"ToolCallSessionRunner.ExecuteEffectAsync not implemented for effect: {effect}");
+        switch (effect)
+        {
+            case CheckPermission perm:
+            {
+                // Call ACP client to request permission
+                var request = new RequestPermissionRequest
+                {
+                    SessionId = "test-session",
+                    ToolCall = new ToolCallUpdate
+                    {
+                        ToolCallId = perm.ToolId,
+                        Title = $"{perm.ToolName}",
+                        // Args would need to be serialized to JSON in RawInput
+                        RawInput = perm.Args,
+                    },
+                    Options = new List<PermissionOption>
+                    {
+                        new PermissionOption { OptionId = "allow-once", Name = "Allow once" },
+                        new PermissionOption { OptionId = "deny", Name = "Deny" },
+                    },
+                };
+
+                var response = await _client.RequestAsync<RequestPermissionRequest, RequestPermissionResponse>(
+                    "session/request_permission",
+                    request,
+                    cancellationToken);
+
+                // Translate response to observation
+                if (response.Outcome?.Outcome == RequestPermissionOutcomeOutcome.Selected)
+                {
+                    return ImmutableArray.Create<ObservedChatEvent>(
+                        new ObservedPermissionApproved(perm.ToolId));
+                }
+                else
+                {
+                    return ImmutableArray.Create<ObservedChatEvent>(
+                        new ObservedPermissionDenied(perm.ToolId, "Permission denied by user"));
+                }
+            }
+
+            case ExecuteToolCall exec:
+            {
+                try
+                {
+                    // Check for cancellation before starting
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var observations = ImmutableArray.CreateBuilder<ObservedChatEvent>();
+
+                    // Emit InProgress first
+                    observations.Add(new ObservedToolCallProgressUpdate(
+                        exec.ToolId,
+                        new { status = "in_progress" }));
+
+                    // Simulate tool execution based on tool name
+                    switch (exec.ToolName)
+                    {
+                        case "read_text_file":
+                        {
+                            // Check for cancellation
+                            if (cancellationToken.IsCancellationRequested)
+                            {
+                                observations.Add(new ObservedToolCallCancelled(exec.ToolId));
+                                return observations.ToImmutable();
+                            }
+
+                            // Simulate file reading
+                            dynamic args = exec.Args;
+                            string path = args.path;
+
+                            if (path.Contains("/nonexistent"))
+                            {
+                                observations.Add(new ObservedToolCallFailed(
+                                    exec.ToolId,
+                                    $"File not found: {path}"));
+                                return observations.ToImmutable();
+                            }
+
+                            // Emit progress update
+                            observations.Add(new ObservedToolCallProgressUpdate(
+                                exec.ToolId,
+                                new { text = $"Reading {path}..." }));
+
+                            // Small delay to allow cancellation testing
+                            await Task.Delay(5, cancellationToken);
+
+                            // Emit completion
+                            observations.Add(new ObservedToolCallCompleted(
+                                exec.ToolId,
+                                new { content = $"Contents of {path}", bytes = 42 }));
+
+                            return observations.ToImmutable();
+                        }
+
+                        default:
+                            observations.Add(new ObservedToolCallFailed(
+                                exec.ToolId,
+                                $"Unknown tool: {exec.ToolName}"));
+                            return observations.ToImmutable();
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    return ImmutableArray.Create<ObservedChatEvent>(
+                        new ObservedToolCallCancelled(exec.ToolId));
+                }
+                catch (Exception ex)
+                {
+                    return ImmutableArray.Create<ObservedChatEvent>(
+                        new ObservedToolCallFailed(exec.ToolId, ex.Message));
+                }
+            }
+
+            default:
+                throw new NotSupportedException($"Unsupported effect: {effect}");
+        }
     }
 }
 

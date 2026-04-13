@@ -22,17 +22,60 @@ public static class Core
     /// <summary>
     /// Render the tool catalog based on client capabilities.
     /// Tools requiring unavailable capabilities are filtered out.
-    /// 
-    /// RED: Not implemented yet. Implementation driver will:
-    /// 1. Define base tool catalog (built-in tools)
-    /// 2. Filter by capabilities (e.g., read_text_file requires Fs.ReadTextFile)
-    /// 3. Merge with discovered MCP tools (from session state)
     /// </summary>
     public static ImmutableArray<ToolDefinition> RenderToolCatalog(Agent.Acp.Schema.ClientCapabilities capabilities)
     {
-        throw new NotImplementedException(
-            "Core.RenderToolCatalog not implemented. " +
-            "Implementation driver should filter tools by client capabilities.");
+        var builder = ImmutableArray.CreateBuilder<ToolDefinition>();
+
+        // Filesystem tools
+        if (capabilities.Fs?.ReadTextFile == true)
+        {
+            builder.Add(new ToolDefinition(
+                Name: "read_text_file",
+                Schema: new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        path = new { type = "string", description = "Path to the file to read" }
+                    },
+                    required = new[] { "path" }
+                }));
+        }
+
+        if (capabilities.Fs?.WriteTextFile == true)
+        {
+            builder.Add(new ToolDefinition(
+                Name: "write_text_file",
+                Schema: new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        path = new { type = "string", description = "Path to the file to write" },
+                        content = new { type = "string", description = "Content to write" }
+                    },
+                    required = new[] { "path", "content" }
+                }));
+        }
+
+        // Terminal tools
+        if (capabilities.Terminal == true)
+        {
+            builder.Add(new ToolDefinition(
+                Name: "execute_command",
+                Schema: new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        command = new { type = "string", description = "Command to execute" }
+                    },
+                    required = new[] { "command" }
+                }));
+        }
+
+        return builder.ToImmutable();
     }
     public static ReduceResult Reduce(SessionState state, ObservedChatEvent evt, CoreOptions? options = null)
     {
@@ -85,6 +128,136 @@ public static class Core
 
             case ObservedAssistantMessageCompleted:
                 return FlushAssistant(state);
+
+            // --- Tool Call Lifecycle Observations ---
+
+            case ObservedToolCallDetected detected:
+            {
+                // Commit ToolCallRequested and emit CheckPermission effect
+                var requested = new ToolCallRequested(detected.ToolId, detected.ToolName, detected.Args);
+                var permissionEffect = new CheckPermission(detected.ToolId, detected.ToolName, detected.Args);
+                
+                var committed = state.Committed.Add(requested);
+                var next = state with { Committed = committed };
+                
+                return new ReduceResult(
+                    next,
+                    ImmutableArray.Create<SessionEvent>(requested),
+                    ImmutableArray.Create<Effect>(permissionEffect));
+            }
+
+            case ObservedPermissionApproved approved:
+            {
+                // Commit ToolCallPending and emit ExecuteToolCall effect
+                var pending = new ToolCallPending(approved.ToolId);
+                var committed = state.Committed.Add(pending);
+                
+                // Find the original ToolCallRequested to get tool name and args
+                var requestedEvent = state.Committed
+                    .OfType<ToolCallRequested>()
+                    .FirstOrDefault(r => r.ToolId == approved.ToolId);
+                
+                if (requestedEvent is null)
+                {
+                    // Should not happen in well-formed sessions
+                    return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty, ImmutableArray<Effect>.Empty);
+                }
+                
+                var executeEffect = new ExecuteToolCall(
+                    approved.ToolId,
+                    requestedEvent.ToolName,
+                    requestedEvent.Args);
+                
+                var next = state with { Committed = committed };
+                return new ReduceResult(
+                    next,
+                    ImmutableArray.Create<SessionEvent>(pending),
+                    ImmutableArray.Create<Effect>(executeEffect));
+            }
+
+            case ObservedPermissionDenied denied:
+            {
+                // Commit ToolCallRejected with no effects
+                var rejected = new ToolCallRejected(denied.ToolId, denied.Reason);
+                var committed = state.Committed.Add(rejected);
+                var next = state with { Committed = committed };
+                
+                return new ReduceResult(
+                    next,
+                    ImmutableArray.Create<SessionEvent>(rejected),
+                    ImmutableArray<Effect>.Empty);
+            }
+
+            case ObservedToolCallProgressUpdate progress:
+            {
+                var committed = state.Committed;
+                
+                // Check if we need to transition from Pending to InProgress
+                var hasInProgress = state.Committed
+                    .OfType<ToolCallInProgress>()
+                    .Any(ip => ip.ToolId == progress.ToolId);
+                
+                if (!hasInProgress)
+                {
+                    // First progress update - transition to InProgress first
+                    var inProgress = new ToolCallInProgress(progress.ToolId);
+                    committed = committed.Add(inProgress);
+                }
+                
+                // Commit ToolCallUpdateCommitted for incremental updates
+                var update = new ToolCallUpdateCommitted(progress.ToolId, progress.Content);
+                committed = committed.Add(update);
+                var next = state with { Committed = committed };
+                
+                // NewlyCommitted might include InProgress + Update
+                var newlyCommitted = !hasInProgress
+                    ? ImmutableArray.Create<SessionEvent>(new ToolCallInProgress(progress.ToolId), update)
+                    : ImmutableArray.Create<SessionEvent>(update);
+                
+                return new ReduceResult(
+                    next,
+                    newlyCommitted,
+                    ImmutableArray<Effect>.Empty);
+            }
+
+            case ObservedToolCallCompleted completed:
+            {
+                // Commit ToolCallCompleted (terminal state)
+                var completedEvent = new ToolCallCompleted(completed.ToolId, completed.Result);
+                var committed = state.Committed.Add(completedEvent);
+                var next = state with { Committed = committed };
+                
+                return new ReduceResult(
+                    next,
+                    ImmutableArray.Create<SessionEvent>(completedEvent),
+                    ImmutableArray<Effect>.Empty);
+            }
+
+            case ObservedToolCallFailed failed:
+            {
+                // Commit ToolCallFailed (terminal state)
+                var failedEvent = new ToolCallFailed(failed.ToolId, failed.Error);
+                var committed = state.Committed.Add(failedEvent);
+                var next = state with { Committed = committed };
+                
+                return new ReduceResult(
+                    next,
+                    ImmutableArray.Create<SessionEvent>(failedEvent),
+                    ImmutableArray<Effect>.Empty);
+            }
+
+            case ObservedToolCallCancelled cancelled:
+            {
+                // Commit ToolCallCancelled (terminal state)
+                var cancelledEvent = new ToolCallCancelled(cancelled.ToolId);
+                var committed = state.Committed.Add(cancelledEvent);
+                var next = state with { Committed = committed };
+                
+                return new ReduceResult(
+                    next,
+                    ImmutableArray.Create<SessionEvent>(cancelledEvent),
+                    ImmutableArray<Effect>.Empty);
+            }
 
             default:
                 return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty, ImmutableArray<Effect>.Empty);

@@ -361,23 +361,55 @@ internal class FakeAgentFactory : IAcpAgentFactory
         InitializeRequest request,
         CancellationToken cancellationToken)
     {
-        // RED: Not implemented yet
-        // Implementation driver will:
-        // 1. Check client capabilities
-        // 2. Filter tools based on capabilities
-        // 3. Return agent info with filtered tool catalog
+        // Filter tools based on client capabilities using Core.RenderToolCatalog
+        var tools = Agent.Harness.Core.RenderToolCatalog(request.ClientCapabilities);
 
-        throw new NotImplementedException(
-            "FakeAgentFactory.InitializeAsync not implemented");
+        var response = new InitializeResponse
+        {
+            ProtocolVersion = 1,
+            AuthMethods = new List<AuthMethod>(),
+            AgentInfo = new AgentInfo
+            {
+                AdditionalProperties = new Dictionary<string, object>
+                {
+                    ["name"] = "FakeAgent",
+                    ["version"] = "1.0.0",
+                },
+            },
+            AgentCapabilities = new AgentCapabilities
+            {
+                LoadSession = false,
+                McpCapabilities = new McpCapabilities { },
+                PromptCapabilities = new PromptCapabilities
+                {
+                    Audio = false,
+                    Image = false,
+                    EmbeddedContext = false,
+                },
+            },
+            AdditionalProperties = new Dictionary<string, object>
+            {
+                ["tools"] = tools.Select(t => new
+                {
+                    name = t.Name,
+                    description = $"Tool: {t.Name}",
+                    inputSchema = t.Schema,
+                }).ToList(),
+            },
+        };
+
+        return Task.FromResult(response);
     }
 
     public Task<NewSessionResponse> NewSessionAsync(
         NewSessionRequest request,
         CancellationToken cancellationToken)
     {
-        // RED: Not implemented yet
-        throw new NotImplementedException(
-            "FakeAgentFactory.NewSessionAsync not implemented");
+        var sessionId = Guid.NewGuid().ToString();
+        return Task.FromResult(new NewSessionResponse
+        {
+            SessionId = sessionId,
+        });
     }
 
     public IAcpSessionAgent CreateSessionAgent(
@@ -385,8 +417,62 @@ internal class FakeAgentFactory : IAcpAgentFactory
         IAcpClientCaller client,
         IAcpSessionEvents events)
     {
-        // RED: Not implemented yet
-        throw new NotImplementedException(
-            "FakeAgentFactory.CreateSessionAgent not implemented");
+        return new FakeSessionAgent(client, events);
     }
 }
+
+/// <summary>
+/// Fake session agent that simulates tool call execution.
+/// </summary>
+internal class FakeSessionAgent : IAcpSessionAgent
+{
+    private readonly IAcpClientCaller _client;
+    private readonly IAcpSessionEvents _events;
+
+    public FakeSessionAgent(IAcpClientCaller client, IAcpSessionEvents events)
+    {
+        _client = client;
+        _events = events;
+    }
+
+    public async Task<PromptResponse> PromptAsync(
+        PromptRequest request,
+        IAcpPromptTurn turn,
+        CancellationToken cancellationToken)
+    {
+        // Simulate a tool call for any prompt containing "Read"
+        var promptText = request.Prompt
+            .OfType<TextContent>()
+            .FirstOrDefault()?.Text ?? "";
+
+        if (promptText.Contains("Read", StringComparison.OrdinalIgnoreCase))
+        {
+            // Start tool call
+            var toolCall = turn.ToolCalls.Start(
+                toolCallId: "call_1",
+                title: "Reading file",
+                kind: new ToolKind(ToolKind.Read));
+
+            // Simulate in-progress
+            await toolCall.InProgressAsync(cancellationToken);
+
+            // Add some content
+            await toolCall.AddContentAsync(new ToolCallContentContent
+            {
+                Content = new TextContent
+                {
+                    Text = "File contents: Hello, world!",
+                },
+            }, cancellationToken);
+
+            // Complete the tool call
+            await toolCall.CompletedAsync(cancellationToken);
+        }
+
+        return new PromptResponse
+        {
+            StopReason = new StopReason(StopReason.EndTurn),
+        };
+    }
+}
+
