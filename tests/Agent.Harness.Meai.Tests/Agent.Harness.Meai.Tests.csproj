@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <IsPackable>false</IsPackable>
@@ -6,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/Agent.Server/Agent.Server.csproj" />
+    <ProjectReference Include="../../src/Agent.Harness.Meai/Agent.Harness.Meai.csproj" />
     <ProjectReference Include="../../src/Agent.Harness/Agent.Harness.csproj" />
   </ItemGroup>
 

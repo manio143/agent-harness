@@ -1,7 +1,8 @@
 using Agent.Harness;
 using Microsoft.Extensions.AI;
+using System.Collections.Generic;
 
-namespace Agent.Server;
+namespace Agent.Harness.Meai;
 
 public static class MeaiToolCallParser
 {
@@ -19,12 +20,12 @@ public static class MeaiToolCallParser
             {
                 // ToolId: provider doesn't always give one; use a deterministic placeholder.
                 // The harness will replace/assign stable ids at the boundary if needed.
-                var toolId = call.Id ?? Guid.NewGuid().ToString("N");
+                var toolId = call.CallId ?? Guid.NewGuid().ToString("N");
 
                 yield return new ObservedToolCallDetected(
                     ToolId: toolId,
                     ToolName: call.Name,
-                    Args: call.Arguments);
+                    Args: call.Arguments ?? new Dictionary<string, object?>());
             }
         }
     }

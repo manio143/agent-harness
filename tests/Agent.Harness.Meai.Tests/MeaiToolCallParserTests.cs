@@ -1,10 +1,15 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using Agent.Harness;
-using Agent.Server;
+using Agent.Harness.Meai;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
+using Xunit;
 
-namespace Agent.Server.Tests;
+namespace Agent.Harness.Meai.Tests;
 
 public sealed class MeaiToolCallParserTests
 {
@@ -33,15 +38,24 @@ public sealed class MeaiToolCallParserTests
 
     private static FunctionCallContent CreateFunctionCallContent(string name, JsonElement arguments)
     {
-        var ctors = typeof(FunctionCallContent).GetConstructors();
+        var callId = "call_1";
+        var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(arguments.GetRawText())
+            ?? new Dictionary<string, object>();
 
-        foreach (var c in ctors)
+        foreach (var c in typeof(FunctionCallContent).GetConstructors())
         {
             var ps = c.GetParameters();
-            // Common shapes: (string name, JsonElement args) OR (string name, string args)
-            if (ps.Length == 2 && ps[0].ParameterType == typeof(string) && ps[1].ParameterType == typeof(JsonElement))
-                return (FunctionCallContent)c.Invoke(new object[] { name, arguments });
 
+            // MEAI 10.4.1: (string callId, string name, IDictionary<string, object> arguments)
+            if (ps.Length == 3
+                && ps[0].ParameterType == typeof(string)
+                && ps[1].ParameterType == typeof(string)
+                && ps[2].ParameterType.IsAssignableFrom(dict.GetType()))
+            {
+                return (FunctionCallContent)c.Invoke(new object[] { callId, name, dict });
+            }
+
+            // Older/alternate shapes (best-effort)
             if (ps.Length == 2 && ps[0].ParameterType == typeof(string) && ps[1].ParameterType == typeof(string))
                 return (FunctionCallContent)c.Invoke(new object[] { name, arguments.GetRawText() });
         }
@@ -49,17 +63,15 @@ public sealed class MeaiToolCallParserTests
         throw new InvalidOperationException("No compatible FunctionCallContent ctor found");
     }
 
-    private static FunctionResultContent CreateFunctionResultContent(string name, AIContent result)
+    private static FunctionResultContent CreateFunctionResultContent(string callId, object result)
     {
-        var ctors = typeof(FunctionResultContent).GetConstructors();
-        foreach (var c in ctors)
+        foreach (var c in typeof(FunctionResultContent).GetConstructors())
         {
             var ps = c.GetParameters();
-            if (ps.Length == 2 && ps[0].ParameterType == typeof(string) && typeof(AIContent).IsAssignableFrom(ps[1].ParameterType))
-                return (FunctionResultContent)c.Invoke(new object[] { name, result });
 
-            if (ps.Length == 2 && ps[0].ParameterType == typeof(string) && ps[1].ParameterType == typeof(string))
-                return (FunctionResultContent)c.Invoke(new object[] { name, (result as TextContent)?.Text ?? "" });
+            // MEAI 10.4.1: (string callId, object result)
+            if (ps.Length == 2 && ps[0].ParameterType == typeof(string) && ps[1].ParameterType == typeof(object))
+                return (FunctionResultContent)c.Invoke(new object[] { callId, result });
         }
 
         throw new InvalidOperationException("No compatible FunctionResultContent ctor found");
@@ -90,7 +102,7 @@ public sealed class MeaiToolCallParserTests
         // In Mode A we treat execution output as ObservedToolCall* events from executors, not from the LLM.
 
         var content = CreateFunctionResultContent(
-            name: "read_text_file",
+            callId: "call_1",
             result: new TextContent("ok"));
 
         var update = CreateUpdateWithContents(content);

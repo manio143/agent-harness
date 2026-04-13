@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Agent.Acp\Agent.Acp.csproj" />
     <ProjectReference Include="..\Agent.Harness\Agent.Harness.csproj" />
+    <ProjectReference Include="..\Agent.Harness.Meai\Agent.Harness.Meai.csproj" />
   </ItemGroup>
 
   <ItemGroup>
