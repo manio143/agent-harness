@@ -28,6 +28,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     private readonly ISessionStore _store;
     private readonly IMcpToolInvoker _mcp;
     private readonly bool _logLlmPrompts;
+    private readonly bool _logObservedEvents;
 
     private SessionState _state;
     private readonly Dictionary<string, IAcpToolCall> _toolCalls = new();
@@ -42,7 +43,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         ISessionStore store,
         SessionState initialState,
         IMcpToolInvoker? mcp = null,
-        bool logLlmPrompts = false)
+        bool logLlmPrompts = false,
+        bool logObservedEvents = false)
     {
         _sessionId = sessionId;
         _client = client;
@@ -54,6 +56,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         _state = initialState;
         _mcp = mcp ?? NullMcpToolInvoker.Instance;
         _logLlmPrompts = logLlmPrompts;
+        _logObservedEvents = logObservedEvents;
     }
 
     public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken)
@@ -80,7 +83,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         var effects = new AcpEffectExecutor(_sessionId, _client, _chat, _mcp, _logLlmPrompts);
         var runner = new SessionRunner(_coreOptions, titleGen, effects);
 
-        var result = await runner.RunTurnAsync(_state, ObservedUserInput(), cancellationToken).ConfigureAwait(false);
+        var result = await runner.RunTurnAsync(_state, ObservedUserInput(), cancellationToken, onObserved: LogObserved).ConfigureAwait(false);
         _state = result.Next;
 
         foreach (var committed in result.NewlyCommitted)
@@ -90,6 +93,18 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         }
 
         return new PromptResponse { StopReason = StopReason.EndTurn };
+    }
+
+    private void LogObserved(ObservedChatEvent e)
+    {
+        if (!_logObservedEvents)
+            return;
+
+        if (_store is not JsonlSessionStore jsonl)
+            return;
+
+        var path = Path.Combine(jsonl.RootDir, _sessionId, "observed.jsonl");
+        File.AppendAllText(path, ObservedEventJson.ToJsonl(e) + "\n");
     }
 
     private async Task PublishCommittedAsync(SessionEvent committed, IAcpPromptTurn turn, CancellationToken cancellationToken)

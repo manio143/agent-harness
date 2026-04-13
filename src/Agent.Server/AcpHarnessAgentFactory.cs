@@ -1,10 +1,12 @@
 using System.Collections.Immutable;
 using System.Text.Json;
 using Agent.Acp.Acp;
+using Agent.Acp.Protocol;
 using Agent.Acp.Schema;
 using Agent.Harness;
 using Agent.Harness.Llm;
 using Agent.Harness.Acp;
+using Agent.Harness.Persistence;
 using Microsoft.Extensions.AI;
 using ModelContextProtocol.Client;
 
@@ -62,7 +64,8 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         // Persist MCP config for reconnects (acpx may restart the agent process between commands and use session/load).
         if (request.McpServers.Count > 0)
         {
-            var mcpConfigPath = Path.Combine(_store.RootDir, sessionId, "mcpServers.json");
+            var rootDir = (_store as JsonlSessionStore)?.RootDir ?? _options.Sessions.Directory;
+            var mcpConfigPath = Path.Combine(rootDir, sessionId, "mcpServers.json");
             var json = JsonSerializer.Serialize(request.McpServers, AcpJson.Options);
             File.WriteAllText(mcpConfigPath, json);
         }
@@ -142,7 +145,8 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         // If this is a fresh process and we only have session replay, attempt to rehydrate MCP config.
         if (mcp.Tools.IsDefaultOrEmpty)
         {
-            var mcpConfigPath = Path.Combine(_store.RootDir, sessionId, "mcpServers.json");
+            var rootDir = (_store as JsonlSessionStore)?.RootDir ?? _options.Sessions.Directory;
+            var mcpConfigPath = Path.Combine(rootDir, sessionId, "mcpServers.json");
             if (File.Exists(mcpConfigPath))
             {
                 try
@@ -165,7 +169,18 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         // Merge MCP tools into the session state tool catalog (built-ins are merged later per client capabilities).
         initial = initial with { Tools = ClientToolCatalog.Merge(initial.Tools, mcp.Tools) };
 
-        return new HarnessAcpSessionAgent(sessionId, client, _chat, events, coreOptions, publishOptions, _store, initial, mcp.Invoker, logLlmPrompts: _options.Logging.LogLlmPrompts);
+        return new HarnessAcpSessionAgent(
+            sessionId,
+            client,
+            _chat,
+            events,
+            coreOptions,
+            publishOptions,
+            _store,
+            initial,
+            mcp.Invoker,
+            logLlmPrompts: _options.Logging.LogLlmPrompts,
+            logObservedEvents: _options.Logging.LogObservedEvents);
     }
 
     public async Task ReplaySessionAsync(string sessionId, IAcpSessionEvents events, CancellationToken cancellationToken)

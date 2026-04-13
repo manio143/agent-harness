@@ -34,6 +34,7 @@ public static partial class TurnRunner
         IEffectExecutor effects,
         CoreOptions? options = null,
         Action<SessionState>? onState = null,
+        Action<ObservedChatEvent>? onObserved = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (initial is null) throw new ArgumentNullException(nameof(initial));
@@ -67,6 +68,8 @@ public static partial class TurnRunner
 
                 next = enumerator.Current;
             }
+
+            onObserved?.Invoke(next);
 
             var reduced = Core.Reduce(state, next, options);
             state = reduced.Next;

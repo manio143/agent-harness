@@ -35,6 +35,12 @@ public sealed class AgentServerOptions
         /// Warning: may include user content and file/tool outputs.
         /// </summary>
         public bool LogLlmPrompts { get; set; } = false;
+
+        /// <summary>
+        /// Opt-in logging of every observed event (including tool intent + tool execution observations)
+        /// into {sessionsDir}/{sessionId}/observed.jsonl.
+        /// </summary>
+        public bool LogObservedEvents { get; set; } = false;
     }
 
     public sealed class CoreOptions

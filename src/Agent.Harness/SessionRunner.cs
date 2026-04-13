@@ -30,7 +30,8 @@ public sealed class SessionRunner
     public async Task<SessionRunnerResult> RunTurnAsync(
         SessionState initial,
         IAsyncEnumerable<ObservedChatEvent> observed,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<ObservedChatEvent>? onObserved = null)
     {
         var newly = ImmutableArray.CreateBuilder<SessionEvent>();
         var state = initial;
@@ -55,6 +56,7 @@ public sealed class SessionRunner
             effects: _effects,
             options: _coreOptions,
             onState: s => state = s,
+            onObserved: onObserved,
             cancellationToken: cancellationToken))
         {
             newly.Add(committed);
