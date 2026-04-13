@@ -62,12 +62,10 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             _toolCalls.Clear();
         }
 
-        // Capability-gated tool catalog: only expose built-in tools that are runnable with the negotiated client capabilities.
-        // If tools were already populated (e.g. session/load replay), keep them.
-        if (_state.Tools.IsDefaultOrEmpty)
-        {
-            _state = _state with { Tools = ClientToolCatalog.BuildBuiltins(_client.ClientCapabilities) };
-        }
+        // Capability-gated tool catalog: built-in tools are derived from negotiated client capabilities.
+        // Merge into any pre-existing tools (e.g. MCP-discovered tools).
+        var builtins = ClientToolCatalog.BuildBuiltins(_client.ClientCapabilities);
+        _state = _state with { Tools = ClientToolCatalog.Merge(_state.Tools, builtins) };
 
         async IAsyncEnumerable<ObservedChatEvent> ObservedUserInput()
         {

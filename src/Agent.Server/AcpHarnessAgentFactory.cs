@@ -1,10 +1,12 @@
+using System.Collections.Immutable;
+using System.Text.Json;
 using Agent.Acp.Acp;
 using Agent.Acp.Schema;
 using Agent.Harness;
 using Agent.Harness.Llm;
 using Agent.Harness.Acp;
 using Microsoft.Extensions.AI;
-
+using ModelContextProtocol.Client;
 
 namespace Agent.Server;
 
@@ -13,6 +15,8 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
     private readonly Microsoft.Extensions.AI.IChatClient _chat;
     private readonly AgentServerOptions _options;
     private readonly Agent.Harness.Persistence.ISessionStore _store;
+
+    private readonly Dictionary<string, (ImmutableArray<ToolDefinition> Tools, IMcpToolInvoker Invoker)> _mcp = new();
 
     public AcpHarnessAgentFactory(Microsoft.Extensions.AI.IChatClient chat, AgentServerOptions options, Agent.Harness.Persistence.ISessionStore store)
     {
@@ -45,7 +49,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         });
     }
 
-    public Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken)
+    public async Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken)
     {
         var sessionId = Guid.NewGuid().ToString();
         _store.CreateNew(sessionId, new Agent.Harness.Persistence.SessionMetadata(
@@ -55,12 +59,22 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             CreatedAtIso: DateTimeOffset.UtcNow.ToString("O"),
             UpdatedAtIso: DateTimeOffset.UtcNow.ToString("O")));
 
-        return Task.FromResult(new NewSessionResponse
+        // MCP discovery (ephemeral per session): connect and eagerly call tools/list.
+        if (request.McpServers.Count > 0)
+        {
+            var discovered = await McpDiscovery.DiscoverAsync(request, cancellationToken).ConfigureAwait(false);
+            lock (_mcp)
+            {
+                _mcp[sessionId] = discovered;
+            }
+        }
+
+        return new NewSessionResponse
         {
             SessionId = sessionId,
             Modes = null,
             ConfigOptions = new List<SessionConfigOption>(),
-        });
+        };
     }
 
     public Task<LoadSessionResponse>? LoadSessionAsync(LoadSessionRequest request, CancellationToken cancellationToken)
@@ -109,7 +123,18 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             ? SessionState.Empty
             : new SessionState(committed, TurnBuffer.Empty);
 
-        return new HarnessAcpSessionAgent(sessionId, client, _chat, events, coreOptions, publishOptions, _store, initial);
+        (ImmutableArray<ToolDefinition> Tools, IMcpToolInvoker Invoker) mcp;
+        lock (_mcp)
+        {
+            mcp = _mcp.TryGetValue(sessionId, out var v)
+                ? v
+                : (ImmutableArray<ToolDefinition>.Empty, NullMcpToolInvoker.Instance);
+        }
+
+        // Merge MCP tools into the session state tool catalog (built-ins are merged later per client capabilities).
+        initial = initial with { Tools = ClientToolCatalog.Merge(initial.Tools, mcp.Tools) };
+
+        return new HarnessAcpSessionAgent(sessionId, client, _chat, events, coreOptions, publishOptions, _store, initial, mcp.Invoker);
     }
 
     public async Task ReplaySessionAsync(string sessionId, IAcpSessionEvents events, CancellationToken cancellationToken)

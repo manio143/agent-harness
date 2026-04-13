@@ -22,4 +22,29 @@ public static class ClientToolCatalog
 
         return b.ToImmutable();
     }
+
+    public static ImmutableArray<ToolDefinition> Merge(ImmutableArray<ToolDefinition> existing, ImmutableArray<ToolDefinition> add)
+    {
+        if (existing.IsDefaultOrEmpty)
+            return add;
+        if (add.IsDefaultOrEmpty)
+            return existing;
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var b = ImmutableArray.CreateBuilder<ToolDefinition>(existing.Length + add.Length);
+
+        foreach (var t in existing)
+        {
+            if (seen.Add(t.Name))
+                b.Add(t);
+        }
+
+        foreach (var t in add)
+        {
+            if (seen.Add(t.Name))
+                b.Add(t);
+        }
+
+        return b.ToImmutable();
+    }
 }
