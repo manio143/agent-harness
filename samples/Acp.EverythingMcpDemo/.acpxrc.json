@@ -1,0 +1,16 @@
+{
+  "agents": {
+    "marian-agent": {
+      "command": "dotnet /home/node/.openclaw/workspace/marian-agent/src/Agent.Server/bin/Release/net8.0/Agent.Server.dll"
+    }
+  },
+  "defaultAgent": "marian-agent",
+  "mcpServers": [
+    {
+      "type": "stdio",
+      "name": "everything",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-everything"]
+    }
+  ]
+}

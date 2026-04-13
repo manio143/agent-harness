@@ -59,7 +59,15 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             CreatedAtIso: DateTimeOffset.UtcNow.ToString("O"),
             UpdatedAtIso: DateTimeOffset.UtcNow.ToString("O")));
 
-        // MCP discovery (ephemeral per session): connect and eagerly call tools/list.
+        // Persist MCP config for reconnects (acpx may restart the agent process between commands and use session/load).
+        if (request.McpServers.Count > 0)
+        {
+            var mcpConfigPath = Path.Combine(_store.RootDir, sessionId, "mcpServers.json");
+            var json = JsonSerializer.Serialize(request.McpServers, AcpJson.Options);
+            File.WriteAllText(mcpConfigPath, json);
+        }
+
+        // MCP discovery (ephemeral connections per session): connect and eagerly call tools/list.
         if (request.McpServers.Count > 0)
         {
             var discovered = await McpDiscovery.DiscoverAsync(request, cancellationToken).ConfigureAwait(false);
@@ -121,7 +129,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         var committed = _store.LoadCommitted(sessionId);
         var initial = committed.IsDefaultOrEmpty
             ? SessionState.Empty
-            : new SessionState(committed, TurnBuffer.Empty);
+            : new SessionState(committed, TurnBuffer.Empty, ImmutableArray<ToolDefinition>.Empty);
 
         (ImmutableArray<ToolDefinition> Tools, IMcpToolInvoker Invoker) mcp;
         lock (_mcp)
@@ -129,6 +137,29 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             mcp = _mcp.TryGetValue(sessionId, out var v)
                 ? v
                 : (ImmutableArray<ToolDefinition>.Empty, NullMcpToolInvoker.Instance);
+        }
+
+        // If this is a fresh process and we only have session replay, attempt to rehydrate MCP config.
+        if (mcp.Tools.IsDefaultOrEmpty)
+        {
+            var mcpConfigPath = Path.Combine(_store.RootDir, sessionId, "mcpServers.json");
+            if (File.Exists(mcpConfigPath))
+            {
+                try
+                {
+                    var json = File.ReadAllText(mcpConfigPath);
+                    var servers = JsonSerializer.Deserialize<List<McpServer>>(json, AcpJson.Options) ?? new List<McpServer>();
+                    if (servers.Count > 0)
+                    {
+                        var req = new NewSessionRequest { Cwd = _store.TryLoadMetadata(sessionId)?.Cwd ?? "/", McpServers = servers };
+                        mcp = McpDiscovery.DiscoverAsync(req, CancellationToken.None).GetAwaiter().GetResult();
+                    }
+                }
+                catch
+                {
+                    // Best-effort: if MCP rehydrate fails, proceed without MCP.
+                }
+            }
         }
 
         // Merge MCP tools into the session state tool catalog (built-ins are merged later per client capabilities).
