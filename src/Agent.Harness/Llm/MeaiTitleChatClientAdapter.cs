@@ -1,7 +1,7 @@
 using Agent.Harness;
 using Microsoft.Extensions.AI;
 
-namespace Agent.Server;
+namespace Agent.Harness.Llm;
 
 /// <summary>
 /// Adapts MEAI IChatClient (OpenAI-compatible) to the harness IChatClient abstraction for title generation.

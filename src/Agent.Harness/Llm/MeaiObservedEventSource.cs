@@ -31,6 +31,12 @@ public static class MeaiObservedEventSource
                             if (!string.IsNullOrEmpty(rc.Text))
                                 yield return new Agent.Harness.ObservedReasoningTextDelta(rc.Text) { RawUpdate = u };
                             break;
+
+                        // Mode A: tool-call intent is surfaced as a FunctionCallContent in the model stream.
+                        case FunctionCallContent:
+                            foreach (var evt in MeaiToolCallParser.Parse(u))
+                                yield return evt;
+                            break;
                     }
                 }
             }

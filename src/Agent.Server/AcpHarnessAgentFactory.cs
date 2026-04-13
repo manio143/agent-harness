@@ -5,10 +5,6 @@ using Agent.Harness.Llm;
 using Agent.Harness.Acp;
 using Microsoft.Extensions.AI;
 
-using HarnessChatMessage = Agent.Harness.ChatMessage;
-using HarnessChatRole = Agent.Harness.ChatRole;
-using MeaiChatMessage = Microsoft.Extensions.AI.ChatMessage;
-using MeaiChatRole = Microsoft.Extensions.AI.ChatRole;
 
 namespace Agent.Server;
 
@@ -113,7 +109,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             ? SessionState.Empty
             : new SessionState(committed, TurnBuffer.Empty);
 
-        return new MeaiAcpSessionAgent(sessionId, _chat, events, coreOptions, publishOptions, _store, initial);
+        return new HarnessAcpSessionAgent(sessionId, _chat, events, coreOptions, publishOptions, _store, initial);
     }
 
     public async Task ReplaySessionAsync(string sessionId, IAcpSessionEvents events, CancellationToken cancellationToken)
@@ -152,116 +148,4 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         }
     }
 
-    private sealed class MeaiAcpSessionAgent : IAcpSessionAgent
-    {
-        private readonly string _sessionId;
-        private readonly Microsoft.Extensions.AI.IChatClient _chat;
-        private readonly IAcpSessionEvents _events;
-        private readonly CoreOptions _coreOptions;
-        private readonly AcpPublishOptions _publishOptions;
-        private readonly Agent.Harness.Persistence.ISessionStore _store;
-
-        private SessionState _state;
-
-        public MeaiAcpSessionAgent(
-            string sessionId,
-            Microsoft.Extensions.AI.IChatClient chat,
-            IAcpSessionEvents events,
-            CoreOptions coreOptions,
-            AcpPublishOptions publishOptions,
-            Agent.Harness.Persistence.ISessionStore store,
-            SessionState initialState)
-        {
-            _sessionId = sessionId;
-            _chat = chat;
-            _events = events;
-            _coreOptions = coreOptions;
-            _publishOptions = publishOptions;
-            _store = store;
-            _state = initialState;
-        }
-
-        public Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken)
-        {
-            // Build an observed stream consisting of:
-            // - the user's message
-            // - the model's streaming updates (assistant text + optional reasoning)
-            async IAsyncEnumerable<ObservedChatEvent> Observed(PromptRequest req)
-            {
-                var userText = ExtractUserText(req);
-                yield return new ObservedUserMessage(userText);
-
-                // Render history for the model from committed events.
-                var rendered = Core.RenderPrompt(_state);
-                var meaiMessages = rendered
-                    .Select(m => new MeaiChatMessage(m.Role switch
-                    {
-                        HarnessChatRole.User => MeaiChatRole.User,
-                        HarnessChatRole.Assistant => MeaiChatRole.Assistant,
-                        _ => MeaiChatRole.System,
-                    }, m.Text))
-                    .ToList();
-
-                var updates = _chat.GetStreamingResponseAsync(meaiMessages, cancellationToken: cancellationToken);
-
-                await foreach (var o in MeaiObservedEventSource.FromStreamingResponse(updates, cancellationToken))
-                    yield return o;
-            }
-
-            return RunTurnAsync(request, Observed(request), cancellationToken);
-        }
-
-        private async Task<PromptResponse> RunTurnAsync(
-            PromptRequest request,
-            IAsyncEnumerable<ObservedChatEvent> observed,
-            CancellationToken cancellationToken)
-        {
-            var titleGen = new Agent.Harness.TitleGeneration.SessionTitleGenerator(new MeaiTitleChatClientAdapter(_chat));
-            var runner = new Agent.Harness.SessionRunner(_coreOptions, titleGen);
-
-            var result = await runner.RunTurnAsync(_state, observed, cancellationToken).ConfigureAwait(false);
-            _state = result.Next;
-
-            foreach (var committed in result.NewlyCommitted)
-            {
-                _store.AppendCommitted(_sessionId, committed);
-
-                switch (committed)
-                {
-                    case AssistantMessage a:
-                        if (!_coreOptions.CommitAssistantTextDeltas)
-                        {
-                            await _events.SendSessionUpdateAsync(new AgentMessageChunk
-                            {
-                                Content = new Agent.Acp.Schema.TextContent { Text = a.Text },
-                            }, cancellationToken).ConfigureAwait(false);
-                        }
-                        break;
-
-                    case AssistantTextDelta d:
-                        await _events.SendSessionUpdateAsync(new AgentMessageChunk
-                        {
-                            Content = new Agent.Acp.Schema.TextContent { Text = d.TextDelta },
-                        }, cancellationToken).ConfigureAwait(false);
-                        break;
-
-                    case ReasoningTextDelta r when _publishOptions.PublishReasoning:
-                        await _events.SendSessionUpdateAsync(new AgentThoughtChunk
-                        {
-                            Content = new Agent.Acp.Schema.TextContent { Text = r.TextDelta },
-                        }, cancellationToken).ConfigureAwait(false);
-                        break;
-                }
-            }
-
-            return new PromptResponse { StopReason = StopReason.EndTurn };
-        }
-
-        private static string ExtractUserText(PromptRequest request)
-        {
-            var first = request.Prompt.FirstOrDefault();
-            if (first is Agent.Acp.Schema.TextContent t) return t.Text;
-            return "";
-        }
-    }
 }

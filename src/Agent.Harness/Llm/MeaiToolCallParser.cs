@@ -25,7 +25,10 @@ public static class MeaiToolCallParser
                 yield return new ObservedToolCallDetected(
                     ToolId: toolId,
                     ToolName: call.Name,
-                    Args: call.Arguments ?? new Dictionary<string, object?>());
+                    Args: call.Arguments ?? new Dictionary<string, object?>())
+                {
+                    RawUpdate = update,
+                };
             }
         }
     }
