@@ -148,6 +148,22 @@ This document captures the *locked* decisions made while implementing Tool Calli
 - The harness owns the control-loop evolution needed for Mode A (tool call intent → execute → re-prompt).
 - MEAI types are allowed in the harness shell, but remain out of the reducer/core.
 
+## D12 — Mode A multi-call turn loop (re-prompt after tool completion)
+
+**Problem:** In Mode A, the model often emits only tool-call intent first, then expects the host to execute the tool and re-prompt with tool results. A single model call per ACP prompt is insufficient.
+
+**Decision:** The harness runs a **bounded loop** inside a single ACP `session/prompt`:
+- call model → normalize streaming updates to observed events → reducer/effects executes tool(s)
+- if at least one tool call reaches a terminal state (completed/failed/rejected/cancelled) and no assistant message was produced yet, re-prompt the model using updated committed history
+- cap the number of model calls per prompt (MVP safety) to prevent infinite loops
+
+**Current implementation:** `HarnessAcpSessionAgent` re-prompts up to 5 times.
+
+**Rationale:**
+- Keeps “when to call the model” in the harness.
+- Enables a functional Mode A tool calling UX without adding a provider-specific middleware.
+- Bound keeps failure modes deterministic and prevents runaway costs.
+
 ---
 
 ## Test/Implementation notes
