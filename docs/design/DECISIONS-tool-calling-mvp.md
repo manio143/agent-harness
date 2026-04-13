@@ -128,23 +128,25 @@ This document captures the *locked* decisions made while implementing Tool Calli
 
 **Decision:**
 - `Agent.Harness` is split into:
-  - **Functional core**: reducer/state/committed events/effects contracts. No MEAI types.
-  - **Imperative shell adapters**: boundary-specific adapters that translate external provider/protocol representations into harness `ObservedChatEvent`s.
+  - **Functional core**: reducer/state/committed events/effects contracts.
+  - **Imperative shell**: MEAI streaming integration + normalization into `ObservedChatEvent`s.
 - `Agent.Server` is the **composition root / executable host**:
-  - wires concrete LLM provider implementations (OpenAI/Ollama via MEAI)
-  - wires ACP transport + config + logging
-  - references harness shell adapter packages, but does not own provider parsing logic.
+  - provides the concrete `Microsoft.Extensions.AI.IChatClient` implementation (OpenAI/Ollama/etc)
+  - hosts ACP JSON-RPC transport + config + logging
 
-**Concretely:** MEAI parsing/normalization lives in `Agent.Harness.Meai` (shell adapter project), not `Agent.Server`.
+**Concretely (current code):**
+- MEAI normalization lives in `Agent.Harness` under `src/Agent.Harness/Llm/*`.
+- LLM calling is performed by the harness-owned ACP session agent (`HarnessAcpSessionAgent`) which depends directly on `Microsoft.Extensions.AI.IChatClient`.
 
 **Rationale:**
-- Preserves portability of the harness core and keeps it provider-neutral.
-- Prevents `Agent.Server` from becoming a “god module” that accumulates boundary translation logic.
-- Allows reuse of the MEAI boundary adapter by other hosts (tests, alternative servers) without copy/paste.
+- The harness **cannot function without an LLM** and MEAI is the chosen abstraction; we embrace it in the shell.
+- Keeping “when to call the model” in the harness avoids a server-owned control loop that would need to be rewritten as tool calling expands (multi-call turns).
+- Avoids over-abstracting the model call: we normalize MEAI *responses* (stream → observed events) but don’t hide the model invocation behind an extra interface.
 
 **Consequences:**
-- Adding a new provider means adding a new harness *shell adapter* (e.g. `Agent.Harness.Anthropic`) rather than changing the core or bloating the server.
-- Tool-call intent is normalized at the boundary into `ObservedToolCallDetected` (Mode A), then handled by the reducer like any other observed event.
+- The server becomes thin wiring: swap model providers by swapping the registered `IChatClient`.
+- The harness owns the control-loop evolution needed for Mode A (tool call intent → execute → re-prompt).
+- MEAI types are allowed in the harness shell, but remain out of the reducer/core.
 
 ---
 
