@@ -1,0 +1,105 @@
+using System.Collections.Immutable;
+using Agent.Harness;
+using Agent.Harness.TitleGeneration;
+using FluentAssertions;
+
+namespace Agent.Harness.Tests;
+
+public sealed class ModeATurnIntegrationTests
+{
+    [Fact]
+    public async Task RunTurnAsync_ModeA_ToolIntent_ExecutesTool_RePrompts_And_EndsTurn()
+    {
+        // WHY THIS IS AN INVARIANT:
+        // In Mode A, the model may emit only tool-call intent first. The harness must:
+        // - commit user message
+        // - CallModel
+        // - detect tool intent -> permission -> execute tool
+        // - CallModel again
+        // - commit assistant output
+        // - commit TurnEnded when stabilized
+
+        var state = SessionState.Empty with
+        {
+            Tools = ImmutableArray.Create(ToolSchemas.ReadTextFile),
+        };
+
+        var effects = new ScriptedEffectExecutor();
+        var runner = new SessionRunner(new CoreOptions(), new SessionTitleGenerator(new NullChatClient()), effects);
+
+        async IAsyncEnumerable<ObservedChatEvent> Observed()
+        {
+            yield return new ObservedUserMessage("Read /tmp/a.txt");
+        }
+
+        var result = await runner.RunTurnAsync(state, Observed(), CancellationToken.None);
+
+        // We should start and end the turn via core-committed events.
+        Assert.Contains(result.NewlyCommitted, e => e is TurnStarted);
+        Assert.Contains(result.NewlyCommitted, e => e is TurnEnded);
+
+        // Tool lifecycle committed.
+        Assert.Contains(result.NewlyCommitted, e => e is ToolCallRequested { ToolId: "call_1", ToolName: "read_text_file" });
+        Assert.Contains(result.NewlyCommitted, e => e is ToolCallPermissionApproved { ToolId: "call_1" });
+        Assert.Contains(result.NewlyCommitted, e => e is ToolCallPending { ToolId: "call_1" });
+        Assert.Contains(result.NewlyCommitted, e => e is ToolCallCompleted { ToolId: "call_1" });
+
+        // Assistant output committed after the second model call.
+        Assert.Contains(result.NewlyCommitted, e => e is AssistantMessage { Text: "Done." });
+
+        // Effects executed in the expected Mode A order.
+        effects.Executed.Select(e => e.GetType()).Should().ContainInOrder(
+            typeof(CallModel),
+            typeof(CheckPermission),
+            typeof(ExecuteToolCall),
+            typeof(CallModel));
+    }
+
+    private sealed class ScriptedEffectExecutor : IEffectExecutor
+    {
+        private int _modelCalls;
+        public List<Effect> Executed { get; } = new();
+
+        public Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
+        {
+            Executed.Add(effect);
+
+            return effect switch
+            {
+                CallModel => Task.FromResult(ModelStep()),
+
+                CheckPermission p => Task.FromResult(ImmutableArray.Create<ObservedChatEvent>(
+                    new ObservedPermissionApproved(p.ToolId, "capability_present"))),
+
+                ExecuteToolCall t => Task.FromResult(ImmutableArray.Create<ObservedChatEvent>(
+                    new ObservedToolCallProgressUpdate(t.ToolId, new { text = "running" }),
+                    new ObservedToolCallCompleted(t.ToolId, new { content = "hello" }))),
+
+                _ => Task.FromResult(ImmutableArray<ObservedChatEvent>.Empty),
+            };
+        }
+
+        private ImmutableArray<ObservedChatEvent> ModelStep()
+        {
+            _modelCalls++;
+
+            // First model call: tool intent only.
+            if (_modelCalls == 1)
+            {
+                return ImmutableArray.Create<ObservedChatEvent>(
+                    new ObservedToolCallDetected("call_1", "read_text_file", new { path = "/tmp/a.txt" }));
+            }
+
+            // Second model call: final assistant message.
+            return ImmutableArray.Create<ObservedChatEvent>(
+                new ObservedAssistantTextDelta("Done."),
+                new ObservedAssistantMessageCompleted());
+        }
+    }
+
+    private sealed class NullChatClient : IChatClient
+    {
+        public Task<string> CompleteAsync(IReadOnlyList<ChatMessage> renderedMessages, CancellationToken cancellationToken)
+            => Task.FromResult("");
+    }
+}
