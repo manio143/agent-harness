@@ -23,7 +23,7 @@ public sealed class AcpEffectExecutorTests
         };
 
         var chat = new RecordingMeaiChatClient();
-        var exec = new AcpEffectExecutor(new FakeClientCaller(), chat);
+        var exec = new AcpEffectExecutor("sess1", new FakeClientCaller(), chat);
 
         var observed = await exec.ExecuteAsync(state, new CallModel(), CancellationToken.None);
         observed.Should().NotBeNull();
