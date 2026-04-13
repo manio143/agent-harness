@@ -66,7 +66,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         }
 
         var titleGen = new SessionTitleGenerator(new Llm.MeaiTitleChatClientAdapter(_chat));
-        var effects = new AcpEffectExecutor(_client, _chat);
+        var effects = new AcpEffectExecutor(_sessionId, _client, _chat);
         var runner = new SessionRunner(_coreOptions, titleGen, effects);
 
         var result = await runner.RunTurnAsync(_state, ObservedUserInput(), cancellationToken).ConfigureAwait(false);

@@ -11,11 +11,13 @@ namespace Agent.Harness.Acp;
 
 public sealed class AcpEffectExecutor : IEffectExecutor
 {
+    private readonly string _sessionId;
     private readonly IAcpClientCaller _client;
     private readonly MeaiIChatClient _chat;
 
-    public AcpEffectExecutor(IAcpClientCaller client, MeaiIChatClient chat)
+    public AcpEffectExecutor(string sessionId, IAcpClientCaller client, MeaiIChatClient chat)
     {
+        _sessionId = sessionId;
         _client = client;
         _chat = chat;
     }
@@ -79,7 +81,7 @@ public sealed class AcpEffectExecutor : IEffectExecutor
             case "read_text_file":
             {
                 var path = GetRequiredString(args, "path");
-                var resp = await _client.ReadTextFileAsync(new Agent.Acp.Schema.ReadTextFileRequest { Path = path }, cancellationToken)
+                var resp = await _client.ReadTextFileAsync(new Agent.Acp.Schema.ReadTextFileRequest { SessionId = _sessionId, Path = path }, cancellationToken)
                     .ConfigureAwait(false);
                 return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, new { content = resp.Content }));
             }
@@ -88,7 +90,7 @@ public sealed class AcpEffectExecutor : IEffectExecutor
             {
                 var path = GetRequiredString(args, "path");
                 var content = GetRequiredString(args, "content");
-                await _client.WriteTextFileAsync(new Agent.Acp.Schema.WriteTextFileRequest { Path = path, Content = content }, cancellationToken)
+                await _client.WriteTextFileAsync(new Agent.Acp.Schema.WriteTextFileRequest { SessionId = _sessionId, Path = path, Content = content }, cancellationToken)
                     .ConfigureAwait(false);
                 return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, new { ok = true }));
             }
@@ -97,14 +99,14 @@ public sealed class AcpEffectExecutor : IEffectExecutor
             {
                 var command = GetRequiredString(args, "command");
 
-                var created = await _client.CreateTerminalAsync(new Agent.Acp.Schema.CreateTerminalRequest { Command = command }, cancellationToken)
+                var created = await _client.CreateTerminalAsync(new Agent.Acp.Schema.CreateTerminalRequest { SessionId = _sessionId, Command = command }, cancellationToken)
                     .ConfigureAwait(false);
 
                 // MVP: wait for exit then pull output.
-                await _client.WaitForTerminalExitAsync(new Agent.Acp.Schema.WaitForTerminalExitRequest { TerminalId = created.TerminalId }, cancellationToken)
+                await _client.WaitForTerminalExitAsync(new Agent.Acp.Schema.WaitForTerminalExitRequest { SessionId = _sessionId, TerminalId = created.TerminalId }, cancellationToken)
                     .ConfigureAwait(false);
 
-                var output = await _client.GetTerminalOutputAsync(new Agent.Acp.Schema.TerminalOutputRequest { TerminalId = created.TerminalId }, cancellationToken)
+                var output = await _client.GetTerminalOutputAsync(new Agent.Acp.Schema.TerminalOutputRequest { SessionId = _sessionId, TerminalId = created.TerminalId }, cancellationToken)
                     .ConfigureAwait(false);
 
                 return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, new
