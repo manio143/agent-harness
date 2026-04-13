@@ -33,6 +33,58 @@ public sealed record SessionTitleSet(string Title) : SessionEvent;
 /// </summary>
 public sealed record ModelInvoked(ImmutableArray<ChatMessage> RenderedMessages) : SessionEvent;
 
+// --- Tool Call Events ---
+// Invariant: These events are committed by the reducer after observing tool call lifecycle events.
+// They form the stable, reproducible record of tool execution.
+
+/// <summary>
+/// Tool call detected and permission check requested.
+/// Invariant: This commits the intent to call a tool; permission must be checked before execution.
+/// </summary>
+public sealed record ToolCallRequested(string ToolId, string ToolName, object Args) : SessionEvent;
+
+/// <summary>
+/// Tool call permission approved and queued for execution.
+/// Invariant: This state is reached only after permission granted; execution effect emitted.
+/// </summary>
+public sealed record ToolCallPending(string ToolId) : SessionEvent;
+
+/// <summary>
+/// Tool call execution started.
+/// Invariant: Execution has begun; further updates expected.
+/// </summary>
+public sealed record ToolCallInProgress(string ToolId) : SessionEvent;
+
+/// <summary>
+/// Incremental tool call output/progress update.
+/// Invariant: These are additive; ACP publishes as tool_call_update content appends.
+/// </summary>
+public sealed record ToolCallUpdateCommitted(string ToolId, object Content) : SessionEvent;
+
+/// <summary>
+/// Tool call completed successfully.
+/// Invariant: Terminal state; no further updates allowed for this tool call.
+/// </summary>
+public sealed record ToolCallCompleted(string ToolId, object Result) : SessionEvent;
+
+/// <summary>
+/// Tool call failed during execution.
+/// Invariant: Terminal state; failure is observable and doesn't crash session.
+/// </summary>
+public sealed record ToolCallFailed(string ToolId, string Error) : SessionEvent;
+
+/// <summary>
+/// Tool call rejected by user/permission policy.
+/// Invariant: Terminal state; tool never executed.
+/// </summary>
+public sealed record ToolCallRejected(string ToolId, string Reason) : SessionEvent;
+
+/// <summary>
+/// Tool call cancelled (e.g., turn cancellation).
+/// Invariant: Terminal state; execution aborted cleanly.
+/// </summary>
+public sealed record ToolCallCancelled(string ToolId) : SessionEvent;
+
 public enum ChatRole
 {
     System,

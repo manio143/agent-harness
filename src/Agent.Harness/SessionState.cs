@@ -21,4 +21,5 @@ public sealed record TurnBuffer(
 
 public sealed record ReduceResult(
     SessionState Next,
-    ImmutableArray<SessionEvent> NewlyCommitted);
+    ImmutableArray<SessionEvent> NewlyCommitted,
+    ImmutableArray<Effect> Effects);  // NEW: Effects emitted by reducer for SessionRunner to execute

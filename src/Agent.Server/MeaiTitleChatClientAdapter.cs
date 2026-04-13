@@ -20,8 +20,8 @@ public sealed class MeaiTitleChatClientAdapter : Agent.Harness.IChatClient
         var meai = renderedMessages
             .Select(m => new Microsoft.Extensions.AI.ChatMessage(m.Role switch
             {
-                ChatRole.System => Microsoft.Extensions.AI.ChatRole.System,
-                ChatRole.User => Microsoft.Extensions.AI.ChatRole.User,
+                Agent.Harness.ChatRole.System => Microsoft.Extensions.AI.ChatRole.System,
+                Agent.Harness.ChatRole.User => Microsoft.Extensions.AI.ChatRole.User,
                 _ => Microsoft.Extensions.AI.ChatRole.Assistant,
             }, m.Text))
             .ToList();
