@@ -57,8 +57,20 @@ public static class Core
 
         switch (evt)
         {
+            case ObservedTurnStarted:
+                return Commit(state, new TurnStarted());
+
             case ObservedUserMessage m:
-                return Commit(state, new UserMessage(m.Text));
+            {
+                // Commit the message AND request a model call.
+                var msgEvt = new UserMessage(m.Text);
+                var committedMsg = state.Committed.Add(msgEvt);
+                var next = state with { Committed = committedMsg };
+                return new ReduceResult(
+                    next,
+                    ImmutableArray.Create<SessionEvent>(msgEvt),
+                    ImmutableArray.Create<Effect>(new CallModel()));
+            }
 
             case ObservedAssistantTextDelta d:
             {
@@ -102,6 +114,9 @@ public static class Core
             case ObservedAssistantMessageCompleted:
                 return FlushAssistant(state);
 
+            case ObservedTurnStabilized:
+                return Commit(state, new TurnEnded());
+
             // --- Tool Call Lifecycle Observations ---
 
             case ObservedToolCallDetected detected:
@@ -113,7 +128,10 @@ public static class Core
                     var rejected = new ToolCallRejected(detected.ToolId, "unknown_tool", ImmutableArray.Create("unknown_tool"));
                     var committedRej = state.Committed.Add(rejected);
                     var nextRej = state with { Committed = committedRej };
-                    return new ReduceResult(nextRej, ImmutableArray.Create<SessionEvent>(rejected), ImmutableArray<Effect>.Empty);
+                    return new ReduceResult(
+                        nextRej,
+                        ImmutableArray.Create<SessionEvent>(rejected),
+                        ImmutableArray.Create<Effect>(new CallModel()));
                 }
 
                 var errors = ToolArgValidator.Validate(tool.InputSchema, detected.Args);
@@ -122,7 +140,10 @@ public static class Core
                     var rejected = new ToolCallRejected(detected.ToolId, "invalid_args", errors);
                     var committedRej = state.Committed.Add(rejected);
                     var nextRej = state with { Committed = committedRej };
-                    return new ReduceResult(nextRej, ImmutableArray.Create<SessionEvent>(rejected), ImmutableArray<Effect>.Empty);
+                    return new ReduceResult(
+                        nextRej,
+                        ImmutableArray.Create<SessionEvent>(rejected),
+                        ImmutableArray.Create<Effect>(new CallModel()));
                 }
 
                 // Commit ToolCallRequested and emit CheckPermission effect
@@ -172,7 +193,7 @@ public static class Core
 
             case ObservedPermissionDenied denied:
             {
-                // Commit ToolCallPermissionDenied + ToolCallRejected with no effects
+                // Commit ToolCallPermissionDenied + ToolCallRejected with no execution, then request a model call.
                 var deniedEvt = new ToolCallPermissionDenied(denied.ToolId, denied.Reason);
                 var rejected = new ToolCallRejected(denied.ToolId, denied.Reason, ImmutableArray<string>.Empty);
                 var committed = state.Committed.Add(deniedEvt).Add(rejected);
@@ -181,7 +202,7 @@ public static class Core
                 return new ReduceResult(
                     next,
                     ImmutableArray.Create<SessionEvent>(deniedEvt, rejected),
-                    ImmutableArray<Effect>.Empty);
+                    ImmutableArray.Create<Effect>(new CallModel()));
             }
 
             case ObservedToolCallProgressUpdate progress:
@@ -218,41 +239,41 @@ public static class Core
 
             case ObservedToolCallCompleted completed:
             {
-                // Commit ToolCallCompleted (terminal state)
+                // Commit ToolCallCompleted (terminal state) then request a model call.
                 var completedEvent = new ToolCallCompleted(completed.ToolId, JsonSerializer.SerializeToElement(completed.Result));
                 var committed = state.Committed.Add(completedEvent);
                 var next = state with { Committed = committed };
-                
+
                 return new ReduceResult(
                     next,
                     ImmutableArray.Create<SessionEvent>(completedEvent),
-                    ImmutableArray<Effect>.Empty);
+                    ImmutableArray.Create<Effect>(new CallModel()));
             }
 
             case ObservedToolCallFailed failed:
             {
-                // Commit ToolCallFailed (terminal state)
+                // Commit ToolCallFailed (terminal state) then request a model call.
                 var failedEvent = new ToolCallFailed(failed.ToolId, failed.Error);
                 var committed = state.Committed.Add(failedEvent);
                 var next = state with { Committed = committed };
-                
+
                 return new ReduceResult(
                     next,
                     ImmutableArray.Create<SessionEvent>(failedEvent),
-                    ImmutableArray<Effect>.Empty);
+                    ImmutableArray.Create<Effect>(new CallModel()));
             }
 
             case ObservedToolCallCancelled cancelled:
             {
-                // Commit ToolCallCancelled (terminal state)
+                // Commit ToolCallCancelled (terminal state) then request a model call.
                 var cancelledEvent = new ToolCallCancelled(cancelled.ToolId);
                 var committed = state.Committed.Add(cancelledEvent);
                 var next = state with { Committed = committed };
-                
+
                 return new ReduceResult(
                     next,
                     ImmutableArray.Create<SessionEvent>(cancelledEvent),
-                    ImmutableArray<Effect>.Empty);
+                    ImmutableArray.Create<Effect>(new CallModel()));
             }
 
             default:

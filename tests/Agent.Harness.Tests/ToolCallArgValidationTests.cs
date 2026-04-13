@@ -6,7 +6,7 @@ namespace Agent.Harness.Tests;
 public class ToolCallArgValidationTests
 {
     [Fact]
-    public void ToolCallDetected_WithMissingRequiredArg_IsRejected_WithDetails_And_NoEffects()
+    public void ToolCallDetected_WithMissingRequiredArg_IsRejected_WithDetails_And_Requests_ModelCall()
     {
         // WHY THIS IS AN INVARIANT:
         // Tool availability is ephemeral per session; the core must be able to reject invalid calls
@@ -29,11 +29,11 @@ public class ToolCallArgValidationTests
         Assert.Equal("invalid_args", rejected.Reason);
         Assert.Contains("missing_required:path", rejected.Details);
 
-        Assert.Empty(result.Effects);
+        Assert.Single(result.Effects.OfType<CallModel>());
     }
 
     [Fact]
-    public void ToolCallDetected_WithTypeMismatch_IsRejected_WithDetails_And_NoEffects()
+    public void ToolCallDetected_WithTypeMismatch_IsRejected_WithDetails_And_Requests_ModelCall()
     {
         var initial = new SessionState(
             Committed: ImmutableArray<SessionEvent>.Empty,
@@ -51,6 +51,6 @@ public class ToolCallArgValidationTests
         Assert.Equal("invalid_args", rejected.Reason);
         Assert.Contains("type_mismatch:path:string", rejected.Details);
 
-        Assert.Empty(result.Effects);
+        Assert.Single(result.Effects.OfType<CallModel>());
     }
 }

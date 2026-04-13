@@ -131,8 +131,9 @@ public class ToolCallReducerTests
         // ASSERT: NO ExecuteToolCall effect
         Assert.DoesNotContain(result.Effects, eff => eff is ExecuteToolCall);
 
-        // ASSERT: Effects should be empty
-        Assert.Empty(result.Effects);
+        // ASSERT: No execution effect, but we request a follow-up model call (Mode A recovery)
+        Assert.DoesNotContain(result.Effects, eff => eff is ExecuteToolCall);
+        Assert.Single(result.Effects.OfType<CallModel>());
     }
 
     /// <summary>
@@ -282,8 +283,8 @@ public class ToolCallReducerTests
             failed.ToolId == "call_1" &&
             failed.Error == "File not found: /nonexistent.txt");
 
-        // ASSERT: No effects (failure is terminal)
-        Assert.Empty(result.Effects);
+        // ASSERT: Terminal state commits and requests a follow-up model call.
+        Assert.Single(result.Effects.OfType<CallModel>());
     }
 
     /// <summary>
@@ -316,8 +317,8 @@ public class ToolCallReducerTests
             evt is ToolCallCancelled cancelled &&
             cancelled.ToolId == "call_1");
 
-        // ASSERT: Terminal state, no further effects
-        Assert.Empty(result.Effects);
+        // ASSERT: Terminal state commits and requests a follow-up model call.
+        Assert.Single(result.Effects.OfType<CallModel>());
     }
 }
 

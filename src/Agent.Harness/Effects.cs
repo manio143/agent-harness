@@ -28,4 +28,12 @@ public sealed record ExecuteToolCall(
     object Args) : Effect;
 
 /// <summary>
+/// Request the next model streaming response.
+///
+/// The SessionRunner should render the prompt via <see cref="Core.RenderPrompt"/> using the latest state,
+/// then call the MEAI <c>IChatClient</c> and translate streamed updates into observed events.
+/// </summary>
+public sealed record CallModel() : Effect;
+
+/// <summary>
 

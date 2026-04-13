@@ -14,6 +14,10 @@ public abstract record ObservedChatEvent
     public object? RawUpdate { get; init; }
 }
 
+public sealed record ObservedTurnStarted() : ObservedChatEvent;
+
+public sealed record ObservedTurnStabilized() : ObservedChatEvent;
+
 public sealed record ObservedUserMessage(string Text) : ObservedChatEvent;
 
 public sealed record ObservedAssistantTextDelta(string Text) : ObservedChatEvent;

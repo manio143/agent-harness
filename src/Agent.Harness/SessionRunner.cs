@@ -35,6 +35,14 @@ public sealed class SessionRunner
         var newly = ImmutableArray.CreateBuilder<SessionEvent>();
         var state = initial;
 
+        async IAsyncEnumerable<ObservedChatEvent> WithTurnMarkers()
+        {
+            yield return new ObservedTurnStarted();
+
+            await foreach (var o in observed.WithCancellation(cancellationToken))
+                yield return o;
+        }
+
         // Run the turn as a reducer/effects loop:
         // - consume observed events
         // - reduce -> commit + effects
@@ -43,7 +51,7 @@ public sealed class SessionRunner
         // Invariant: only committed events are returned; effects are never committed.
         await foreach (var committed in TurnRunner.RunWithEffectsAsync(
             initial,
-            observed,
+            WithTurnMarkers(),
             effects: _effects,
             options: _coreOptions,
             onState: s => state = s,
@@ -51,6 +59,12 @@ public sealed class SessionRunner
         {
             newly.Add(committed);
         }
+
+        // Once the runner has drained all observations + effects, the turn is stable.
+        var end = Core.Reduce(state, new ObservedTurnStabilized(), _coreOptions);
+        state = end.Next;
+        newly.AddRange(end.NewlyCommitted);
+
 
         // Post-turn policy: generate a title once (after first assistant message exists).
         var titleEvt = await _titleGenerator.MaybeGenerateAfterTurnAsync(state, cancellationToken).ConfigureAwait(false);

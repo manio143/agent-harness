@@ -148,21 +148,31 @@ This document captures the *locked* decisions made while implementing Tool Calli
 - The harness owns the control-loop evolution needed for Mode A (tool call intent → execute → re-prompt).
 - MEAI types are allowed in the harness shell, but remain out of the reducer/core.
 
-## D12 — Mode A multi-call turn loop (re-prompt after tool completion)
+## D12 — Turn lifecycle + model calls are reducer-driven
 
-**Problem:** In Mode A, the model often emits only tool-call intent first, then expects the host to execute the tool and re-prompt with tool results. A single model call per ACP prompt is insufficient.
+**Problem:** If the shell decides when to call the model or when a turn ends, we lose the single source of truth (committed stream) and we risk overlapping model calls.
 
-**Decision:** The harness runs a **bounded loop** inside a single ACP `session/prompt`:
-- call model → normalize streaming updates to observed events → reducer/effects executes tool(s)
-- if at least one tool call reaches a terminal state (completed/failed/rejected/cancelled) and no assistant message was produced yet, re-prompt the model using updated committed history
-- cap the number of model calls per prompt (MVP safety) to prevent infinite loops
+**Decision:**
+- The harness emits `ObservedUserMessage` into the core.
+- The reducer commits `UserMessage` and emits an effect `CallModel`.
+- The imperative shell executes `CallModel` by:
+  - rendering the prompt via `Core.RenderPrompt(state)`
+  - calling MEAI `IChatClient` for streaming response
+  - translating MEAI updates into `Observed*` events
+  - feeding them back into the reducer loop
+- The runner ends the turn only after the loop stabilizes (no more observations and no effects), by emitting `ObservedTurnStabilized`.
+- The reducer commits `TurnEnded` in response.
 
-**Current implementation:** `HarnessAcpSessionAgent` re-prompts up to 5 times.
+**Turn markers:**
+- `TurnStarted` is informative only (no actions implied).
+- `TurnEnded` is the core’s declaration that the turn has stabilized.
+
+**Effect batching rule:** The runner batches effects per reduction step and deduplicates within the batch (notably `CallModel`) before executing. This prevents attempting to start a new model stream before processing output from the previous one.
 
 **Rationale:**
-- Keeps “when to call the model” in the harness.
-- Enables a functional Mode A tool calling UX without adding a provider-specific middleware.
-- Bound keeps failure modes deterministic and prevents runaway costs.
+- “Always render prompt through the core” becomes a hard invariant.
+- The core controls when the model is called and when the turn ends.
+- The shell remains an executor and cannot overlap model streams.
 
 ---
 

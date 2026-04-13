@@ -34,6 +34,11 @@ public sealed record SessionTitleSet(string Title) : SessionEvent;
 /// </summary>
 public sealed record ModelInvoked(ImmutableArray<ChatMessage> RenderedMessages) : SessionEvent;
 
+// --- Turn lifecycle ---
+// Invariant: TurnStart is informative only; TurnEnd is committed when the core decides the turn has stabilized.
+public sealed record TurnStarted() : SessionEvent;
+public sealed record TurnEnded() : SessionEvent;
+
 // --- Tool Call Events ---
 // Invariant: These events are committed by the reducer after observing tool call lifecycle events.
 // They form the stable, reproducible record of tool execution.

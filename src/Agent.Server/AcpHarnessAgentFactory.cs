@@ -109,7 +109,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             ? SessionState.Empty
             : new SessionState(committed, TurnBuffer.Empty);
 
-        return new HarnessAcpSessionAgent(sessionId, _chat, events, coreOptions, publishOptions, _store, initial);
+        return new HarnessAcpSessionAgent(sessionId, client, _chat, events, coreOptions, publishOptions, _store, initial);
     }
 
     public async Task ReplaySessionAsync(string sessionId, IAcpSessionEvents events, CancellationToken cancellationToken)

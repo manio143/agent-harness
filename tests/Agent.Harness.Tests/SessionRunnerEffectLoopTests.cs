@@ -35,9 +35,10 @@ public class SessionRunnerEffectLoopTests
         Assert.Contains(result.NewlyCommitted, e => e is ToolCallCompleted { ToolId: "call_1" });
 
         // ASSERT: effects were executed.
-        Assert.Equal(2, effects.Executed.Count);
+        Assert.Equal(3, effects.Executed.Count);
         Assert.IsType<CheckPermission>(effects.Executed[0]);
         Assert.IsType<ExecuteToolCall>(effects.Executed[1]);
+        Assert.IsType<CallModel>(effects.Executed[2]);
     }
 
     private sealed class FakeEffectExecutor : IEffectExecutor

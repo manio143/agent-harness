@@ -102,6 +102,14 @@ public sealed class JsonlSessionStore : ISessionStore
                     list.Add(new SessionTitleSet(root.GetProperty("title").GetString() ?? string.Empty));
                     break;
 
+                case "turn_started":
+                    list.Add(new TurnStarted());
+                    break;
+
+                case "turn_ended":
+                    list.Add(new TurnEnded());
+                    break;
+
                 // Tool calling lifecycle
                 case "tool_call_requested":
                     list.Add(new ToolCallRequested(
@@ -192,6 +200,8 @@ public sealed class JsonlSessionStore : ISessionStore
                 AssistantTextDelta d => new { type = "assistant_text_delta", textDelta = d.TextDelta },
                 ReasoningTextDelta r => new { type = "reasoning_text_delta", textDelta = r.TextDelta },
                 SessionTitleSet t => new { type = "session_title_set", title = t.Title },
+                TurnStarted => new { type = "turn_started" },
+                TurnEnded => new { type = "turn_ended" },
 
                 ToolCallRequested r => new { type = "tool_call_requested", toolId = r.ToolId, toolName = r.ToolName, args = r.Args },
                 ToolCallPermissionApproved a => new { type = "tool_call_permission_approved", toolId = a.ToolId, reason = a.Reason },
