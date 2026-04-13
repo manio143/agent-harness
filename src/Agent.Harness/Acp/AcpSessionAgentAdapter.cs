@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Agent.Acp.Acp;
 using Agent.Acp.Schema;
 
@@ -22,6 +23,7 @@ public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
     private readonly AcpPublishOptions _publishOptions;
 
     private SessionState _state = SessionState.Empty;
+    private readonly Dictionary<string, IAcpToolCall> _toolCalls = new();
 
     public AcpSessionAgentAdapter(
         string sessionId,
@@ -39,6 +41,14 @@ public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
 
     public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken)
     {
+        // Ensure no dangling tool calls from a previous turn.
+        // Invariant: tool calls are scoped to a turn and should be closed deterministically.
+        if (turn.ToolCalls.ActiveToolCallIds.Count > 0)
+        {
+            await turn.ToolCalls.CancelAllAsync(cancellationToken).ConfigureAwait(false);
+            _toolCalls.Clear();
+        }
+
         // Consume observed events and publish committed ones.
         await foreach (var committed in TurnRunner.RunAsync(
             _state,
@@ -47,7 +57,7 @@ public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
             onState: s => _state = s,
             cancellationToken: cancellationToken))
         {
-            // Publish committed assistant output.
+            // Publish committed output derived ONLY from committed events.
             switch (committed)
             {
                 case AssistantMessage a:
@@ -75,9 +85,89 @@ public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
                         Content = new TextContent { Text = r.TextDelta },
                     }, cancellationToken).ConfigureAwait(false);
                     break;
+
+                case ToolCallRequested req:
+                {
+                    // Start tool call in ACP as soon as core commits the request.
+                    var call = GetOrStart(turn, req.ToolId, req.ToolName);
+                    _toolCalls[req.ToolId] = call;
+                    break;
+                }
+
+                case ToolCallInProgress ip:
+                {
+                    if (_toolCalls.TryGetValue(ip.ToolId, out var call))
+                        await call.InProgressAsync(cancellationToken).ConfigureAwait(false);
+                    break;
+                }
+
+                case ToolCallUpdate u:
+                {
+                    if (_toolCalls.TryGetValue(u.ToolId, out var call))
+                    {
+                        var text = u.Content is string s
+                            ? s
+                            : JsonSerializer.Serialize(u.Content);
+
+                        await call.AddContentAsync(new ToolCallContentContent
+                        {
+                            Content = new TextContent { Text = text },
+                        }, cancellationToken).ConfigureAwait(false);
+                    }
+                    break;
+                }
+
+                case ToolCallCompleted done:
+                {
+                    if (_toolCalls.TryGetValue(done.ToolId, out var call))
+                    {
+                        await call.CompletedAsync(cancellationToken).ConfigureAwait(false);
+                        _toolCalls.Remove(done.ToolId);
+                    }
+                    break;
+                }
+
+                case ToolCallFailed failed:
+                {
+                    if (_toolCalls.TryGetValue(failed.ToolId, out var call))
+                    {
+                        await call.FailedAsync(failed.Error, cancellationToken).ConfigureAwait(false);
+                        _toolCalls.Remove(failed.ToolId);
+                    }
+                    break;
+                }
+
+                case ToolCallCancelled cancelled:
+                {
+                    if (_toolCalls.TryGetValue(cancelled.ToolId, out var call))
+                    {
+                        await call.CancelledAsync(cancellationToken).ConfigureAwait(false);
+                        _toolCalls.Remove(cancelled.ToolId);
+                    }
+                    break;
+                }
+
+                case ToolCallRejected rejected:
+                {
+                    // Represent rejection as a failed tool call (no execution).
+                    var call = GetOrStart(turn, rejected.ToolId, title: "rejected");
+                    var msg = rejected.Details.IsEmpty
+                        ? rejected.Reason
+                        : $"{rejected.Reason}: {string.Join(",", rejected.Details)}";
+
+                    await call.FailedAsync(msg, cancellationToken).ConfigureAwait(false);
+                    _toolCalls.Remove(rejected.ToolId);
+                    break;
+                }
             }
         }
 
         return new PromptResponse { StopReason = StopReason.EndTurn };
+    }
+
+    private static IAcpToolCall GetOrStart(IAcpPromptTurn turn, string toolId, string title)
+    {
+        // MVP: tool kind is not yet derived from schema; default to Read.
+        return turn.ToolCalls.Start(toolId, title, new ToolKind(ToolKind.Read));
     }
 }
