@@ -1,7 +1,7 @@
 using Agent.Acp.Acp;
 using Agent.Acp.Schema;
 using Agent.Harness;
-using Agent.Harness.Meai;
+using Agent.Harness.Llm;
 using Agent.Harness.Acp;
 using Microsoft.Extensions.AI;
 

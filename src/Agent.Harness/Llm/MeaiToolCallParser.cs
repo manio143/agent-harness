@@ -2,7 +2,7 @@ using Agent.Harness;
 using Microsoft.Extensions.AI;
 using System.Collections.Generic;
 
-namespace Agent.Harness.Meai;
+namespace Agent.Harness.Llm;
 
 public static class MeaiToolCallParser
 {

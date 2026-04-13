@@ -1,6 +1,6 @@
 using Microsoft.Extensions.AI;
 
-namespace Agent.Harness.Meai;
+namespace Agent.Harness.Llm;
 
 /// <summary>
 /// Normalizes MEAI streaming updates into harness observed events.

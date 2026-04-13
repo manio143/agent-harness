@@ -4,12 +4,12 @@ using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using Agent.Harness;
-using Agent.Harness.Meai;
+using Agent.Harness.Llm;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Xunit;
 
-namespace Agent.Harness.Meai.Tests;
+namespace Agent.Harness.Tests.Llm;
 
 public sealed class MeaiToolCallParserTests
 {
