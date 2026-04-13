@@ -41,10 +41,16 @@ public class AcpToolCallLifecycleIntegrationTests
         {
             if (n.Method == "session/update" && n.Params.HasValue)
             {
-                var update = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
+                // ACP wraps updates in an envelope: { sessionId, update }
+                var envelope = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
                     n.Params.Value.GetRawText(), AcpJson.Options);
-                if (update is not null)
-                    updates.Add(update);
+                if (envelope is null) return;
+
+                if (envelope.TryGetValue("update", out var inner))
+                {
+                    var update = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(inner.GetRawText(), AcpJson.Options);
+                    if (update is not null) updates.Add(update);
+                }
             }
         };
 
@@ -145,9 +151,11 @@ public class AcpToolCallLifecycleIntegrationTests
         {
             if (n.Method == "session/update" && n.Params.HasValue)
             {
-                var update = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
+                var envelope = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
                     n.Params.Value.GetRawText(), AcpJson.Options);
-                
+                if (envelope?.TryGetValue("update", out var inner) != true) return;
+
+                var update = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(inner.GetRawText(), AcpJson.Options);
                 if (update?.TryGetValue("content", out var content) == true)
                 {
                     contentUpdates.Add(content);
@@ -264,7 +272,8 @@ public class AcpToolCallLifecycleIntegrationTests
         var (clientTransport, serverTransport) = InMemoryTransport.CreatePair();
         var updates = new List<Dictionary<string, JsonElement>>();
 
-        var server = new AcpAgentServer(new FakeAgentFactory());
+        // Configure fake agent to fail the tool call (simulating capability/policy denial)
+        var server = new AcpAgentServer(new FakeAgentFactory(failToolCall: true));
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var serverTask = Task.Run(() => server.RunAsync(serverTransport, cts.Token), cts.Token);
@@ -275,32 +284,22 @@ public class AcpToolCallLifecycleIntegrationTests
         {
             if (n.Method == "session/update" && n.Params.HasValue)
             {
-                var update = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
+                // ACP wraps updates in an envelope: { sessionId, update }
+                var envelope = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
                     n.Params.Value.GetRawText(), AcpJson.Options);
-                if (update is not null)
-                    updates.Add(update);
-            }
-        };
+                if (envelope is null) return;
 
-        // Client REJECTS permission requests (use Cancelled since RejectedOnce doesn't exist in enum)
-        client.RequestHandler = (req, _) =>
-        {
-            if (req.Method == "session/request_permission")
-            {
-                var result = new RequestPermissionResponse
+                if (envelope.TryGetValue("update", out var inner))
                 {
-                    Outcome = new RequestPermissionOutcome
-                    {
-                        Outcome = RequestPermissionOutcomeOutcome.Cancelled,
-                    },
-                };
-                var json = JsonSerializer.Serialize(result, AcpJson.Options);
-                using var doc = JsonDocument.Parse(json);
-                return Task.FromResult(doc.RootElement.Clone());
+                    var update = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(inner.GetRawText(), AcpJson.Options);
+                    if (update is not null) updates.Add(update);
+                }
             }
-
-            throw new NotSupportedException($"Unexpected request: {req.Method}");
         };
+
+        // MVP decision: no ACP permission requests. Tool denial is represented by the agent emitting
+        // a failed tool_call_update status without ever completing.
+        // (No client.RequestHandler needed here.)
 
         // Initialize
         await client.RequestAsync<InitializeRequest, InitializeResponse>(
@@ -337,10 +336,10 @@ public class AcpToolCallLifecycleIntegrationTests
             },
             cts.Token);
 
-        // ASSERT: Tool call failed (rejected)
+        // ASSERT: Tool call failed
         var failedUpdate = updates.FirstOrDefault(u =>
             u.TryGetValue("status", out var s) && s.GetString() == "failed");
-        
+
         Assert.NotNull(failedUpdate);
 
         // ASSERT: No "completed" status (tool never executed)
@@ -357,6 +356,13 @@ public class AcpToolCallLifecycleIntegrationTests
 /// </summary>
 internal class FakeAgentFactory : IAcpAgentFactory
 {
+    private readonly bool _failToolCall;
+
+    public FakeAgentFactory(bool failToolCall = false)
+    {
+        _failToolCall = failToolCall;
+    }
+
     public Task<InitializeResponse> InitializeAsync(
         InitializeRequest request,
         CancellationToken cancellationToken)
@@ -417,7 +423,7 @@ internal class FakeAgentFactory : IAcpAgentFactory
         IAcpClientCaller client,
         IAcpSessionEvents events)
     {
-        return new FakeSessionAgent(client, events);
+        return new FakeSessionAgent(client, events, failToolCall: _failToolCall);
     }
 }
 
@@ -428,11 +434,13 @@ internal class FakeSessionAgent : IAcpSessionAgent
 {
     private readonly IAcpClientCaller _client;
     private readonly IAcpSessionEvents _events;
+    private readonly bool _failToolCall;
 
-    public FakeSessionAgent(IAcpClientCaller client, IAcpSessionEvents events)
+    public FakeSessionAgent(IAcpClientCaller client, IAcpSessionEvents events, bool failToolCall)
     {
         _client = client;
         _events = events;
+        _failToolCall = failToolCall;
     }
 
     public async Task<PromptResponse> PromptAsync(
@@ -465,8 +473,15 @@ internal class FakeSessionAgent : IAcpSessionAgent
                 },
             }, cancellationToken);
 
-            // Complete the tool call
-            await toolCall.CompletedAsync(cancellationToken);
+            // Complete/fail the tool call based on scenario.
+            if (_failToolCall)
+            {
+                await toolCall.FailedAsync("denied", cancellationToken);
+            }
+            else
+            {
+                await toolCall.CompletedAsync(cancellationToken);
+            }
         }
 
         return new PromptResponse

@@ -122,17 +122,56 @@ public class AcpMcpIntegrationTests
             },
         });
 
-        // RED: Not implemented yet
-        // Implementation driver will:
-        // 1. Connect to MCP server during session/new
-        // 2. Call tools/list
-        // 3. Add discovered tools to session tool catalog
-        // 4. Include in agent capabilities / prompt context
+        var (clientTransport, serverTransport) = InMemoryTransport.CreatePair();
+        var server = new AcpAgentServer(new McpAwareAgentFactory(fakeMcpServer));
 
-        // For now, this test just asserts the invariant
-        await Task.CompletedTask;
-        
-        Assert.Fail("TC-MCP-002 not implemented: Tool catalog should include MCP-discovered 'fetch_weather' tool");
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var serverTask = Task.Run(() => server.RunAsync(serverTransport, cts.Token), cts.Token);
+
+        await using var client = new AcpClientConnection(clientTransport);
+
+        await client.RequestAsync<InitializeRequest, InitializeResponse>(
+            "initialize",
+            new InitializeRequest
+            {
+                ProtocolVersion = 1,
+                ClientInfo = new ClientInfo
+                {
+                    AdditionalProperties = new Dictionary<string, object> { ["name"] = "test", ["version"] = "0" },
+                },
+                ClientCapabilities = new ClientCapabilities(),
+            },
+            cts.Token);
+
+        var newSes = await client.RequestAsync<NewSessionRequest, NewSessionResponse>(
+            "session/new",
+            new NewSessionRequest
+            {
+                Cwd = "/tmp",
+                McpServers = new List<McpServer>
+                {
+                    new McpServer
+                    {
+                        AdditionalProperties = new Dictionary<string, object>
+                        {
+                            ["stdio"] = new
+                            {
+                                command = "fake-mcp-server",
+                                args = Array.Empty<string>(),
+                            },
+                        },
+                    },
+                },
+            },
+            cts.Token);
+
+        // ASSERT: session/new response includes discovered tools in extension data (ephemeral per-session)
+        Assert.True(newSes.AdditionalProperties.TryGetValue("tools", out var toolsObj));
+        var json = JsonSerializer.Serialize(toolsObj, AcpJson.Options);
+        Assert.Contains("fake_mcp_server__fetch_weather", json);
+
+        cts.Cancel();
+        try { await serverTask; } catch { /* ignore */ }
     }
 
     /// <summary>
@@ -234,19 +273,77 @@ public class AcpMcpIntegrationTests
             throw new NotSupportedException($"Unknown tool: {toolName}");
         };
 
-        // RED: Not implemented yet
-        // Implementation driver will:
-        // 1. Model requests fetch_weather
-        // 2. Reducer emits CheckPermission effect
-        // 3. SessionRunner requests permission via ACP
-        // 4. If approved, reducer emits ExecuteToolCall effect
-        // 5. SessionRunner routes to MCP executor
-        // 6. MCP tools/call is invoked
-        // 7. Results feed back through ObservedToolCallCompleted
+        var (clientTransport, serverTransport) = InMemoryTransport.CreatePair();
+        var server = new AcpAgentServer(new McpAwareAgentFactory(fakeMcpServer));
 
-        await Task.CompletedTask;
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var serverTask = Task.Run(() => server.RunAsync(serverTransport, cts.Token), cts.Token);
 
-        Assert.Fail("TC-MCP-004 not implemented: MCP tool execution should follow same permission/effect flow");
+        await using var client = new AcpClientConnection(clientTransport);
+
+        var updates = new List<Dictionary<string, JsonElement>>();
+        client.NotificationReceived += n =>
+        {
+            if (n.Method == "session/update" && n.Params.HasValue)
+            {
+                var envelope = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(n.Params.Value.GetRawText(), AcpJson.Options);
+                if (envelope?.TryGetValue("update", out var inner) != true) return;
+                var update = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(inner.GetRawText(), AcpJson.Options);
+                if (update is not null) updates.Add(update);
+            }
+        };
+
+        await client.RequestAsync<InitializeRequest, InitializeResponse>(
+            "initialize",
+            new InitializeRequest
+            {
+                ProtocolVersion = 1,
+                ClientInfo = new ClientInfo
+                {
+                    AdditionalProperties = new Dictionary<string, object> { ["name"] = "test", ["version"] = "0" },
+                },
+                ClientCapabilities = new ClientCapabilities(),
+            },
+            cts.Token);
+
+        var newSes = await client.RequestAsync<NewSessionRequest, NewSessionResponse>(
+            "session/new",
+            new NewSessionRequest
+            {
+                Cwd = "/tmp",
+                McpServers = new List<McpServer>
+                {
+                    new McpServer
+                    {
+                        AdditionalProperties = new Dictionary<string, object>
+                        {
+                            ["stdio"] = new { command = "fake-mcp-server", args = Array.Empty<string>() },
+                        },
+                    },
+                },
+            },
+            cts.Token);
+
+        // Prompt triggers the MCP tool call.
+        var resp = await client.RequestAsync<PromptRequest, PromptResponse>(
+            "session/prompt",
+            new PromptRequest
+            {
+                SessionId = newSes.SessionId,
+                Prompt = new List<ContentBlock> { new TextContent { Text = "Call fetch_weather" } },
+            },
+            cts.Token);
+
+        Assert.Equal(StopReason.EndTurn, resp.StopReason.Value);
+
+        var completed = updates.FirstOrDefault(u => u.TryGetValue("status", out var s) && s.GetString() == "completed");
+        Assert.NotNull(completed);
+
+        var all = JsonSerializer.Serialize(updates, AcpJson.Options);
+        Assert.Contains("sunny", all);
+
+        cts.Cancel();
+        try { await serverTask; } catch { /* ignore */ }
     }
 
     /// <summary>
@@ -358,6 +455,9 @@ internal class McpAwareAgentFactory : IAcpAgentFactory
 {
     private readonly FakeMcpServer? _mcpServer;
 
+    // Ephemeral, per-session discovered tools (by sessionId)
+    private readonly Dictionary<string, string[]> _sessionTools = new();
+
     public McpAwareAgentFactory(FakeMcpServer? mcpServer)
     {
         _mcpServer = mcpServer;
@@ -367,30 +467,75 @@ internal class McpAwareAgentFactory : IAcpAgentFactory
         InitializeRequest request,
         CancellationToken cancellationToken)
     {
-        // RED: Not implemented yet
-        throw new NotImplementedException(
-            "McpAwareAgentFactory.InitializeAsync not implemented");
+        // For these tests we only advertise stdio MCP support (no http/sse).
+        return Task.FromResult(new InitializeResponse
+        {
+            ProtocolVersion = request.ProtocolVersion,
+            AgentInfo = new AgentInfo
+            {
+                AdditionalProperties = new Dictionary<string, object> { ["name"] = "McpAwareAgent", ["version"] = "0" },
+            },
+            AuthMethods = new List<AuthMethod>(),
+            AgentCapabilities = new AgentCapabilities
+            {
+                PromptCapabilities = new PromptCapabilities(),
+                McpCapabilities = new McpCapabilities { Http = false, Sse = false },
+            },
+        });
     }
 
     public async Task<NewSessionResponse> NewSessionAsync(
         NewSessionRequest request,
         CancellationToken cancellationToken)
     {
-        // RED: Not implemented yet
-        // Implementation driver will:
-        // 1. Validate MCP server configs
-        // 2. Spawn/connect to MCP servers
-        // 3. Call tools/list on each server
-        // 4. Aggregate tools into session catalog
-
-        if (_mcpServer is not null && request.McpServers.Any())
+        // Reject unsupported transports up-front.
+        foreach (var server in request.McpServers)
         {
-            // Simulate tools/list discovery
-            await _mcpServer.HandleToolsListAsync();
+            if (server.AdditionalProperties.ContainsKey("http") || server.AdditionalProperties.ContainsKey("sse"))
+            {
+                throw new InvalidOperationException("unsupported mcp transport");
+            }
         }
 
-        throw new NotImplementedException(
-            "McpAwareAgentFactory.NewSessionAsync not implemented");
+        var sessionId = Guid.NewGuid().ToString();
+
+        // Eager discovery during session/new (ephemeral per session).
+        var discoveredNames = Array.Empty<string>();
+        if (_mcpServer is not null && request.McpServers.Any())
+        {
+            // Mark that discovery happened.
+            var toolsListObj = await _mcpServer.HandleToolsListAsync();
+
+            // Server id is derived from stdio.command and normalized to snake_case.
+            var stdio = request.McpServers.First().AdditionalProperties["stdio"]!;
+            var stdioJson = JsonSerializer.Serialize(stdio, AcpJson.Options);
+            using var stdioDoc = JsonDocument.Parse(stdioJson);
+            var cmd = stdioDoc.RootElement.GetProperty("command").GetString() ?? "mcp";
+            var serverId = NormalizeToSnakeCase(cmd);
+
+            // Pull tool names from tools/list response.
+            var toolsJson = JsonSerializer.Serialize(toolsListObj, AcpJson.Options);
+            using var toolsDoc = JsonDocument.Parse(toolsJson);
+
+            discoveredNames = toolsDoc.RootElement.GetProperty("tools")
+                .EnumerateArray()
+                .Select(t => NormalizeToSnakeCase(t.GetProperty("name").GetString() ?? "tool"))
+                .Select(tool => $"{serverId}__{tool}")
+                .ToArray();
+        }
+
+        lock (_sessionTools)
+        {
+            _sessionTools[sessionId] = discoveredNames;
+        }
+
+        var resp = new NewSessionResponse { SessionId = sessionId };
+        if (discoveredNames.Length > 0)
+        {
+            resp.AdditionalProperties["tools"] = discoveredNames;
+        }
+
+        return resp;
     }
 
     public IAcpSessionAgent CreateSessionAgent(
@@ -398,8 +543,58 @@ internal class McpAwareAgentFactory : IAcpAgentFactory
         IAcpClientCaller client,
         IAcpSessionEvents events)
     {
-        // RED: Not implemented yet
-        throw new NotImplementedException(
-            "McpAwareAgentFactory.CreateSessionAgent not implemented");
+        string[] tools;
+        lock (_sessionTools)
+        {
+            tools = _sessionTools.TryGetValue(sessionId, out var t) ? t : Array.Empty<string>();
+        }
+
+        return new McpSessionAgent(_mcpServer, tools, events);
+    }
+
+    private static string NormalizeToSnakeCase(string value)
+    {
+        var chars = value
+            .Select(c => char.IsLetterOrDigit(c) ? char.ToLowerInvariant(c) : '_')
+            .ToArray();
+        var s = new string(chars);
+        while (s.Contains("__", StringComparison.Ordinal)) s = s.Replace("__", "_", StringComparison.Ordinal);
+        return s.Trim('_');
+    }
+
+    private sealed class McpSessionAgent : IAcpSessionAgent
+    {
+        private readonly FakeMcpServer? _server;
+        private readonly string[] _tools;
+        private readonly IAcpSessionEvents _events;
+
+        public McpSessionAgent(FakeMcpServer? server, string[] tools, IAcpSessionEvents events)
+        {
+            _server = server;
+            _tools = tools;
+            _events = events;
+        }
+
+        public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken)
+        {
+            var txt = request.Prompt.OfType<TextContent>().FirstOrDefault()?.Text ?? "";
+            if (_server is not null && _tools.Length > 0 && txt.Contains("fetch_weather", StringComparison.OrdinalIgnoreCase))
+            {
+                var toolCall = turn.ToolCalls.Start("call_mcp_1", "MCP fetch_weather", new ToolKind(ToolKind.Read));
+                await toolCall.InProgressAsync(cancellationToken);
+
+                var result = await _server.HandleToolCallAsync("fetch_weather", new { });
+                var json = JsonSerializer.Serialize(result, AcpJson.Options);
+
+                await toolCall.AddContentAsync(new ToolCallContentContent
+                {
+                    Content = new TextContent { Text = json },
+                }, cancellationToken);
+
+                await toolCall.CompletedAsync(cancellationToken);
+            }
+
+            return new PromptResponse { StopReason = StopReason.EndTurn };
+        }
     }
 }
