@@ -26,6 +26,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     private readonly CoreOptions _coreOptions;
     private readonly AcpPublishOptions _publishOptions;
     private readonly ISessionStore _store;
+    private readonly IEffectExecutor _effects;
 
     private SessionState _state;
     private readonly Dictionary<string, IAcpToolCall> _toolCalls = new();
@@ -37,7 +38,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         CoreOptions coreOptions,
         AcpPublishOptions publishOptions,
         ISessionStore store,
-        SessionState initialState)
+        SessionState initialState,
+        IEffectExecutor? effects = null)
     {
         _sessionId = sessionId;
         _chat = chat;
@@ -46,6 +48,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         _publishOptions = publishOptions;
         _store = store;
         _state = initialState;
+        _effects = effects ?? NullEffectExecutor.Instance;
     }
 
     public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken)
@@ -57,42 +60,60 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             _toolCalls.Clear();
         }
 
-        async IAsyncEnumerable<ObservedChatEvent> Observed(PromptRequest req)
-        {
-            var userText = ExtractUserText(req);
-            yield return new ObservedUserMessage(userText);
-
-            // Render history for the model from committed events.
-            var rendered = Core.RenderPrompt(_state);
-            var meaiMessages = rendered
-                .Select(m => new MeaiChatMessage(m.Role switch
-                {
-                    ChatRole.User => MeaiChatRole.User,
-                    ChatRole.Assistant => MeaiChatRole.Assistant,
-                    _ => MeaiChatRole.System,
-                }, m.Text))
-                .ToList();
-
-            var updates = _chat.GetStreamingResponseAsync(meaiMessages, cancellationToken: cancellationToken);
-
-            await foreach (var o in MeaiObservedEventSource.FromStreamingResponse(updates, cancellationToken))
-                yield return o;
-        }
 
         var titleGen = new SessionTitleGenerator(new MeaiTitleChatClientAdapter(_chat));
-        var runner = new SessionRunner(_coreOptions, titleGen);
+        // Mode A loop: we may need to re-prompt after tool completion.
+        // MVP safety: cap the number of model invocations per ACP prompt.
+        const int maxModelCalls = 5;
 
-        var result = await runner.RunTurnAsync(_state, Observed(request), cancellationToken).ConfigureAwait(false);
-        _state = result.Next;
+        var includeUserMessage = true;
 
-        foreach (var committed in result.NewlyCommitted)
+        for (var callIndex = 0; callIndex < maxModelCalls; callIndex++)
         {
-            _store.AppendCommitted(_sessionId, committed);
+            async IAsyncEnumerable<ObservedChatEvent> ObservedForCall(PromptRequest req, bool includeUser)
+            {
+                if (includeUser)
+                {
+                    var userText = ExtractUserText(req);
+                    yield return new ObservedUserMessage(userText);
+                }
+
+                var rendered = Core.RenderPrompt(_state);
+                var meaiMessages = rendered
+                    .Select(m => new MeaiChatMessage(m.Role switch
+                    {
+                        ChatRole.User => MeaiChatRole.User,
+                        ChatRole.Assistant => MeaiChatRole.Assistant,
+                        _ => MeaiChatRole.System,
+                    }, m.Text))
+                    .ToList();
+
+                var updates = _chat.GetStreamingResponseAsync(meaiMessages, cancellationToken: cancellationToken);
+
+                await foreach (var o in MeaiObservedEventSource.FromStreamingResponse(updates, cancellationToken))
+                    yield return o;
+            }
+
+            var runner = new SessionRunner(_coreOptions, titleGen, _effects);
+
+            var result = await runner.RunTurnAsync(_state, ObservedForCall(request, includeUserMessage), cancellationToken)
+                .ConfigureAwait(false);
+
+            includeUserMessage = false;
+            _state = result.Next;
+
+            var sawAssistantMessage = false;
+            var sawToolTerminal = false;
+
+            foreach (var committed in result.NewlyCommitted)
+            {
+                _store.AppendCommitted(_sessionId, committed);
 
             // Publish committed output derived ONLY from committed events.
             switch (committed)
             {
                 case AssistantMessage a:
+                    sawAssistantMessage = true;
                     if (!_coreOptions.CommitAssistantTextDeltas)
                     {
                         await _events.SendSessionUpdateAsync(new AgentMessageChunk
@@ -140,7 +161,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
 
                         await call.AddContentAsync(new ToolCallContentContent
                         {
-                            Content = new TextContent { Text = text },
+                            Content = new Agent.Acp.Schema.TextContent { Text = text },
                         }, cancellationToken).ConfigureAwait(false);
                     }
                     break;
@@ -148,6 +169,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
 
                 case ToolCallCompleted done:
                 {
+                    sawToolTerminal = true;
                     if (_toolCalls.TryGetValue(done.ToolId, out var call))
                     {
                         await call.CompletedAsync(cancellationToken).ConfigureAwait(false);
@@ -158,6 +180,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
 
                 case ToolCallFailed failed:
                 {
+                    sawToolTerminal = true;
                     if (_toolCalls.TryGetValue(failed.ToolId, out var call))
                     {
                         await call.FailedAsync(failed.Error, cancellationToken).ConfigureAwait(false);
@@ -168,6 +191,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
 
                 case ToolCallCancelled cancelled:
                 {
+                    sawToolTerminal = true;
                     if (_toolCalls.TryGetValue(cancelled.ToolId, out var call))
                     {
                         await call.CancelledAsync(cancellationToken).ConfigureAwait(false);
@@ -178,6 +202,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
 
                 case ToolCallRejected rejected:
                 {
+                    sawToolTerminal = true;
                     var call = GetOrStart(turn, rejected.ToolId, title: "rejected");
                     var msg = rejected.Details.IsEmpty
                         ? rejected.Reason
@@ -188,6 +213,14 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                     break;
                 }
             }
+        }
+
+            // Continue the Mode A loop if we executed at least one tool call and still haven't produced
+            // an assistant message. (Typical pattern: model calls tool(s) first, then we re-prompt.)
+            if (sawToolTerminal && !sawAssistantMessage)
+                continue;
+
+            break;
         }
 
         return new PromptResponse { StopReason = StopReason.EndTurn };
