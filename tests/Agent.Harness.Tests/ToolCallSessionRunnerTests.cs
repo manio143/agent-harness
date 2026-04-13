@@ -188,7 +188,7 @@ internal class ToolCallSessionRunner
                 };
 
                 return approved
-                    ? ImmutableArray.Create<ObservedChatEvent>(new ObservedPermissionApproved(perm.ToolId))
+                    ? ImmutableArray.Create<ObservedChatEvent>(new ObservedPermissionApproved(perm.ToolId, "capability_present"))
                     : ImmutableArray.Create<ObservedChatEvent>(new ObservedPermissionDenied(perm.ToolId, "capability_missing"));
             }
 

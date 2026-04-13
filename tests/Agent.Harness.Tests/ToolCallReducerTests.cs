@@ -72,7 +72,7 @@ public class ToolCallReducerTests
                 new ToolCallRequested("call_1", "read_text_file", toolArgs)),
             Buffer: TurnBuffer.Empty);
 
-        var observed = new ObservedPermissionApproved(ToolId: "call_1");
+        var observed = new ObservedPermissionApproved(ToolId: "call_1", Reason: "capability_present");
 
         // ACT
         var result = Core.Reduce(initial, observed);

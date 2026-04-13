@@ -47,6 +47,14 @@ public sealed record ToolCallRequested(string ToolId, string ToolName, object Ar
 /// Tool call permission approved and queued for execution.
 /// Invariant: This state is reached only after permission granted; execution effect emitted.
 /// </summary>
+public sealed record ToolCallPermissionApproved(string ToolId, string Reason) : SessionEvent;
+
+/// <summary>
+/// Tool call permission denied (policy gate).
+/// Invariant: Terminal-ish for permission phase; no execution.
+/// </summary>
+public sealed record ToolCallPermissionDenied(string ToolId, string Reason) : SessionEvent;
+
 public sealed record ToolCallPending(string ToolId) : SessionEvent;
 
 /// <summary>

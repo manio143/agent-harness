@@ -7,7 +7,7 @@ namespace Agent.Harness;
 ///
 /// This is the "commit gate": downstream adapters (ACP/UI) should publish only what the core commits.
 /// </summary>
-public static class TurnRunner
+public static partial class TurnRunner
 {
     public static async IAsyncEnumerable<SessionEvent> RunAsync(
         SessionState initial,

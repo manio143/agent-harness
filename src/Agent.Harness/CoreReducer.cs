@@ -148,43 +148,46 @@ public static class Core
 
             case ObservedPermissionApproved approved:
             {
-                // Commit ToolCallPending and emit ExecuteToolCall effect
+                // Commit ToolCallPermissionApproved + ToolCallPending and emit ExecuteToolCall effect
+                var approvedEvt = new ToolCallPermissionApproved(approved.ToolId, approved.Reason);
                 var pending = new ToolCallPending(approved.ToolId);
-                var committed = state.Committed.Add(pending);
-                
+
+                var committed = state.Committed.Add(approvedEvt).Add(pending);
+
                 // Find the original ToolCallRequested to get tool name and args
                 var requestedEvent = state.Committed
                     .OfType<ToolCallRequested>()
                     .FirstOrDefault(r => r.ToolId == approved.ToolId);
-                
+
                 if (requestedEvent is null)
                 {
                     // Should not happen in well-formed sessions
                     return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty, ImmutableArray<Effect>.Empty);
                 }
-                
+
                 var executeEffect = new ExecuteToolCall(
                     approved.ToolId,
                     requestedEvent.ToolName,
                     requestedEvent.Args);
-                
+
                 var next = state with { Committed = committed };
                 return new ReduceResult(
                     next,
-                    ImmutableArray.Create<SessionEvent>(pending),
+                    ImmutableArray.Create<SessionEvent>(approvedEvt, pending),
                     ImmutableArray.Create<Effect>(executeEffect));
             }
 
             case ObservedPermissionDenied denied:
             {
-                // Commit ToolCallRejected with no effects
+                // Commit ToolCallPermissionDenied + ToolCallRejected with no effects
+                var deniedEvt = new ToolCallPermissionDenied(denied.ToolId, denied.Reason);
                 var rejected = new ToolCallRejected(denied.ToolId, denied.Reason);
-                var committed = state.Committed.Add(rejected);
+                var committed = state.Committed.Add(deniedEvt).Add(rejected);
                 var next = state with { Committed = committed };
-                
+
                 return new ReduceResult(
                     next,
-                    ImmutableArray.Create<SessionEvent>(rejected),
+                    ImmutableArray.Create<SessionEvent>(deniedEvt, rejected),
                     ImmutableArray<Effect>.Empty);
             }
 

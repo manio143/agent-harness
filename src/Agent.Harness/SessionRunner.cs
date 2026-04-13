@@ -18,11 +18,13 @@ public sealed class SessionRunner
 {
     private readonly CoreOptions _coreOptions;
     private readonly SessionTitleGenerator _titleGenerator;
+    private readonly IEffectExecutor _effects;
 
-    public SessionRunner(CoreOptions coreOptions, SessionTitleGenerator titleGenerator)
+    public SessionRunner(CoreOptions coreOptions, SessionTitleGenerator titleGenerator, IEffectExecutor? effects = null)
     {
         _coreOptions = coreOptions;
         _titleGenerator = titleGenerator;
+        _effects = effects ?? NullEffectExecutor.Instance;
     }
 
     public async Task<SessionRunnerResult> RunTurnAsync(
@@ -33,9 +35,16 @@ public sealed class SessionRunner
         var newly = ImmutableArray.CreateBuilder<SessionEvent>();
         var state = initial;
 
-        await foreach (var committed in TurnRunner.RunAsync(
+        // Run the turn as a reducer/effects loop:
+        // - consume observed events
+        // - reduce -> commit + effects
+        // - execute effects (I/O) -> feed observations back into reducer
+        //
+        // Invariant: only committed events are returned; effects are never committed.
+        await foreach (var committed in TurnRunner.RunWithEffectsAsync(
             initial,
             observed,
+            effects: _effects,
             options: _coreOptions,
             onState: s => state = s,
             cancellationToken: cancellationToken))

@@ -39,7 +39,7 @@ public sealed record ObservedToolCallDetected(string ToolId, string ToolName, ob
 /// Permission check approved (from IAcpClientCaller.RequestPermissionAsync).
 /// Invariant: Fed to reducer; reducer commits ToolCallPending and emits ExecuteToolCall effect.
 /// </summary>
-public sealed record ObservedPermissionApproved(string ToolId) : ObservedChatEvent;
+public sealed record ObservedPermissionApproved(string ToolId, string Reason) : ObservedChatEvent;
 
 /// <summary>
 /// Permission check denied.
