@@ -9,8 +9,9 @@ namespace Agent.Harness;
 public abstract record Effect;
 
 /// <summary>
-/// Request permission check for a tool call.
-/// SessionRunner should invoke IAcpClientCaller.RequestPermissionAsync and feed the result back as an observation.
+/// Request a policy check for a tool call.
+/// MVP decision: capability-only gating (no ACP session/request_permission).
+/// SessionRunner resolves this deterministically (approve/deny + reason) and feeds the result back as an observation.
 /// </summary>
 public sealed record CheckPermission(
     string ToolId,
@@ -27,9 +28,4 @@ public sealed record ExecuteToolCall(
     object Args) : Effect;
 
 /// <summary>
-/// Discover MCP tools from a server.
-/// SessionRunner should invoke MCP tools/list and feed discovered tools as observations.
-/// </summary>
-public sealed record DiscoverMcpTools(
-    string ServerId,
-    object McpServerConfig) : Effect;
+

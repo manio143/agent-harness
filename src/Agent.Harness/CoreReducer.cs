@@ -204,8 +204,8 @@ public static class Core
                     committed = committed.Add(inProgress);
                 }
                 
-                // Commit ToolCallUpdateCommitted for incremental updates
-                var update = new ToolCallUpdateCommitted(progress.ToolId, progress.Content);
+                // Commit ToolCallUpdate for incremental updates
+                var update = new ToolCallUpdate(progress.ToolId, progress.Content);
                 committed = committed.Add(update);
                 var next = state with { Committed = committed };
                 

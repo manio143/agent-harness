@@ -19,33 +19,19 @@ public class ToolCallSessionRunnerTests
     /// 
     /// WHY THIS IS AN INVARIANT:
     /// The SessionRunner must translate emitted CheckPermission effects into actual ACP
-    /// session/request_permission calls. This is the boundary between pure reducer logic
+    /// policy gating (capability-only for MVP). This is the boundary between pure reducer logic
     /// and impure I/O.
     /// </summary>
     [Fact]
-    public async Task SessionRunner_Executes_CheckPermission_Effect_Via_AcpClient()
+    public async Task SessionRunner_Executes_CheckPermission_Effect_Via_PolicyGate()
     {
-        // ARRANGE: Fake ACP client that simulates permission approval
-        var permissionRequests = new List<(string toolId, string toolName)>();
+        // ARRANGE: MVP decision is capability-only gating (no ACP session/request_permission)
         var fakeClient = new FakeAcpClientCaller(
             caps: new ClientCapabilities
             {
                 Fs = new FileSystemCapabilities { ReadTextFile = true, WriteTextFile = true },
-            },
-            onRequestPermission: (req) =>
-            {
-                permissionRequests.Add((req.ToolCall!.ToolCallId!, "read_text_file"));
-                return Task.FromResult(new RequestPermissionResponse
-                {
-                    Outcome = new RequestPermissionOutcome
-                    {
-                        Outcome = RequestPermissionOutcomeOutcome.Selected,
-                        OptionId = "allow-once",
-                    },
-                });
             });
 
-        // SessionRunner setup (placeholder: actual impl will vary)
         var runner = new ToolCallSessionRunner(fakeClient);
 
         var effect = new CheckPermission(
@@ -53,12 +39,8 @@ public class ToolCallSessionRunnerTests
             ToolName: "read_text_file",
             Args: new { path = "/tmp/test.txt" });
 
-        // ACT: Execute the effect
+        // ACT
         var observations = await runner.ExecuteEffectAsync(effect, CancellationToken.None);
-
-        // ASSERT: Permission was requested via ACP client
-        Assert.Single(permissionRequests);
-        Assert.Equal("call_1", permissionRequests[0].toolId);
 
         // ASSERT: Observation fed back is ObservedPermissionApproved
         var approvedObs = Assert.Single(observations.OfType<ObservedPermissionApproved>());
@@ -194,40 +176,20 @@ internal class ToolCallSessionRunner
         {
             case CheckPermission perm:
             {
-                // Call ACP client to request permission
-                var request = new RequestPermissionRequest
+                // MVP decision: capability-only gating (no ACP session/request_permission)
+                // Resolve deterministically based on negotiated client capabilities.
+                var caps = _client.ClientCapabilities;
+
+                var approved = perm.ToolName switch
                 {
-                    SessionId = "test-session",
-                    ToolCall = new ToolCallUpdate
-                    {
-                        ToolCallId = perm.ToolId,
-                        Title = $"{perm.ToolName}",
-                        // Args would need to be serialized to JSON in RawInput
-                        RawInput = perm.Args,
-                    },
-                    Options = new List<PermissionOption>
-                    {
-                        new PermissionOption { OptionId = "allow-once", Name = "Allow once" },
-                        new PermissionOption { OptionId = "deny", Name = "Deny" },
-                    },
+                    "read_text_file" => caps.Fs?.ReadTextFile == true,
+                    "write_text_file" => caps.Fs?.WriteTextFile == true,
+                    _ => false,
                 };
 
-                var response = await _client.RequestAsync<RequestPermissionRequest, RequestPermissionResponse>(
-                    "session/request_permission",
-                    request,
-                    cancellationToken);
-
-                // Translate response to observation
-                if (response.Outcome?.Outcome == RequestPermissionOutcomeOutcome.Selected)
-                {
-                    return ImmutableArray.Create<ObservedChatEvent>(
-                        new ObservedPermissionApproved(perm.ToolId));
-                }
-                else
-                {
-                    return ImmutableArray.Create<ObservedChatEvent>(
-                        new ObservedPermissionDenied(perm.ToolId, "Permission denied by user"));
-                }
+                return approved
+                    ? ImmutableArray.Create<ObservedChatEvent>(new ObservedPermissionApproved(perm.ToolId))
+                    : ImmutableArray.Create<ObservedChatEvent>(new ObservedPermissionDenied(perm.ToolId, "capability_missing"));
             }
 
             case ExecuteToolCall exec:
@@ -314,32 +276,16 @@ internal class ToolCallSessionRunner
 /// </summary>
 internal class FakeAcpClientCaller : IAcpClientCaller
 {
-    private readonly Func<RequestPermissionRequest, Task<RequestPermissionResponse>>? _onRequestPermission;
-
-    public FakeAcpClientCaller(
-        ClientCapabilities caps,
-        Func<RequestPermissionRequest, Task<RequestPermissionResponse>>? onRequestPermission = null)
+    public FakeAcpClientCaller(ClientCapabilities caps)
     {
         ClientCapabilities = caps;
-        _onRequestPermission = onRequestPermission;
     }
 
     public ClientCapabilities ClientCapabilities { get; }
 
-    public async Task<TResponse> RequestAsync<TRequest, TResponse>(
+    public Task<TResponse> RequestAsync<TRequest, TResponse>(
         string method,
         TRequest request,
         CancellationToken cancellationToken = default)
-    {
-        if (method == "session/request_permission" && request is RequestPermissionRequest permReq)
-        {
-            if (_onRequestPermission is not null)
-            {
-                var response = await _onRequestPermission(permReq);
-                return (TResponse)(object)response;
-            }
-        }
-
-        throw new NotSupportedException($"FakeAcpClientCaller: unsupported method {method}");
-    }
+        => throw new NotSupportedException($"FakeAcpClientCaller: unsupported method {method}");
 }

@@ -133,7 +133,7 @@ public class ToolCallReducerTests
     /// 
     /// WHY THIS IS AN INVARIANT:
     /// Progress must be observable in committed state for reproducibility, debugging, and streaming
-    /// to ACP clients. Each progress update becomes a ToolCallUpdateCommitted event.
+    /// to ACP clients. Each progress update becomes a ToolCallUpdate event.
     /// </summary>
     [Fact]
     public void ToolExecutionProgress_Commits_IncrementalUpdates()
@@ -157,13 +157,13 @@ public class ToolCallReducerTests
 
         // ASSERT: Progress update committed
         Assert.Contains(result.Next.Committed, evt =>
-            evt is ToolCallUpdateCommitted update &&
+            evt is ToolCallUpdate update &&
             update.ToolId == "call_1" &&
             update.Content == progressContent);
 
         // ASSERT: NewlyCommitted contains the update
         Assert.Single(result.NewlyCommitted);
-        Assert.IsType<ToolCallUpdateCommitted>(result.NewlyCommitted[0]);
+        Assert.IsType<ToolCallUpdate>(result.NewlyCommitted[0]);
     }
 
     /// <summary>

@@ -59,7 +59,7 @@ public sealed record ToolCallInProgress(string ToolId) : SessionEvent;
 /// Incremental tool call output/progress update.
 /// Invariant: These are additive; ACP publishes as tool_call_update content appends.
 /// </summary>
-public sealed record ToolCallUpdateCommitted(string ToolId, object Content) : SessionEvent;
+public sealed record ToolCallUpdate(string ToolId, object Content) : SessionEvent;
 
 /// <summary>
 /// Tool call completed successfully.

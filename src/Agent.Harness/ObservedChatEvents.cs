@@ -49,7 +49,7 @@ public sealed record ObservedPermissionDenied(string ToolId, string Reason) : Ob
 
 /// <summary>
 /// Tool execution progress update.
-/// Invariant: Fed from executor; reducer commits ToolCallUpdateCommitted.
+/// Invariant: Fed from executor; reducer commits ToolCallUpdate.
 /// </summary>
 public sealed record ObservedToolCallProgressUpdate(string ToolId, object Content) : ObservedChatEvent;
 
