@@ -105,9 +105,9 @@ public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
                 {
                     if (_toolCalls.TryGetValue(u.ToolId, out var call))
                     {
-                        var text = u.Content is string s
-                            ? s
-                            : JsonSerializer.Serialize(u.Content);
+                        var text = u.Content.ValueKind == JsonValueKind.String
+                            ? u.Content.GetString() ?? string.Empty
+                            : u.Content.GetRawText();
 
                         await call.AddContentAsync(new ToolCallContentContent
                         {

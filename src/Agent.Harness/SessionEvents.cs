@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json;
 
 namespace Agent.Harness;
 
@@ -41,7 +42,7 @@ public sealed record ModelInvoked(ImmutableArray<ChatMessage> RenderedMessages) 
 /// Tool call detected and permission check requested.
 /// Invariant: This commits the intent to call a tool; permission must be checked before execution.
 /// </summary>
-public sealed record ToolCallRequested(string ToolId, string ToolName, object Args) : SessionEvent;
+public sealed record ToolCallRequested(string ToolId, string ToolName, JsonElement Args) : SessionEvent;
 
 /// <summary>
 /// Tool call permission approved and queued for execution.
@@ -67,13 +68,13 @@ public sealed record ToolCallInProgress(string ToolId) : SessionEvent;
 /// Incremental tool call output/progress update.
 /// Invariant: These are additive; ACP publishes as tool_call_update content appends.
 /// </summary>
-public sealed record ToolCallUpdate(string ToolId, object Content) : SessionEvent;
+public sealed record ToolCallUpdate(string ToolId, JsonElement Content) : SessionEvent;
 
 /// <summary>
 /// Tool call completed successfully.
 /// Invariant: Terminal state; no further updates allowed for this tool call.
 /// </summary>
-public sealed record ToolCallCompleted(string ToolId, object Result) : SessionEvent;
+public sealed record ToolCallCompleted(string ToolId, JsonElement Result) : SessionEvent;
 
 /// <summary>
 /// Tool call failed during execution.

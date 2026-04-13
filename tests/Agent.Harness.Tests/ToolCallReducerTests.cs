@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json;
 using Agent.Harness;
 
 namespace Agent.Harness.Tests;
@@ -11,6 +12,8 @@ namespace Agent.Harness.Tests;
 /// </summary>
 public class ToolCallReducerTests
 {
+    private static JsonElement J(object value) => JsonSerializer.SerializeToElement(value);
+
     /// <summary>
     /// TC-CORE-001: Tool Call Detection Commits ToolCallRequested + Emits CheckPermission Effect
     /// 
@@ -42,7 +45,7 @@ public class ToolCallReducerTests
         Assert.Contains(result.Next.Committed, evt => evt is ToolCallRequested req &&
             req.ToolId == "call_1" &&
             req.ToolName == "read_text_file" &&
-            req.Args == toolArgs);
+            req.Args.GetProperty("path").GetString() == "/tmp/test.txt");
 
         // ASSERT: Effect emitted
         Assert.Contains(result.Effects, eff => eff is CheckPermission perm &&
@@ -70,7 +73,7 @@ public class ToolCallReducerTests
         var initial = new SessionState(
             Committed: ImmutableArray.Create<SessionEvent>(
                 new UserMessage("Read file /tmp/test.txt"),
-                new ToolCallRequested("call_1", "read_text_file", toolArgs)),
+                new ToolCallRequested("call_1", "read_text_file", J(toolArgs))),
             Buffer: TurnBuffer.Empty,
             Tools: ImmutableArray.Create(ToolSchemas.ReadTextFile));
 
@@ -107,7 +110,7 @@ public class ToolCallReducerTests
         var initial = new SessionState(
             Committed: ImmutableArray.Create<SessionEvent>(
                 new UserMessage("Read /etc/passwd"),
-                new ToolCallRequested("call_1", "read_text_file", toolArgs)),
+                new ToolCallRequested("call_1", "read_text_file", J(toolArgs))),
             Buffer: TurnBuffer.Empty,
             Tools: ImmutableArray.Create(ToolSchemas.ReadTextFile));
 
@@ -146,7 +149,7 @@ public class ToolCallReducerTests
         var initial = new SessionState(
             Committed: ImmutableArray.Create<SessionEvent>(
                 new UserMessage("Read file"),
-                new ToolCallRequested("call_1", "read_text_file", new { path = "/tmp/test.txt" }),
+                new ToolCallRequested("call_1", "read_text_file", J(new { path = "/tmp/test.txt" })),
                 new ToolCallPending("call_1"),
                 new ToolCallInProgress("call_1")),
             Buffer: TurnBuffer.Empty,
@@ -164,7 +167,7 @@ public class ToolCallReducerTests
         Assert.Contains(result.Next.Committed, evt =>
             evt is ToolCallUpdate update &&
             update.ToolId == "call_1" &&
-            update.Content == progressContent);
+            update.Content.GetProperty("text").GetString() == "Reading line 1...");
 
         // ASSERT: NewlyCommitted contains the update
         Assert.Single(result.NewlyCommitted);
@@ -185,7 +188,7 @@ public class ToolCallReducerTests
         var initial = new SessionState(
             Committed: ImmutableArray.Create<SessionEvent>(
                 new UserMessage("Read file"),
-                new ToolCallRequested("call_1", "read_text_file", new { path = "/tmp/test.txt" }),
+                new ToolCallRequested("call_1", "read_text_file", J(new { path = "/tmp/test.txt" })),
                 new ToolCallPending("call_1"),
                 new ToolCallInProgress("call_1")),
             Buffer: TurnBuffer.Empty,
@@ -203,7 +206,7 @@ public class ToolCallReducerTests
         Assert.Contains(result.Next.Committed, evt =>
             evt is ToolCallCompleted completed &&
             completed.ToolId == "call_1" &&
-            completed.Result == finalResult);
+            completed.Result.GetProperty("bytes").GetInt32() == 1024);
 
         // ASSERT: Newly committed contains exactly the completion event
         Assert.Single(result.NewlyCommitted);
@@ -260,7 +263,7 @@ public class ToolCallReducerTests
         var initial = new SessionState(
             Committed: ImmutableArray.Create<SessionEvent>(
                 new UserMessage("Read file"),
-                new ToolCallRequested("call_1", "read_text_file", new { path = "/nonexistent.txt" }),
+                new ToolCallRequested("call_1", "read_text_file", J(new { path = "/nonexistent.txt" })), 
                 new ToolCallPending("call_1"),
                 new ToolCallInProgress("call_1")),
             Buffer: TurnBuffer.Empty,
@@ -297,7 +300,7 @@ public class ToolCallReducerTests
         var initial = new SessionState(
             Committed: ImmutableArray.Create<SessionEvent>(
                 new UserMessage("Read large file"),
-                new ToolCallRequested("call_1", "read_text_file", new { path = "/tmp/large.txt" }),
+                new ToolCallRequested("call_1", "read_text_file", J(new { path = "/tmp/large.txt" })), 
                 new ToolCallPending("call_1"),
                 new ToolCallInProgress("call_1")),
             Buffer: TurnBuffer.Empty,

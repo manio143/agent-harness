@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json;
 
 namespace Agent.Harness;
 
@@ -125,7 +126,8 @@ public static class Core
                 }
 
                 // Commit ToolCallRequested and emit CheckPermission effect
-                var requested = new ToolCallRequested(detected.ToolId, detected.ToolName, detected.Args);
+                var argsJson = JsonSerializer.SerializeToElement(detected.Args);
+                var requested = new ToolCallRequested(detected.ToolId, detected.ToolName, argsJson);
                 var permissionEffect = new CheckPermission(detected.ToolId, detected.ToolName, detected.Args);
 
                 var committed = state.Committed.Add(requested);
@@ -199,7 +201,7 @@ public static class Core
                 }
                 
                 // Commit ToolCallUpdate for incremental updates
-                var update = new ToolCallUpdate(progress.ToolId, progress.Content);
+                var update = new ToolCallUpdate(progress.ToolId, JsonSerializer.SerializeToElement(progress.Content));
                 committed = committed.Add(update);
                 var next = state with { Committed = committed };
                 
@@ -217,7 +219,7 @@ public static class Core
             case ObservedToolCallCompleted completed:
             {
                 // Commit ToolCallCompleted (terminal state)
-                var completedEvent = new ToolCallCompleted(completed.ToolId, completed.Result);
+                var completedEvent = new ToolCallCompleted(completed.ToolId, JsonSerializer.SerializeToElement(completed.Result));
                 var committed = state.Committed.Add(completedEvent);
                 var next = state with { Committed = committed };
                 
