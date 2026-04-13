@@ -13,6 +13,12 @@ public sealed class AgentServerOptions
         public string BaseUrl { get; set; } = "http://ollama-api:11434/v1";
         public string Model { get; set; } = "qwen2.5:3b";
         public string ApiKey { get; set; } = "ollama";
+
+        /// <summary>
+        /// Network timeout for the underlying OpenAI-compatible HTTP client.
+        /// Default is left null to use library defaults.
+        /// </summary>
+        public int? NetworkTimeoutSeconds { get; set; }
     }
 
     public sealed class SessionStoreOptions
@@ -23,6 +29,12 @@ public sealed class AgentServerOptions
     public sealed class LoggingOptions
     {
         public bool LogRpc { get; set; } = false;
+
+        /// <summary>
+        /// Opt-in logging of the exact messages + tool declarations sent to the LLM.
+        /// Warning: may include user content and file/tool outputs.
+        /// </summary>
+        public bool LogLlmPrompts { get; set; } = false;
     }
 
     public sealed class CoreOptions

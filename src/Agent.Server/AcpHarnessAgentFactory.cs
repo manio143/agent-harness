@@ -165,7 +165,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         // Merge MCP tools into the session state tool catalog (built-ins are merged later per client capabilities).
         initial = initial with { Tools = ClientToolCatalog.Merge(initial.Tools, mcp.Tools) };
 
-        return new HarnessAcpSessionAgent(sessionId, client, _chat, events, coreOptions, publishOptions, _store, initial, mcp.Invoker);
+        return new HarnessAcpSessionAgent(sessionId, client, _chat, events, coreOptions, publishOptions, _store, initial, mcp.Invoker, logLlmPrompts: _options.Logging.LogLlmPrompts);
     }
 
     public async Task ReplaySessionAsync(string sessionId, IAcpSessionEvents events, CancellationToken cancellationToken)

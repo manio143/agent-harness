@@ -61,6 +61,9 @@ public sealed class AcpEffectExecutorTests
             ChatOptions? options = null,
             CancellationToken cancellationToken = default)
         {
+            options.Should().NotBeNull();
+            options!.ToolMode.Should().Be(ChatToolMode.Auto);
+
             var list = messages.ToList();
             Calls.Add(list);
 

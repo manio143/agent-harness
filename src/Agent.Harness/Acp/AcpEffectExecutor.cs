@@ -15,13 +15,20 @@ public sealed class AcpEffectExecutor : IEffectExecutor
     private readonly IAcpClientCaller _client;
     private readonly MeaiIChatClient _chat;
     private readonly IMcpToolInvoker _mcp;
+    private readonly bool _logLlmPrompts;
 
-    public AcpEffectExecutor(string sessionId, IAcpClientCaller client, MeaiIChatClient chat, IMcpToolInvoker? mcp = null)
+    public AcpEffectExecutor(
+        string sessionId,
+        IAcpClientCaller client,
+        MeaiIChatClient chat,
+        IMcpToolInvoker? mcp = null,
+        bool logLlmPrompts = false)
     {
         _sessionId = sessionId;
         _client = client;
         _chat = chat;
         _mcp = mcp ?? NullMcpToolInvoker.Instance;
+        _logLlmPrompts = logLlmPrompts;
     }
 
     public async Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
@@ -64,7 +71,37 @@ public sealed class AcpEffectExecutor : IEffectExecutor
             }, m.Text))
             .ToList();
 
-        var updates = _chat.GetStreamingResponseAsync(meaiMessages, cancellationToken: cancellationToken);
+        var options = new Microsoft.Extensions.AI.ChatOptions
+        {
+            ToolMode = Microsoft.Extensions.AI.ChatToolMode.Auto,
+            AllowMultipleToolCalls = true,
+            Tools = new List<Microsoft.Extensions.AI.AITool>(),
+        };
+
+        foreach (var t in state.Tools)
+        {
+            // Declare tools to the LLM (invocation handled by the harness).
+            options.Tools.Add(Microsoft.Extensions.AI.AIFunctionFactory.CreateDeclaration(
+                t.Name,
+                t.Description ?? string.Empty,
+                t.InputSchema,
+                returnJsonSchema: null));
+        }
+
+        if (_logLlmPrompts)
+        {
+            var payload = JsonSerializer.Serialize(new
+            {
+                messages = meaiMessages.Select(m => new { role = m.Role.ToString(), content = m.Text }),
+                tools = options.Tools
+                    .OfType<Microsoft.Extensions.AI.AIFunctionDeclaration>()
+                    .Select(d => new { d.Name, d.Description, jsonSchema = d.JsonSchema }),
+            }, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
+
+            Console.Error.WriteLine("[llm.prompt] " + payload);
+        }
+
+        var updates = _chat.GetStreamingResponseAsync(meaiMessages, options, cancellationToken);
 
         var observed = new List<ObservedChatEvent>();
         await foreach (var o in MeaiObservedEventSource.FromStreamingResponse(updates, cancellationToken).ConfigureAwait(false))

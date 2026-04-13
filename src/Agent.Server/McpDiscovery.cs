@@ -32,8 +32,11 @@ internal static class McpDiscovery
             var stdio = JsonSerializer.SerializeToElement(stdioObj, AcpJson.Options);
 
             var command = stdio.TryGetProperty("command", out var cmd) && cmd.ValueKind == JsonValueKind.String
-                ? cmd.GetString()!
-                : throw new AcpJsonRpcException(-32602, "invalid mcp stdio config: missing command");
+                ? cmd.GetString()
+                : null;
+
+            if (string.IsNullOrWhiteSpace(command))
+                throw new AcpJsonRpcException(-32602, "invalid mcp stdio config: missing command");
 
             var args = new List<string>();
             if (stdio.TryGetProperty("args", out var argsEl) && argsEl.ValueKind == JsonValueKind.Array)
@@ -48,7 +51,7 @@ internal static class McpDiscovery
             if (string.IsNullOrWhiteSpace(serverId))
                 serverId = $"mcp_{i + 1}";
 
-            var env = new Dictionary<string, string>(StringComparer.Ordinal);
+            var env = new Dictionary<string, string?>(StringComparer.Ordinal);
             if (stdio.TryGetProperty("env", out var envEl) && envEl.ValueKind == JsonValueKind.Array)
             {
                 foreach (var e in envEl.EnumerateArray())

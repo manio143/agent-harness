@@ -54,6 +54,9 @@ public static class Program
                 Endpoint = new Uri(opts.OpenAI.BaseUrl, UriKind.Absolute),
             };
 
+            if (opts.OpenAI.NetworkTimeoutSeconds is { } seconds)
+                clientOptions.NetworkTimeout = TimeSpan.FromSeconds(seconds);
+
             var openai = new OpenAIClient(new ApiKeyCredential(opts.OpenAI.ApiKey), clientOptions);
             var chat = openai.GetChatClient(opts.OpenAI.Model);
 
