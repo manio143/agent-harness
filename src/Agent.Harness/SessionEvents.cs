@@ -85,7 +85,7 @@ public sealed record ToolCallFailed(string ToolId, string Error) : SessionEvent;
 /// Tool call rejected by user/permission policy.
 /// Invariant: Terminal state; tool never executed.
 /// </summary>
-public sealed record ToolCallRejected(string ToolId, string Reason) : SessionEvent;
+public sealed record ToolCallRejected(string ToolId, string Reason, ImmutableArray<string> Details) : SessionEvent;
 
 /// <summary>
 /// Tool call cancelled (e.g., turn cancellation).

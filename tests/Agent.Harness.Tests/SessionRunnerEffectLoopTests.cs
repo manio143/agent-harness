@@ -13,7 +13,7 @@ public class SessionRunnerEffectLoopTests
         // Tool calling requires a reducer/effects loop: reducer emits effects, imperative shell executes
         // them and feeds observations back, and only the reducer commits.
 
-        var state = SessionState.Empty;
+        var state = SessionState.Empty with { Tools = ImmutableArray.Create(ToolSchemas.ReadTextFile) };
 
         var effects = new FakeEffectExecutor();
         var runner = new SessionRunner(new CoreOptions(), new SessionTitleGenerator(new ThrowingChatClient()), effects);

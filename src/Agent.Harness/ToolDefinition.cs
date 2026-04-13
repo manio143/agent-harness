@@ -10,6 +10,10 @@ namespace Agent.Harness;
 /// - Required capabilities
 /// - Handler mapping
 /// </summary>
+using System.Text.Json;
+
 public sealed record ToolDefinition(
     string Name,
-    object Schema);
+    string Description,
+    JsonElement InputSchema);
+

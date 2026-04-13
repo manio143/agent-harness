@@ -45,7 +45,8 @@ public sealed class SessionRunnerTitleIntegrationTests
                 new UserMessage("Hi"),
                 new AssistantMessage("Hello"),
                 new SessionTitleSet("Existing")),
-            Buffer: TurnBuffer.Empty);
+            Buffer: TurnBuffer.Empty,
+            Tools: ImmutableArray<ToolDefinition>.Empty);
 
         async IAsyncEnumerable<ObservedChatEvent> Observed()
         {

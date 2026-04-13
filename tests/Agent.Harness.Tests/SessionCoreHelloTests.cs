@@ -24,7 +24,8 @@ public sealed class CoreReducerHelloTests
     {
         var state = new SessionState(
             Committed: ImmutableArray<SessionEvent>.Empty,
-            Buffer: new TurnBuffer(AssistantText: "Hello back", AssistantMessageOpen: true));
+            Buffer: new TurnBuffer(AssistantText: "Hello back", AssistantMessageOpen: true),
+            Tools: ImmutableArray<ToolDefinition>.Empty);
 
         var result = Core.Reduce(state, new ObservedAssistantMessageCompleted());
 
@@ -40,7 +41,8 @@ public sealed class CoreReducerHelloTests
             Committed: ImmutableArray.Create<SessionEvent>(
                 new UserMessage("Hello"),
                 new AssistantMessage("Hello back")),
-            Buffer: TurnBuffer.Empty);
+            Buffer: TurnBuffer.Empty,
+            Tools: ImmutableArray<ToolDefinition>.Empty);
 
         var rendered = Core.RenderPrompt(state);
 

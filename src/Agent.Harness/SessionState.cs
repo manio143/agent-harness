@@ -7,9 +7,13 @@ namespace Agent.Harness;
 /// </summary>
 public sealed record SessionState(
     ImmutableArray<SessionEvent> Committed,
-    TurnBuffer Buffer)
+    TurnBuffer Buffer,
+    ImmutableArray<ToolDefinition> Tools)
 {
-    public static SessionState Empty { get; } = new(ImmutableArray<SessionEvent>.Empty, TurnBuffer.Empty);
+    public static SessionState Empty { get; } = new(
+        ImmutableArray<SessionEvent>.Empty,
+        TurnBuffer.Empty,
+        ImmutableArray<ToolDefinition>.Empty);
 }
 
 public sealed record TurnBuffer(
@@ -22,4 +26,4 @@ public sealed record TurnBuffer(
 public sealed record ReduceResult(
     SessionState Next,
     ImmutableArray<SessionEvent> NewlyCommitted,
-    ImmutableArray<Effect> Effects);  // NEW: Effects emitted by reducer for SessionRunner to execute
+    ImmutableArray<Effect> Effects);  // Effects emitted by reducer for SessionRunner to execute

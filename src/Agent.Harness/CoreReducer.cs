@@ -30,49 +30,21 @@ public static class Core
         // Filesystem tools
         if (capabilities.Fs?.ReadTextFile == true)
         {
-            builder.Add(new ToolDefinition(
-                Name: "read_text_file",
-                Schema: new
-                {
-                    type = "object",
-                    properties = new
-                    {
-                        path = new { type = "string", description = "Path to the file to read" }
-                    },
-                    required = new[] { "path" }
-                }));
+            builder.Add(ToolSchemas.ReadTextFile);
+
         }
 
         if (capabilities.Fs?.WriteTextFile == true)
         {
-            builder.Add(new ToolDefinition(
-                Name: "write_text_file",
-                Schema: new
-                {
-                    type = "object",
-                    properties = new
-                    {
-                        path = new { type = "string", description = "Path to the file to write" },
-                        content = new { type = "string", description = "Content to write" }
-                    },
-                    required = new[] { "path", "content" }
-                }));
+            builder.Add(ToolSchemas.WriteTextFile);
+
         }
 
         // Terminal tools
         if (capabilities.Terminal == true)
         {
-            builder.Add(new ToolDefinition(
-                Name: "execute_command",
-                Schema: new
-                {
-                    type = "object",
-                    properties = new
-                    {
-                        command = new { type = "string", description = "Command to execute" }
-                    },
-                    required = new[] { "command" }
-                }));
+            builder.Add(ToolSchemas.ExecuteCommand);
+
         }
 
         return builder.ToImmutable();
@@ -133,13 +105,32 @@ public static class Core
 
             case ObservedToolCallDetected detected:
             {
+                // Early rejection: unknown tool / invalid args
+                var tool = state.Tools.FirstOrDefault(t => t.Name == detected.ToolName);
+                if (tool is null)
+                {
+                    var rejected = new ToolCallRejected(detected.ToolId, "unknown_tool", ImmutableArray.Create("unknown_tool"));
+                    var committedRej = state.Committed.Add(rejected);
+                    var nextRej = state with { Committed = committedRej };
+                    return new ReduceResult(nextRej, ImmutableArray.Create<SessionEvent>(rejected), ImmutableArray<Effect>.Empty);
+                }
+
+                var errors = ToolArgValidator.Validate(tool.InputSchema, detected.Args);
+                if (!errors.IsEmpty)
+                {
+                    var rejected = new ToolCallRejected(detected.ToolId, "invalid_args", errors);
+                    var committedRej = state.Committed.Add(rejected);
+                    var nextRej = state with { Committed = committedRej };
+                    return new ReduceResult(nextRej, ImmutableArray.Create<SessionEvent>(rejected), ImmutableArray<Effect>.Empty);
+                }
+
                 // Commit ToolCallRequested and emit CheckPermission effect
                 var requested = new ToolCallRequested(detected.ToolId, detected.ToolName, detected.Args);
                 var permissionEffect = new CheckPermission(detected.ToolId, detected.ToolName, detected.Args);
-                
+
                 var committed = state.Committed.Add(requested);
                 var next = state with { Committed = committed };
-                
+
                 return new ReduceResult(
                     next,
                     ImmutableArray.Create<SessionEvent>(requested),
@@ -181,7 +172,7 @@ public static class Core
             {
                 // Commit ToolCallPermissionDenied + ToolCallRejected with no effects
                 var deniedEvt = new ToolCallPermissionDenied(denied.ToolId, denied.Reason);
-                var rejected = new ToolCallRejected(denied.ToolId, denied.Reason);
+                var rejected = new ToolCallRejected(denied.ToolId, denied.Reason, ImmutableArray<string>.Empty);
                 var committed = state.Committed.Add(deniedEvt).Add(rejected);
                 var next = state with { Committed = committed };
 

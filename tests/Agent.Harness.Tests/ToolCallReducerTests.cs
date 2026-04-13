@@ -26,7 +26,8 @@ public class ToolCallReducerTests
         var initial = new SessionState(
             Committed: ImmutableArray.Create<SessionEvent>(
                 new UserMessage("Read file /tmp/test.txt")),
-            Buffer: TurnBuffer.Empty);
+            Buffer: TurnBuffer.Empty,
+            Tools: ImmutableArray.Create(ToolSchemas.ReadTextFile));
 
         var toolArgs = new { path = "/tmp/test.txt" };
         var observed = new ObservedToolCallDetected(
@@ -70,7 +71,8 @@ public class ToolCallReducerTests
             Committed: ImmutableArray.Create<SessionEvent>(
                 new UserMessage("Read file /tmp/test.txt"),
                 new ToolCallRequested("call_1", "read_text_file", toolArgs)),
-            Buffer: TurnBuffer.Empty);
+            Buffer: TurnBuffer.Empty,
+            Tools: ImmutableArray.Create(ToolSchemas.ReadTextFile));
 
         var observed = new ObservedPermissionApproved(ToolId: "call_1", Reason: "capability_present");
 
@@ -106,7 +108,8 @@ public class ToolCallReducerTests
             Committed: ImmutableArray.Create<SessionEvent>(
                 new UserMessage("Read /etc/passwd"),
                 new ToolCallRequested("call_1", "read_text_file", toolArgs)),
-            Buffer: TurnBuffer.Empty);
+            Buffer: TurnBuffer.Empty,
+            Tools: ImmutableArray.Create(ToolSchemas.ReadTextFile));
 
         var observed = new ObservedPermissionDenied(
             ToolId: "call_1",
@@ -119,7 +122,8 @@ public class ToolCallReducerTests
         Assert.Contains(result.Next.Committed, evt =>
             evt is ToolCallRejected rejected &&
             rejected.ToolId == "call_1" &&
-            rejected.Reason == "User rejected: sensitive file");
+            rejected.Reason == "User rejected: sensitive file" &&
+            rejected.Details.IsEmpty);
 
         // ASSERT: NO ExecuteToolCall effect
         Assert.DoesNotContain(result.Effects, eff => eff is ExecuteToolCall);
@@ -145,7 +149,8 @@ public class ToolCallReducerTests
                 new ToolCallRequested("call_1", "read_text_file", new { path = "/tmp/test.txt" }),
                 new ToolCallPending("call_1"),
                 new ToolCallInProgress("call_1")),
-            Buffer: TurnBuffer.Empty);
+            Buffer: TurnBuffer.Empty,
+            Tools: ImmutableArray.Create(ToolSchemas.ReadTextFile));
 
         var progressContent = new { text = "Reading line 1..." };
         var observed = new ObservedToolCallProgressUpdate(
@@ -183,7 +188,8 @@ public class ToolCallReducerTests
                 new ToolCallRequested("call_1", "read_text_file", new { path = "/tmp/test.txt" }),
                 new ToolCallPending("call_1"),
                 new ToolCallInProgress("call_1")),
-            Buffer: TurnBuffer.Empty);
+            Buffer: TurnBuffer.Empty,
+            Tools: ImmutableArray.Create(ToolSchemas.ReadTextFile));
 
         var finalResult = new { content = "File contents here", bytes = 1024 };
         var observed = new ObservedToolCallCompleted(
@@ -257,7 +263,8 @@ public class ToolCallReducerTests
                 new ToolCallRequested("call_1", "read_text_file", new { path = "/nonexistent.txt" }),
                 new ToolCallPending("call_1"),
                 new ToolCallInProgress("call_1")),
-            Buffer: TurnBuffer.Empty);
+            Buffer: TurnBuffer.Empty,
+            Tools: ImmutableArray.Create(ToolSchemas.ReadTextFile));
 
         var observed = new ObservedToolCallFailed(
             ToolId: "call_1",
@@ -293,7 +300,8 @@ public class ToolCallReducerTests
                 new ToolCallRequested("call_1", "read_text_file", new { path = "/tmp/large.txt" }),
                 new ToolCallPending("call_1"),
                 new ToolCallInProgress("call_1")),
-            Buffer: TurnBuffer.Empty);
+            Buffer: TurnBuffer.Empty,
+            Tools: ImmutableArray.Create(ToolSchemas.ReadTextFile));
 
         var observed = new ObservedToolCallCancelled(ToolId: "call_1");
 

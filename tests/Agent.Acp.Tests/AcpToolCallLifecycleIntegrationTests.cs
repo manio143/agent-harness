@@ -399,7 +399,7 @@ internal class FakeAgentFactory : IAcpAgentFactory
                 {
                     name = t.Name,
                     description = $"Tool: {t.Name}",
-                    inputSchema = t.Schema,
+                    inputSchema = t.InputSchema,
                 }).ToList(),
             },
         };

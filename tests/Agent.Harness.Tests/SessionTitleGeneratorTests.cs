@@ -16,7 +16,8 @@ public sealed class SessionTitleGeneratorTests
             Committed: ImmutableArray.Create<SessionEvent>(
                 new UserMessage("Hi"),
                 new AssistantMessage("Hello")),
-            Buffer: TurnBuffer.Empty);
+            Buffer: TurnBuffer.Empty,
+            Tools: ImmutableArray<ToolDefinition>.Empty);
 
         var evt = await gen.MaybeGenerateAfterTurnAsync(state, CancellationToken.None);
         evt.Should().Be(new SessionTitleSet("My Title"));
