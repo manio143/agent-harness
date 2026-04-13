@@ -122,6 +122,30 @@ This document captures the *locked* decisions made while implementing Tool Calli
 
 **Implementation note:** `session/update` is wrapped as `{ sessionId, update }`.
 
+## D11 — Responsibility split: Server vs Harness (Core vs Shell)
+
+**Problem:** Where should provider-specific parsing/normalization live (e.g., MEAI `ChatResponseUpdate` → harness `Observed*` events), and what is the correct responsibility split between `Agent.Server` and `Agent.Harness`?
+
+**Decision:**
+- `Agent.Harness` is split into:
+  - **Functional core**: reducer/state/committed events/effects contracts. No MEAI types.
+  - **Imperative shell adapters**: boundary-specific adapters that translate external provider/protocol representations into harness `ObservedChatEvent`s.
+- `Agent.Server` is the **composition root / executable host**:
+  - wires concrete LLM provider implementations (OpenAI/Ollama via MEAI)
+  - wires ACP transport + config + logging
+  - references harness shell adapter packages, but does not own provider parsing logic.
+
+**Concretely:** MEAI parsing/normalization lives in `Agent.Harness.Meai` (shell adapter project), not `Agent.Server`.
+
+**Rationale:**
+- Preserves portability of the harness core and keeps it provider-neutral.
+- Prevents `Agent.Server` from becoming a “god module” that accumulates boundary translation logic.
+- Allows reuse of the MEAI boundary adapter by other hosts (tests, alternative servers) without copy/paste.
+
+**Consequences:**
+- Adding a new provider means adding a new harness *shell adapter* (e.g. `Agent.Harness.Anthropic`) rather than changing the core or bloating the server.
+- Tool-call intent is normalized at the boundary into `ObservedToolCallDetected` (Mode A), then handled by the reducer like any other observed event.
+
 ---
 
 ## Test/Implementation notes
