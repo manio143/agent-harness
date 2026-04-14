@@ -98,6 +98,10 @@ public sealed class JsonlSessionStore : ISessionStore
                     list.Add(new ReasoningTextDelta(root.GetProperty("textDelta").GetString() ?? string.Empty));
                     break;
 
+                case "reasoning_message":
+                    list.Add(new ReasoningMessage(root.GetProperty("text").GetString() ?? string.Empty));
+                    break;
+
                 case "session_title_set":
                     list.Add(new SessionTitleSet(root.GetProperty("title").GetString() ?? string.Empty));
                     break;
@@ -199,6 +203,7 @@ public sealed class JsonlSessionStore : ISessionStore
                 AssistantMessage a => new { type = "assistant_message", text = a.Text },
                 AssistantTextDelta d => new { type = "assistant_text_delta", textDelta = d.TextDelta },
                 ReasoningTextDelta r => new { type = "reasoning_text_delta", textDelta = r.TextDelta },
+                ReasoningMessage r => new { type = "reasoning_message", text = r.Text },
                 SessionTitleSet t => new { type = "session_title_set", title = t.Title },
                 TurnStarted => new { type = "turn_started" },
                 TurnEnded => new { type = "turn_ended" },

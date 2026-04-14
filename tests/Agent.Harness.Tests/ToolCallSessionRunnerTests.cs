@@ -144,7 +144,7 @@ public class ToolCallSessionRunnerTests
             Args: new { path = "/tmp/large-file.txt" });
 
         using var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMilliseconds(10)); // Cancel almost immediately
+        cts.Cancel(); // deterministic: already cancelled before execution starts
 
         // ACT
         var observations = await runner.ExecuteEffectAsync(effect, cts.Token);

@@ -79,6 +79,16 @@ public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
                     }, cancellationToken).ConfigureAwait(false);
                     break;
 
+                case ReasoningMessage r when _publishOptions.PublishReasoning:
+                    if (!_coreOptions.CommitReasoningTextDeltas)
+                    {
+                        await _events.SendSessionUpdateAsync(new AgentThoughtChunk
+                        {
+                            Content = new TextContent { Text = r.Text },
+                        }, cancellationToken).ConfigureAwait(false);
+                    }
+                    break;
+
                 case ReasoningTextDelta r when _publishOptions.PublishReasoning:
                     await _events.SendSessionUpdateAsync(new AgentThoughtChunk
                     {

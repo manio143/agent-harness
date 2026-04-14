@@ -18,9 +18,15 @@ public sealed record SessionState(
 
 public sealed record TurnBuffer(
     string AssistantText,
-    bool AssistantMessageOpen)
+    bool AssistantMessageOpen,
+    string ReasoningText,
+    bool ReasoningMessageOpen)
 {
-    public static TurnBuffer Empty { get; } = new("", AssistantMessageOpen: false);
+    public static TurnBuffer Empty { get; } = new(
+        AssistantText: "",
+        AssistantMessageOpen: false,
+        ReasoningText: "",
+        ReasoningMessageOpen: false);
 }
 
 public sealed record ReduceResult(

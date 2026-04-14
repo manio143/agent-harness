@@ -27,6 +27,8 @@ public sealed record ObservedAssistantTextDelta(string Text) : ObservedChatEvent
 /// </summary>
 public sealed record ObservedReasoningTextDelta(string Text) : ObservedChatEvent;
 
+public sealed record ObservedReasoningMessageCompleted(string? FinishReason = null) : ObservedChatEvent;
+
 public sealed record ObservedAssistantMessageCompleted(string? FinishReason = null) : ObservedChatEvent;
 
 // --- Tool Call Observations ---

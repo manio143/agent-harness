@@ -11,6 +11,7 @@ public abstract record SessionEvent;
 
 public sealed record UserMessage(string Text) : SessionEvent;
 public sealed record AssistantMessage(string Text) : SessionEvent;
+public sealed record ReasoningMessage(string Text) : SessionEvent;
 
 /// <summary>
 /// Committed assistant text delta. Useful for streaming modes where we want to publish progress

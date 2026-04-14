@@ -40,6 +40,11 @@ public static class AcpProjection
             case AssistantTextDelta d:
                 return ImmutableArray.Create<AcpEmission>(new AcpSendAgentMessageChunk(d.TextDelta));
 
+            case ReasoningMessage r when publishOptions.PublishReasoning:
+                if (!coreOptions.CommitReasoningTextDeltas)
+                    return ImmutableArray.Create<AcpEmission>(new AcpSendAgentThoughtChunk(r.Text));
+                return ImmutableArray<AcpEmission>.Empty;
+
             case ReasoningTextDelta r when publishOptions.PublishReasoning:
                 return ImmutableArray.Create<AcpEmission>(new AcpSendAgentThoughtChunk(r.TextDelta));
 

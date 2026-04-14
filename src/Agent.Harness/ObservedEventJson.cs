@@ -15,6 +15,7 @@ public static class ObservedEventJson
             ObservedUserMessage m => new Dictionary<string, object?> { ["type"] = "obs_user_message", ["text"] = m.Text },
             ObservedAssistantTextDelta d => new Dictionary<string, object?> { ["type"] = "obs_assistant_text_delta", ["textDelta"] = d.Text },
             ObservedReasoningTextDelta d => new Dictionary<string, object?> { ["type"] = "obs_reasoning_text_delta", ["textDelta"] = d.Text },
+            ObservedReasoningMessageCompleted c => new Dictionary<string, object?> { ["type"] = "obs_reasoning_message_completed", ["finishReason"] = c.FinishReason },
             ObservedAssistantMessageCompleted c => new Dictionary<string, object?> { ["type"] = "obs_assistant_message_completed", ["finishReason"] = c.FinishReason },
 
             ObservedToolCallDetected t => new Dictionary<string, object?>

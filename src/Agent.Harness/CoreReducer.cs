@@ -109,18 +109,30 @@ public static class Core
 
             case ObservedReasoningTextDelta d:
             {
+                var next = state with
+                {
+                    Buffer = state.Buffer with
+                    {
+                        ReasoningText = state.Buffer.ReasoningText + d.Text,
+                        ReasoningMessageOpen = true,
+                    }
+                };
+
                 if (options?.CommitReasoningTextDeltas == true)
                 {
                     var delta = new ReasoningTextDelta(d.Text);
-                    var committed = state.Committed.Add(delta);
+                    var committed = next.Committed.Add(delta);
                     return new ReduceResult(
-                        state with { Committed = committed },
+                        next with { Committed = committed },
                         ImmutableArray.Create<SessionEvent>(delta),
                         ImmutableArray<Effect>.Empty);
                 }
 
-                return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty, ImmutableArray<Effect>.Empty);
+                return new ReduceResult(next, ImmutableArray<SessionEvent>.Empty, ImmutableArray<Effect>.Empty);
             }
+
+            case ObservedReasoningMessageCompleted:
+                return FlushReasoning(state);
 
             case ObservedAssistantMessageCompleted:
                 return FlushAssistant(state);
@@ -393,10 +405,27 @@ public static class Core
         }
 
         var text = state.Buffer.AssistantText;
-        var nextState = state with { Buffer = TurnBuffer.Empty };
+        var nextState = state with
+        {
+            Buffer = state.Buffer with { AssistantText = "", AssistantMessageOpen = false }
+        };
 
         // Commit even if text is empty: treat boundary as a message completion.
         // (We can tighten this later if desired.)
         return Commit(nextState, new AssistantMessage(text));
+    }
+
+    private static ReduceResult FlushReasoning(SessionState state)
+    {
+        if (!state.Buffer.ReasoningMessageOpen && string.IsNullOrEmpty(state.Buffer.ReasoningText))
+            return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty, ImmutableArray<Effect>.Empty);
+
+        var text = state.Buffer.ReasoningText;
+        var nextState = state with
+        {
+            Buffer = state.Buffer with { ReasoningText = "", ReasoningMessageOpen = false }
+        };
+
+        return Commit(nextState, new ReasoningMessage(text));
     }
 }

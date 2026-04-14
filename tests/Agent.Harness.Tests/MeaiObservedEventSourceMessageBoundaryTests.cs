@@ -78,6 +78,26 @@ public sealed class MeaiObservedEventSourceMessageBoundaryTests
             typeof(ObservedReasoningTextDelta));
     }
 
+    [Fact]
+    public async Task FromStreamingResponse_WhenReasoningThenToolCall_ClosesReasoningBeforeToolCall()
+    {
+        var update = new ChatResponseUpdate
+        {
+            Contents = new List<AIContent>
+            {
+                new TextReasoningContent("thinking"),
+                new FunctionCallContent("call_1", "read_text_file", new Dictionary<string, object?> { ["path"] = "/tmp/a.txt" }),
+            }
+        };
+
+        var observed = await Drain(MeaiObservedEventSource.FromStreamingResponse(One(update)));
+
+        observed.Select(e => e.GetType()).Should().ContainInOrder(
+            typeof(ObservedReasoningTextDelta),
+            typeof(ObservedReasoningMessageCompleted),
+            typeof(ObservedToolCallDetected));
+    }
+
     private static async IAsyncEnumerable<ChatResponseUpdate> One(ChatResponseUpdate u)
     {
         yield return u;

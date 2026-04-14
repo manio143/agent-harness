@@ -24,7 +24,7 @@ public sealed class CoreReducerHelloTests
     {
         var state = new SessionState(
             Committed: ImmutableArray<SessionEvent>.Empty,
-            Buffer: new TurnBuffer(AssistantText: "Hello back", AssistantMessageOpen: true),
+            Buffer: new TurnBuffer(AssistantText: "Hello back", AssistantMessageOpen: true, ReasoningText: "", ReasoningMessageOpen: false),
             Tools: ImmutableArray<ToolDefinition>.Empty);
 
         var result = Core.Reduce(state, new ObservedAssistantMessageCompleted());
