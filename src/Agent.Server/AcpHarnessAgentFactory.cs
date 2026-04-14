@@ -103,22 +103,40 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             File.WriteAllText(mcpConfigPath, json);
         }
 
+        object? mcpErrors = null;
+
         // MCP discovery (ephemeral connections per session): connect and eagerly call tools/list.
         if (request.McpServers.Count > 0)
         {
-            var discovered = await _mcpDiscovery.DiscoverAsync(request, cancellationToken).ConfigureAwait(false);
-            lock (_mcp)
+            try
             {
-                _mcp[sessionId] = discovered;
+                var discovered = await _mcpDiscovery.DiscoverAsync(request, cancellationToken).ConfigureAwait(false);
+                lock (_mcp)
+                {
+                    _mcp[sessionId] = discovered;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Graceful degradation: session still created, but MCP tools unavailable.
+                mcpErrors = new[]
+                {
+                    new { message = ex.Message },
+                };
             }
         }
 
-        return new NewSessionResponse
+        var resp = new NewSessionResponse
         {
             SessionId = sessionId,
             Modes = null,
             ConfigOptions = new List<SessionConfigOption>(),
         };
+
+        if (mcpErrors is not null)
+            resp.AdditionalProperties["mcpErrors"] = mcpErrors;
+
+        return resp;
     }
 
     public Task<LoadSessionResponse>? LoadSessionAsync(LoadSessionRequest request, CancellationToken cancellationToken)
@@ -207,6 +225,12 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
                             var metaCwd = store.TryLoadMetadata(sessionId)?.Cwd ?? "/";
                             var req = new NewSessionRequest { Cwd = metaCwd, McpServers = servers };
                             mcp = _mcpDiscovery.DiscoverAsync(req, CancellationToken.None).GetAwaiter().GetResult();
+
+                            // Cache rehydrated result so subsequent agent instances don't rediscover.
+                            lock (_mcp)
+                            {
+                                _mcp[sessionId] = mcp;
+                            }
                         }
                     }
                     catch
