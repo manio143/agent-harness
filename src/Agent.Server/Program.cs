@@ -40,7 +40,15 @@ public static class Program
         builder.Services.AddSingleton<Agent.Harness.Persistence.ISessionStore>(sp =>
         {
             var opts = sp.GetRequiredService<AgentServerOptions>();
-            var root = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), opts.Sessions.Directory));
+            var cwd = Directory.GetCurrentDirectory();
+            var root = Path.GetFullPath(Path.Combine(cwd, opts.Sessions.Directory));
+
+            if (opts.Logging.LogRpc)
+            {
+                var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("Agent.Server.SessionStore");
+                logger.LogWarning("Session store configured: cwd={Cwd} sessionsDir={SessionsDir} root={Root}", cwd, opts.Sessions.Directory, root);
+            }
+
             return new Agent.Harness.Persistence.JsonlSessionStore(root);
         });
 
