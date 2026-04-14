@@ -137,19 +137,35 @@ public sealed class AcpEffectExecutor : IEffectExecutor
             {
                 case "read_text_file":
                 {
-                    var path = GetRequiredString(args, "path");
-                    var resp = await _client.ReadTextFileAsync(new Agent.Acp.Schema.ReadTextFileRequest { SessionId = _sessionId, Path = path }, cancellationToken)
-                        .ConfigureAwait(false);
-                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { content = resp.Content })));
+                    var rawPath = GetRequiredString(args, "path");
+                    var path = NormalizeFsPath(rawPath);
+                    try
+                    {
+                        var resp = await _client.ReadTextFileAsync(new Agent.Acp.Schema.ReadTextFileRequest { SessionId = _sessionId, Path = path }, cancellationToken)
+                            .ConfigureAwait(false);
+                        return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { content = resp.Content })));
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new InvalidOperationException($"fs/read_text_file failed for path={path}: {ex.Message}", ex);
+                    }
                 }
 
                 case "write_text_file":
                 {
-                    var path = GetRequiredString(args, "path");
+                    var rawPath = GetRequiredString(args, "path");
+                    var path = NormalizeFsPath(rawPath);
                     var content = GetRequiredString(args, "content");
-                    await _client.WriteTextFileAsync(new Agent.Acp.Schema.WriteTextFileRequest { SessionId = _sessionId, Path = path, Content = content }, cancellationToken)
-                        .ConfigureAwait(false);
-                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { ok = true })));
+                    try
+                    {
+                        await _client.WriteTextFileAsync(new Agent.Acp.Schema.WriteTextFileRequest { SessionId = _sessionId, Path = path, Content = content }, cancellationToken)
+                            .ConfigureAwait(false);
+                        return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { ok = true })));
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new InvalidOperationException($"fs/write_text_file failed for path={path}: {ex.Message}", ex);
+                    }
                 }
 
                 case "execute_command":
@@ -214,6 +230,23 @@ public sealed class AcpEffectExecutor : IEffectExecutor
             return new Dictionary<string, JsonElement>();
 
         return parsed.EnumerateObject().ToDictionary(p => p.Name, p => p.Value);
+    }
+
+    private string NormalizeFsPath(string rawPath)
+    {
+        if (string.IsNullOrWhiteSpace(rawPath))
+            return rawPath;
+
+        // NOTE: ACP does not mandate any filesystem sandbox policy. Different clients may accept/reject
+        // different paths. We normalize to a precise absolute path so the client can reliably enforce
+        // whatever policy it wants (e.g. acpx requiring absolute paths and cwd subtree).
+        var cwd = _store?.TryLoadMetadata(_sessionId)?.Cwd;
+        if (string.IsNullOrWhiteSpace(cwd))
+            return Path.GetFullPath(rawPath);
+
+        return Path.IsPathRooted(rawPath)
+            ? Path.GetFullPath(rawPath)
+            : Path.GetFullPath(Path.Combine(cwd, rawPath));
     }
 
     private static string GetRequiredString(Dictionary<string, JsonElement> obj, string name)
