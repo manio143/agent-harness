@@ -58,6 +58,31 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         }
     }
 
+    private static void TryAppendMcpError(ISessionStore store, string sessionId, string phase, Exception ex)
+    {
+        try
+        {
+            if (store is not JsonlSessionStore js)
+                return;
+
+            var sessionDir = Path.Combine(js.RootDir, sessionId);
+            Directory.CreateDirectory(sessionDir);
+
+            var path = Path.Combine(sessionDir, "mcp.errors.jsonl");
+            var line = JsonSerializer.Serialize(new
+            {
+                phase,
+                message = ex.Message,
+            }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+            File.AppendAllText(path, line + "\n");
+        }
+        catch
+        {
+            // best-effort only
+        }
+    }
+
     public Task<InitializeResponse> InitializeAsync(InitializeRequest request, CancellationToken cancellationToken)
     {
         return Task.FromResult(new InitializeResponse
@@ -123,6 +148,8 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
                 {
                     new { message = ex.Message },
                 };
+
+                TryAppendMcpError(store, sessionId, phase: "session_new", ex);
             }
         }
 
@@ -233,9 +260,11 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
                             }
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
                         // Best-effort: if MCP rehydrate fails, proceed without MCP.
+                        // But surface it as a session artifact so acpx/manual debugging isn't blind.
+                        TryAppendMcpError(store, sessionId, phase: "rehydrate", ex);
                     }
                 }
             }
