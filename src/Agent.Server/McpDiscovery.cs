@@ -29,7 +29,9 @@ internal static class McpDiscovery
             if (!server.AdditionalProperties.TryGetValue("stdio", out var stdioObj))
                 continue;
 
-            var stdio = JsonSerializer.SerializeToElement(stdioObj, AcpJson.Options);
+            var stdio = stdioObj is JsonElement je
+                ? je
+                : JsonSerializer.SerializeToElement(stdioObj, AcpJson.Options);
 
             var command = stdio.TryGetProperty("command", out var cmd) && cmd.ValueKind == JsonValueKind.String
                 ? cmd.GetString()
@@ -40,11 +42,15 @@ internal static class McpDiscovery
 
             var args = new List<string>();
             if (stdio.TryGetProperty("args", out var argsEl) && argsEl.ValueKind == JsonValueKind.Array)
-                args.AddRange(argsEl.EnumerateArray().Where(a => a.ValueKind == JsonValueKind.String).Select(a => a.GetString()!));
+                args.AddRange(argsEl.EnumerateArray()
+                    .Where(a => a.ValueKind == JsonValueKind.String)
+                    .Select(a => a.GetString())
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Select(s => s!));
 
             // Prefer explicit name if present; otherwise derive from command.
             var name = stdio.TryGetProperty("name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String
-                ? nameEl.GetString()!
+                ? (nameEl.GetString() ?? command)
                 : command;
 
             var serverId = SnakeCase.Normalize(name);
@@ -76,6 +82,9 @@ internal static class McpDiscovery
             var clientTransport = new StdioClientTransport(transportOptions);
             var mcp = await McpClient.CreateAsync(clientTransport, new McpClientOptions(), NullLoggerFactory.Instance, cancellationToken)
                 .ConfigureAwait(false);
+
+            if (mcp is null)
+                throw new InvalidOperationException("MCP client create returned null");
 
             var listed = await mcp.ListToolsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
 

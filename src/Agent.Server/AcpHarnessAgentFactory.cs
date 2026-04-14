@@ -101,6 +101,8 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             {
                 phase,
                 message = ex.Message,
+                exception = ex.GetType().FullName,
+                stack = ex.ToString(),
             }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
             File.AppendAllText(path, line + "\n");
