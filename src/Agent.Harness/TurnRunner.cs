@@ -24,14 +24,12 @@ public static partial class TurnRunner
 
         await foreach (var evt in observed.WithCancellation(cancellationToken).ConfigureAwait(false))
         {
-            var reduced = Core.Reduce(state, evt, options);
-            state = reduced.Next;
+            var step = ReduceOne(state, evt, options);
+            state = step.Next;
             onState?.Invoke(state);
 
-            foreach (var committed in reduced.NewlyCommitted)
-            {
+            foreach (var committed in step.NewlyCommitted)
                 yield return committed;
-            }
         }
     }
 }

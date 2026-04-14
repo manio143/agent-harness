@@ -73,11 +73,11 @@ public static partial class TurnRunner
 
             await sink.OnObservedAsync(next, cancellationToken).ConfigureAwait(false);
 
-            var reduced = Core.Reduce(state, next, options);
-            state = reduced.Next;
+            var step = ReduceOne(state, next, options);
+            state = step.Next;
             onState?.Invoke(state);
 
-            foreach (var committed in reduced.NewlyCommitted)
+            foreach (var committed in step.NewlyCommitted)
             {
                 await sink.OnCommittedAsync(committed, cancellationToken).ConfigureAwait(false);
                 yield return committed;
@@ -86,7 +86,7 @@ public static partial class TurnRunner
             // Execute effects in batches. We deduplicate within the batch to avoid scheduling the
             // same "long" effect (e.g. CallModel) multiple times before prior output is processed.
             // This keeps the loop deterministic and prevents overlapping model streams.
-            var batch = DeduplicateEffects(reduced.Effects);
+            var batch = DeduplicateEffects(step.Effects);
 
             foreach (var eff in batch)
             {
