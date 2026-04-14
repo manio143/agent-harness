@@ -18,6 +18,11 @@ public static class MeaiToolCallParser
             // Mode A: model proposes tool-call intent; we emit an observation.
             if (c is FunctionCallContent call)
             {
+                // TODO(tool-calls): Handle multi-chunk / incremental FunctionCallContent updates.
+                // Some providers may stream tool calls in multiple partial chunks (e.g. args arriving over time),
+                // or repeat the same call id with updated arguments. We currently treat each FunctionCallContent
+                // as a complete tool intent.
+
                 // ToolId: provider doesn't always give one; use a deterministic placeholder.
                 // The harness will replace/assign stable ids at the boundary if needed.
                 var toolId = call.CallId ?? Guid.NewGuid().ToString("N");

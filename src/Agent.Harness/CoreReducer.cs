@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 using System.Text.Json;
 
 namespace Agent.Harness;
@@ -20,6 +21,16 @@ public sealed record CoreOptions(
 /// </summary>
 public static class Core
 {
+    private static bool HasTerminalToolCall(SessionState state, string toolId)
+        => state.Committed.Any(e => e switch
+        {
+            ToolCallCompleted c when c.ToolId == toolId => true,
+            ToolCallFailed f when f.ToolId == toolId => true,
+            ToolCallCancelled c when c.ToolId == toolId => true,
+            ToolCallRejected r when r.ToolId == toolId => true,
+            _ => false,
+        });
+
     /// <summary>
     /// Render the tool catalog based on client capabilities.
     /// Tools requiring unavailable capabilities are filtered out.
@@ -244,6 +255,10 @@ public static class Core
 
             case ObservedToolCallCompleted completed:
             {
+                // Idempotency: if a terminal event already exists for this toolId, ignore duplicates.
+                if (HasTerminalToolCall(state, completed.ToolId))
+                    return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty, ImmutableArray<Effect>.Empty);
+
                 // Commit ToolCallCompleted (terminal state) then request a model call.
                 var completedEvent = new ToolCallCompleted(completed.ToolId, JsonSerializer.SerializeToElement(completed.Result));
                 var committed = state.Committed.Add(completedEvent);
@@ -257,6 +272,9 @@ public static class Core
 
             case ObservedToolCallFailed failed:
             {
+                if (HasTerminalToolCall(state, failed.ToolId))
+                    return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty, ImmutableArray<Effect>.Empty);
+
                 // Commit ToolCallFailed (terminal state) then request a model call.
                 var failedEvent = new ToolCallFailed(failed.ToolId, failed.Error);
                 var committed = state.Committed.Add(failedEvent);
@@ -270,6 +288,9 @@ public static class Core
 
             case ObservedToolCallCancelled cancelled:
             {
+                if (HasTerminalToolCall(state, cancelled.ToolId))
+                    return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty, ImmutableArray<Effect>.Empty);
+
                 // Commit ToolCallCancelled (terminal state) then request a model call.
                 var cancelledEvent = new ToolCallCancelled(cancelled.ToolId);
                 var committed = state.Committed.Add(cancelledEvent);

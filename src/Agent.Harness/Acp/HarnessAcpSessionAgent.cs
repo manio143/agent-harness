@@ -164,7 +164,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
 
     private static IAcpToolCall GetOrStart(IAcpPromptTurn turn, string toolId, string title)
     {
-        return turn.ToolCalls.Start(toolId, title, new ToolKind(ToolKind.Read));
+        return turn.ToolCalls.Start(toolId, title, ToolKindClassifier.ForToolName(title));
     }
 
     private static string ExtractUserText(PromptRequest request)

@@ -168,6 +168,6 @@ public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
     private static IAcpToolCall GetOrStart(IAcpPromptTurn turn, string toolId, string title)
     {
         // MVP: tool kind is not yet derived from schema; default to Read.
-        return turn.ToolCalls.Start(toolId, title, new ToolKind(ToolKind.Read));
+        return turn.ToolCalls.Start(toolId, title, ToolKindClassifier.ForToolName(title));
     }
 }
