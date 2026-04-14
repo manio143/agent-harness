@@ -16,19 +16,22 @@ public sealed class AcpEffectExecutor : IEffectExecutor
     private readonly MeaiIChatClient _chat;
     private readonly IMcpToolInvoker _mcp;
     private readonly bool _logLlmPrompts;
+    private readonly Agent.Harness.Persistence.ISessionStore? _store;
 
     public AcpEffectExecutor(
         string sessionId,
         IAcpClientCaller client,
         MeaiIChatClient chat,
         IMcpToolInvoker? mcp = null,
-        bool logLlmPrompts = false)
+        bool logLlmPrompts = false,
+        Agent.Harness.Persistence.ISessionStore? store = null)
     {
         _sessionId = sessionId;
         _client = client;
         _chat = chat;
         _mcp = mcp ?? NullMcpToolInvoker.Instance;
         _logLlmPrompts = logLlmPrompts;
+        _store = store;
     }
 
     public async Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
@@ -62,6 +65,7 @@ public sealed class AcpEffectExecutor : IEffectExecutor
     private async Task<ImmutableArray<ObservedChatEvent>> CallModelAsync(SessionState state, CancellationToken cancellationToken)
     {
         var rendered = Core.RenderPrompt(state);
+
         var meaiMessages = rendered
             .Select(m => new MeaiChatMessage(m.Role switch
             {
@@ -70,6 +74,20 @@ public sealed class AcpEffectExecutor : IEffectExecutor
                 _ => MeaiChatRole.System,
             }, m.Text))
             .ToList();
+
+        // Session metadata system prompt (client-/protocol-agnostic).
+        var meta = _store?.TryLoadMetadata(_sessionId);
+        var sessionPayload = JsonSerializer.Serialize(new
+        {
+            sessionId = _sessionId,
+            cwd = meta?.Cwd,
+            title = meta?.Title,
+            createdAtIso = meta?.CreatedAtIso,
+            updatedAtIso = meta?.UpdatedAtIso,
+            tools = state.Tools.Select(t => t.Name).ToArray(),
+        }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        meaiMessages.Insert(0, new MeaiChatMessage(MeaiChatRole.System, $"<session>{sessionPayload}</session>"));
 
         var options = new Microsoft.Extensions.AI.ChatOptions
         {

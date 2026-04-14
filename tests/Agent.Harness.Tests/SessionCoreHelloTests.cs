@@ -50,4 +50,34 @@ public sealed class CoreReducerHelloTests
             new ChatMessage(ChatRole.User, "Hello"),
             new ChatMessage(ChatRole.Assistant, "Hello back"));
     }
+
+    [Fact]
+    public void RenderPrompt_IncludesToolCallsAndOutcomes_AsSystemMessages()
+    {
+        var args = System.Text.Json.JsonSerializer.SerializeToElement(new { path = "/x", content = "hi" });
+        var result = System.Text.Json.JsonSerializer.SerializeToElement(new { ok = true });
+
+        var state = new SessionState(
+            Committed: ImmutableArray.Create<SessionEvent>(
+                new UserMessage("do it"),
+                new ToolCallRequested("call_1", "write_text_file", args),
+                new ToolCallCompleted("call_1", result),
+                new AssistantMessage("done")),
+            Buffer: TurnBuffer.Empty,
+            Tools: ImmutableArray<ToolDefinition>.Empty);
+
+        var rendered = Core.RenderPrompt(state);
+
+        rendered[0].Should().Be(new ChatMessage(ChatRole.User, "do it"));
+        rendered[1].Role.Should().Be(ChatRole.System);
+        rendered[1].Text.Should().Contain("<tool_call>");
+        rendered[1].Text.Should().Contain("\"toolId\":\"call_1\"");
+        rendered[1].Text.Should().Contain("\"toolName\":\"write_text_file\"");
+
+        rendered[2].Role.Should().Be(ChatRole.System);
+        rendered[2].Text.Should().Contain("<tool_result>");
+        rendered[2].Text.Should().Contain("\"outcome\":\"completed\"");
+
+        rendered[3].Should().Be(new ChatMessage(ChatRole.Assistant, "done"));
+    }
 }

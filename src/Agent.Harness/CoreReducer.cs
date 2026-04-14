@@ -286,6 +286,7 @@ public static class Core
         if (state is null) throw new ArgumentNullException(nameof(state));
 
         var builder = ImmutableArray.CreateBuilder<ChatMessage>();
+        var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 
         foreach (var evt in state.Committed)
         {
@@ -294,11 +295,55 @@ public static class Core
                 case UserMessage u:
                     builder.Add(new ChatMessage(ChatRole.User, u.Text));
                     break;
+
                 case AssistantMessage a:
                     builder.Add(new ChatMessage(ChatRole.Assistant, a.Text));
                     break;
+
+                case ToolCallRequested t:
+                {
+                    var payload = JsonSerializer.Serialize(new { toolId = t.ToolId, toolName = t.ToolName, args = t.Args }, json);
+                    builder.Add(new ChatMessage(ChatRole.System, $"<tool_call>{payload}</tool_call>"));
+                    break;
+                }
+
+                case ToolCallUpdate u:
+                {
+                    var payload = JsonSerializer.Serialize(new { toolId = u.ToolId, content = u.Content }, json);
+                    builder.Add(new ChatMessage(ChatRole.System, $"<tool_update>{payload}</tool_update>"));
+                    break;
+                }
+
+                case ToolCallCompleted c:
+                {
+                    var payload = JsonSerializer.Serialize(new { toolId = c.ToolId, outcome = "completed", result = c.Result }, json);
+                    builder.Add(new ChatMessage(ChatRole.System, $"<tool_result>{payload}</tool_result>"));
+                    break;
+                }
+
+                case ToolCallFailed f:
+                {
+                    var payload = JsonSerializer.Serialize(new { toolId = f.ToolId, outcome = "failed", error = f.Error }, json);
+                    builder.Add(new ChatMessage(ChatRole.System, $"<tool_result>{payload}</tool_result>"));
+                    break;
+                }
+
+                case ToolCallRejected r:
+                {
+                    var payload = JsonSerializer.Serialize(new { toolId = r.ToolId, outcome = "rejected", reason = r.Reason, details = r.Details }, json);
+                    builder.Add(new ChatMessage(ChatRole.System, $"<tool_result>{payload}</tool_result>"));
+                    break;
+                }
+
+                case ToolCallCancelled c:
+                {
+                    var payload = JsonSerializer.Serialize(new { toolId = c.ToolId, outcome = "cancelled" }, json);
+                    builder.Add(new ChatMessage(ChatRole.System, $"<tool_result>{payload}</tool_result>"));
+                    break;
+                }
+
                 default:
-                    // Ignore debug-only and non-chat committed events for prompt rendering.
+                    // Ignore other committed events for prompt rendering.
                     break;
             }
         }
