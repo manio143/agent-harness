@@ -50,6 +50,10 @@ public sealed class AcpEffectExecutorTests
         actual[0].Text.Should().Contain("<session>");
         actual[0].Text.Should().Contain("\"sessionId\":\"sess1\"");
         actual[0].Text.Should().Contain("\"cwd\":\"/cwd\"");
+        actual[0].Text.Should().Contain("\"createdAtIso\":\"t0\"");
+        actual[0].Text.Should().Contain("\"updatedAtIso\":\"t1\"");
+        actual[0].Text.Should().NotContain("\"title\"");
+        actual[0].Text.Should().NotContain("\"tools\"");
 
         actual.Length.Should().Be(expected.Length + 1);
         for (var i = 0; i < expected.Length; i++)

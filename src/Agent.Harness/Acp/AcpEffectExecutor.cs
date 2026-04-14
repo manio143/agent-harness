@@ -81,10 +81,8 @@ public sealed class AcpEffectExecutor : IEffectExecutor
         {
             sessionId = _sessionId,
             cwd = meta?.Cwd,
-            title = meta?.Title,
             createdAtIso = meta?.CreatedAtIso,
             updatedAtIso = meta?.UpdatedAtIso,
-            tools = state.Tools.Select(t => t.Name).ToArray(),
         }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
         meaiMessages.Insert(0, new MeaiChatMessage(MeaiChatRole.System, $"<session>{sessionPayload}</session>"));
