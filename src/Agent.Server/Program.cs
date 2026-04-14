@@ -37,20 +37,8 @@ public static class Program
             return opts;
         });
 
-        builder.Services.AddSingleton<Agent.Harness.Persistence.ISessionStore>(sp =>
-        {
-            var opts = sp.GetRequiredService<AgentServerOptions>();
-            var cwd = Directory.GetCurrentDirectory();
-            var root = Path.GetFullPath(Path.Combine(cwd, opts.Sessions.Directory));
-
-            if (opts.Logging.LogRpc)
-            {
-                var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("Agent.Server.SessionStore");
-                logger.LogWarning("Session store configured: cwd={Cwd} sessionsDir={SessionsDir} root={Root}", cwd, opts.Sessions.Directory, root);
-            }
-
-            return new Agent.Harness.Persistence.JsonlSessionStore(root);
-        });
+        // NOTE: session stores are created per-session and rooted at ACP client-provided CWD.
+        // (see AcpHarnessAgentFactory)
 
         // MEAI OpenAI adapter (Ollama is OpenAI-compatible when pointed at /v1).
         builder.Services.AddSingleton<Microsoft.Extensions.AI.IChatClient>(sp =>
@@ -75,8 +63,7 @@ public static class Program
         {
             var chat = sp.GetRequiredService<Microsoft.Extensions.AI.IChatClient>();
             var opts = sp.GetRequiredService<AgentServerOptions>();
-            var store = sp.GetRequiredService<Agent.Harness.Persistence.ISessionStore>();
-            return new AcpHarnessAgentFactory(chat, opts, store);
+            return new AcpHarnessAgentFactory(chat, opts);
         });
 
         using var host = builder.Build();

@@ -16,15 +16,44 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
 {
     private readonly Microsoft.Extensions.AI.IChatClient _chat;
     private readonly AgentServerOptions _options;
-    private readonly Agent.Harness.Persistence.ISessionStore _store;
+
+    // Session store is rooted at ACP client-provided CWD to align with acpx expectations.
+    // We keep a per-session cache because subsequent calls like CreateSessionAgent only provide sessionId.
+    private readonly Dictionary<string, ISessionStore> _storesBySessionId = new();
 
     private readonly Dictionary<string, (ImmutableArray<ToolDefinition> Tools, IMcpToolInvoker Invoker)> _mcp = new();
 
-    public AcpHarnessAgentFactory(Microsoft.Extensions.AI.IChatClient chat, AgentServerOptions options, Agent.Harness.Persistence.ISessionStore store)
+    public AcpHarnessAgentFactory(Microsoft.Extensions.AI.IChatClient chat, AgentServerOptions options)
     {
         _chat = chat;
         _options = options;
-        _store = store;
+    }
+
+    private ISessionStore CreateStoreForCwd(string cwd)
+    {
+        var root = Path.GetFullPath(Path.Combine(cwd, _options.Sessions.Directory));
+        return new JsonlSessionStore(root);
+    }
+
+    private ISessionStore GetOrCreateSessionStore(string sessionId, string cwd)
+    {
+        lock (_storesBySessionId)
+        {
+            if (_storesBySessionId.TryGetValue(sessionId, out var existing))
+                return existing;
+
+            var created = CreateStoreForCwd(cwd);
+            _storesBySessionId[sessionId] = created;
+            return created;
+        }
+    }
+
+    private ISessionStore? TryGetSessionStore(string sessionId)
+    {
+        lock (_storesBySessionId)
+        {
+            return _storesBySessionId.TryGetValue(sessionId, out var store) ? store : null;
+        }
     }
 
     public Task<InitializeResponse> InitializeAsync(InitializeRequest request, CancellationToken cancellationToken)
@@ -54,7 +83,9 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
     public async Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken)
     {
         var sessionId = Guid.NewGuid().ToString();
-        _store.CreateNew(sessionId, new Agent.Harness.Persistence.SessionMetadata(
+        var store = GetOrCreateSessionStore(sessionId, request.Cwd);
+
+        store.CreateNew(sessionId, new Agent.Harness.Persistence.SessionMetadata(
             SessionId: sessionId,
             Cwd: request.Cwd,
             Title: null,
@@ -64,7 +95,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         // Persist MCP config for reconnects (acpx may restart the agent process between commands and use session/load).
         if (request.McpServers.Count > 0)
         {
-            var rootDir = (_store as JsonlSessionStore)?.RootDir ?? _options.Sessions.Directory;
+            var rootDir = (store as JsonlSessionStore)?.RootDir ?? Path.GetFullPath(Path.Combine(request.Cwd, _options.Sessions.Directory));
             var mcpConfigPath = Path.Combine(rootDir, sessionId, "mcpServers.json");
             var json = JsonSerializer.Serialize(request.McpServers, AcpJson.Options);
             File.WriteAllText(mcpConfigPath, json);
@@ -90,7 +121,9 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
 
     public Task<LoadSessionResponse>? LoadSessionAsync(LoadSessionRequest request, CancellationToken cancellationToken)
     {
-        if (!_store.Exists(request.SessionId))
+        var store = GetOrCreateSessionStore(request.SessionId, request.Cwd);
+
+        if (!store.Exists(request.SessionId))
             throw new Agent.Acp.Acp.AcpJsonRpcException(-32602, $"Session not found: {request.SessionId}");
 
         return Task.FromResult(new LoadSessionResponse
@@ -102,12 +135,15 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
 
     public Task<ListSessionsResponse>? ListSessionsAsync(ListSessionsRequest request, CancellationToken cancellationToken)
     {
+        // List sessions relative to the agent process cwd. In practice, acpx runs the agent with `--cwd`
+        // set to the workspace it cares about.
         var cwd = Path.GetFullPath(Directory.GetCurrentDirectory());
+        var store = CreateStoreForCwd(cwd);
 
-        var sessions = _store.ListSessionIds()
+        var sessions = store.ListSessionIds()
             .Select(id =>
             {
-                var meta = _store.TryLoadMetadata(id);
+                var meta = store.TryLoadMetadata(id);
                 return new SessionInfo
                 {
                     SessionId = id,
@@ -123,13 +159,22 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
 
     public IAcpSessionAgent CreateSessionAgent(string sessionId, IAcpClientCaller client, IAcpSessionEvents events)
     {
+        var store = TryGetSessionStore(sessionId);
+        if (store is null)
+        {
+            // Best-effort fallback: try process cwd.
+            var cwd = Path.GetFullPath(Directory.GetCurrentDirectory());
+            store = CreateStoreForCwd(cwd);
+            // NOTE: we intentionally do not cache this; session/load/session/new should provide authoritative cwd.
+        }
+
         var coreOptions = new CoreOptions(
             CommitAssistantTextDeltas: _options.Core.CommitAssistantTextDeltas,
             CommitReasoningTextDeltas: _options.Core.CommitReasoningTextDeltas);
 
         var publishOptions = new AcpPublishOptions(PublishReasoning: _options.Acp.PublishReasoning);
 
-        var committed = _store.LoadCommitted(sessionId);
+        var committed = store.LoadCommitted(sessionId);
         var initial = committed.IsDefaultOrEmpty
             ? SessionState.Empty
             : new SessionState(committed, TurnBuffer.Empty, ImmutableArray<ToolDefinition>.Empty);
@@ -145,23 +190,27 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         // If this is a fresh process and we only have session replay, attempt to rehydrate MCP config.
         if (mcp.Tools.IsDefaultOrEmpty)
         {
-            var rootDir = (_store as JsonlSessionStore)?.RootDir ?? _options.Sessions.Directory;
-            var mcpConfigPath = Path.Combine(rootDir, sessionId, "mcpServers.json");
-            if (File.Exists(mcpConfigPath))
+            var rootDir = (store as JsonlSessionStore)?.RootDir;
+            if (rootDir is not null)
             {
-                try
+                var mcpConfigPath = Path.Combine(rootDir, sessionId, "mcpServers.json");
+                if (File.Exists(mcpConfigPath))
                 {
-                    var json = File.ReadAllText(mcpConfigPath);
-                    var servers = JsonSerializer.Deserialize<List<McpServer>>(json, AcpJson.Options) ?? new List<McpServer>();
-                    if (servers.Count > 0)
+                    try
                     {
-                        var req = new NewSessionRequest { Cwd = _store.TryLoadMetadata(sessionId)?.Cwd ?? "/", McpServers = servers };
-                        mcp = McpDiscovery.DiscoverAsync(req, CancellationToken.None).GetAwaiter().GetResult();
+                        var json = File.ReadAllText(mcpConfigPath);
+                        var servers = JsonSerializer.Deserialize<List<McpServer>>(json, AcpJson.Options) ?? new List<McpServer>();
+                        if (servers.Count > 0)
+                        {
+                            var metaCwd = store.TryLoadMetadata(sessionId)?.Cwd ?? "/";
+                            var req = new NewSessionRequest { Cwd = metaCwd, McpServers = servers };
+                            mcp = McpDiscovery.DiscoverAsync(req, CancellationToken.None).GetAwaiter().GetResult();
+                        }
                     }
-                }
-                catch
-                {
-                    // Best-effort: if MCP rehydrate fails, proceed without MCP.
+                    catch
+                    {
+                        // Best-effort: if MCP rehydrate fails, proceed without MCP.
+                    }
                 }
             }
         }
@@ -176,7 +225,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             events,
             coreOptions,
             publishOptions,
-            _store,
+            store,
             initial,
             mcp.Invoker,
             logLlmPrompts: _options.Logging.LogLlmPrompts,
@@ -185,7 +234,11 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
 
     public async Task ReplaySessionAsync(string sessionId, IAcpSessionEvents events, CancellationToken cancellationToken)
     {
-        var committed = _store.LoadCommitted(sessionId);
+        var store = TryGetSessionStore(sessionId);
+        if (store is null)
+            return;
+
+        var committed = store.LoadCommitted(sessionId);
 
         // Replay stable history: full user/assistant messages only.
         foreach (var evt in committed)
