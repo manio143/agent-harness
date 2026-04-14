@@ -32,9 +32,9 @@ public static partial class TurnRunner
         SessionState initial,
         IAsyncEnumerable<ObservedChatEvent> observed,
         IEffectExecutor effects,
+        IEventSink? sink = null,
         CoreOptions? options = null,
         Action<SessionState>? onState = null,
-        Action<ObservedChatEvent>? onObserved = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (initial is null) throw new ArgumentNullException(nameof(initial));
@@ -48,6 +48,8 @@ public static partial class TurnRunner
 
         var state = initial;
         onState?.Invoke(state);
+
+        sink ??= NullEventSink.Instance;
 
         var internalQueue = new Queue<ObservedChatEvent>();
 
@@ -69,14 +71,17 @@ public static partial class TurnRunner
                 next = enumerator.Current;
             }
 
-            onObserved?.Invoke(next);
+            await sink.OnObservedAsync(next, cancellationToken).ConfigureAwait(false);
 
             var reduced = Core.Reduce(state, next, options);
             state = reduced.Next;
             onState?.Invoke(state);
 
             foreach (var committed in reduced.NewlyCommitted)
+            {
+                await sink.OnCommittedAsync(committed, cancellationToken).ConfigureAwait(false);
                 yield return committed;
+            }
 
             // Execute effects in batches. We deduplicate within the batch to avoid scheduling the
             // same "long" effect (e.g. CallModel) multiple times before prior output is processed.

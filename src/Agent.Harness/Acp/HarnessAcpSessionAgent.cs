@@ -83,28 +83,16 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         var effects = new AcpEffectExecutor(_sessionId, _client, _chat, _mcp, _logLlmPrompts);
         var runner = new SessionRunner(_coreOptions, titleGen, effects);
 
-        var result = await runner.RunTurnAsync(_state, ObservedUserInput(), cancellationToken, onObserved: LogObserved).ConfigureAwait(false);
+        var sink = new Agent.Harness.Persistence.JsonlEventSink(_sessionId, _store, logObserved: _logObservedEvents);
+
+        var result = await runner.RunTurnAsync(_state, ObservedUserInput(), cancellationToken, sink: sink).ConfigureAwait(false);
         _state = result.Next;
 
+        // Committed events were persisted incrementally by the sink. Publishing remains committed-only.
         foreach (var committed in result.NewlyCommitted)
-        {
-            _store.AppendCommitted(_sessionId, committed);
             await PublishCommittedAsync(committed, turn, cancellationToken).ConfigureAwait(false);
-        }
 
         return new PromptResponse { StopReason = StopReason.EndTurn };
-    }
-
-    private void LogObserved(ObservedChatEvent e)
-    {
-        if (!_logObservedEvents)
-            return;
-
-        if (_store is not JsonlSessionStore jsonl)
-            return;
-
-        var path = Path.Combine(jsonl.RootDir, _sessionId, "observed.jsonl");
-        File.AppendAllText(path, ObservedEventJson.ToJsonl(e) + "\n");
     }
 
     private async Task PublishCommittedAsync(SessionEvent committed, IAcpPromptTurn turn, CancellationToken cancellationToken)

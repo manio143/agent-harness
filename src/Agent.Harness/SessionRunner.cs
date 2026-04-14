@@ -31,7 +31,7 @@ public sealed class SessionRunner
         SessionState initial,
         IAsyncEnumerable<ObservedChatEvent> observed,
         CancellationToken cancellationToken,
-        Action<ObservedChatEvent>? onObserved = null)
+        IEventSink? sink = null)
     {
         var newly = ImmutableArray.CreateBuilder<SessionEvent>();
         var state = initial;
@@ -54,9 +54,9 @@ public sealed class SessionRunner
             initial,
             WithTurnMarkers(),
             effects: _effects,
+            sink: sink,
             options: _coreOptions,
             onState: s => state = s,
-            onObserved: onObserved,
             cancellationToken: cancellationToken))
         {
             newly.Add(committed);
