@@ -121,6 +121,11 @@ public static class Core
 
             case ObservedToolCallDetected detected:
             {
+                // Deduplicate: some model/provider streams may repeat tool call content.
+                // Invariant: a given toolId must be requested at most once.
+                if (state.Committed.Any(e => e is ToolCallRequested r && r.ToolId == detected.ToolId))
+                    return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty, ImmutableArray<Effect>.Empty);
+
                 // Early rejection: unknown tool / invalid args
                 var tool = state.Tools.FirstOrDefault(t => t.Name == detected.ToolName);
                 if (tool is null)
