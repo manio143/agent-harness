@@ -115,57 +115,73 @@ public sealed class AcpEffectExecutor : IEffectExecutor
         // Args can be JsonElement (committed ToolCallRequested.Args) or a plain dictionary (from detection).
         var args = NormalizeArgs(t.Args);
 
-        switch (t.ToolName)
+        try
         {
-            case "read_text_file":
+            switch (t.ToolName)
             {
-                var path = GetRequiredString(args, "path");
-                var resp = await _client.ReadTextFileAsync(new Agent.Acp.Schema.ReadTextFileRequest { SessionId = _sessionId, Path = path }, cancellationToken)
-                    .ConfigureAwait(false);
-                return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { content = resp.Content })));
-            }
-
-            case "write_text_file":
-            {
-                var path = GetRequiredString(args, "path");
-                var content = GetRequiredString(args, "content");
-                await _client.WriteTextFileAsync(new Agent.Acp.Schema.WriteTextFileRequest { SessionId = _sessionId, Path = path, Content = content }, cancellationToken)
-                    .ConfigureAwait(false);
-                return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { ok = true })));
-            }
-
-            case "execute_command":
-            {
-                var command = GetRequiredString(args, "command");
-
-                var created = await _client.CreateTerminalAsync(new Agent.Acp.Schema.CreateTerminalRequest { SessionId = _sessionId, Command = command }, cancellationToken)
-                    .ConfigureAwait(false);
-
-                // MVP: wait for exit then pull output.
-                await _client.WaitForTerminalExitAsync(new Agent.Acp.Schema.WaitForTerminalExitRequest { SessionId = _sessionId, TerminalId = created.TerminalId }, cancellationToken)
-                    .ConfigureAwait(false);
-
-                var output = await _client.GetTerminalOutputAsync(new Agent.Acp.Schema.TerminalOutputRequest { SessionId = _sessionId, TerminalId = created.TerminalId }, cancellationToken)
-                    .ConfigureAwait(false);
-
-                return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new
+                case "read_text_file":
                 {
-                    exitStatus = output.ExitStatus,
-                    output = output.Output,
-                    truncated = output.Truncated,
-                })));
-            }
-
-            default:
-            {
-                if (_mcp.CanInvoke(t.ToolName))
-                {
-                    var payload = await _mcp.InvokeAsync(t.ToolId, t.ToolName, t.Args, cancellationToken).ConfigureAwait(false);
-                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, payload));
+                    var path = GetRequiredString(args, "path");
+                    var resp = await _client.ReadTextFileAsync(new Agent.Acp.Schema.ReadTextFileRequest { SessionId = _sessionId, Path = path }, cancellationToken)
+                        .ConfigureAwait(false);
+                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { content = resp.Content })));
                 }
 
-                return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallFailed(t.ToolId, "unknown_tool"));
+                case "write_text_file":
+                {
+                    var path = GetRequiredString(args, "path");
+                    var content = GetRequiredString(args, "content");
+                    await _client.WriteTextFileAsync(new Agent.Acp.Schema.WriteTextFileRequest { SessionId = _sessionId, Path = path, Content = content }, cancellationToken)
+                        .ConfigureAwait(false);
+                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { ok = true })));
+                }
+
+                case "execute_command":
+                {
+                    if (!args.TryGetValue("command", out var cmdEl) || cmdEl.ValueKind != JsonValueKind.Array)
+                        throw new InvalidOperationException("missing_required:command");
+
+                    var command = cmdEl.Deserialize<string[]>() ?? Array.Empty<string>();
+                    if (command.Length == 0)
+                        throw new InvalidOperationException("missing_required:command");
+
+                    var created = await _client.CreateTerminalAsync(new Agent.Acp.Schema.CreateTerminalRequest
+                    {
+                        SessionId = _sessionId,
+                        Command = command[0],
+                        Args = command.Skip(1).ToList(),
+                    }, cancellationToken).ConfigureAwait(false);
+
+                    // MVP: wait for exit then pull output.
+                    await _client.WaitForTerminalExitAsync(new Agent.Acp.Schema.WaitForTerminalExitRequest { SessionId = _sessionId, TerminalId = created.TerminalId }, cancellationToken)
+                        .ConfigureAwait(false);
+
+                    var output = await _client.GetTerminalOutputAsync(new Agent.Acp.Schema.TerminalOutputRequest { SessionId = _sessionId, TerminalId = created.TerminalId }, cancellationToken)
+                        .ConfigureAwait(false);
+
+                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new
+                    {
+                        exitStatus = output.ExitStatus,
+                        output = output.Output,
+                        truncated = output.Truncated,
+                    })));
+                }
+
+                default:
+                {
+                    if (_mcp.CanInvoke(t.ToolName))
+                    {
+                        var payload = await _mcp.InvokeAsync(t.ToolId, t.ToolName, t.Args, cancellationToken).ConfigureAwait(false);
+                        return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, payload));
+                    }
+
+                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallFailed(t.ToolId, "unknown_tool"));
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallFailed(t.ToolId, ex.Message));
         }
     }
 
