@@ -6,7 +6,7 @@ Note: Everything server requires an explicit transport argument (we pass `stdio`
 
 Also, the current Everything server package expects `ajv` to be resolvable at runtime (peer dependency). We run it via:
 
-- `npx -p ajv -p @modelcontextprotocol/server-everything @modelcontextprotocol/server-everything stdio`
+- `npx -p ajv -p @modelcontextprotocol/server-everything mcp-server-everything stdio`
 
 …so the peer dep is present in the npx sandbox.
 
