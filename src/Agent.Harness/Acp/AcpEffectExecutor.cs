@@ -109,15 +109,20 @@ public sealed class AcpEffectExecutor : IEffectExecutor
 
         if (_logLlmPrompts)
         {
-            var payload = JsonSerializer.Serialize(new
+            var promptPayload = new
             {
                 messages = meaiMessages.Select(m => new { role = m.Role.ToString(), content = m.Text }),
                 tools = options.Tools
                     .OfType<Microsoft.Extensions.AI.AIFunctionDeclaration>()
                     .Select(d => new { d.Name, d.Description, jsonSchema = d.JsonSchema }),
-            }, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
+            };
 
-            Console.Error.WriteLine("[llm.prompt] " + payload);
+            // Console for interactive runs
+            var consolePayload = JsonSerializer.Serialize(promptPayload, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
+            Console.Error.WriteLine("[llm.prompt] " + consolePayload);
+
+            // File for acpx runs (stderr may be swallowed)
+            TryAppendPromptLog(promptPayload);
         }
 
         var updates = _chat.GetStreamingResponseAsync(meaiMessages, options, cancellationToken);
@@ -233,6 +238,26 @@ public sealed class AcpEffectExecutor : IEffectExecutor
             return new Dictionary<string, JsonElement>();
 
         return parsed.EnumerateObject().ToDictionary(p => p.Name, p => p.Value);
+    }
+
+    private void TryAppendPromptLog(object promptPayload)
+    {
+        try
+        {
+            if (_store is not Agent.Harness.Persistence.JsonlSessionStore js)
+                return;
+
+            var sessionDir = Path.Combine(js.RootDir, _sessionId);
+            Directory.CreateDirectory(sessionDir);
+
+            var path = Path.Combine(sessionDir, "llm.prompt.jsonl");
+            var line = JsonSerializer.Serialize(promptPayload, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            File.AppendAllText(path, line + "\n");
+        }
+        catch
+        {
+            // best-effort logging only
+        }
     }
 
     private string NormalizeFsPath(string rawPath)
