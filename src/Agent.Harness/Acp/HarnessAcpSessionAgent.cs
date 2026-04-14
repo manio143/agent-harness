@@ -80,7 +80,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         }
 
         var titleGen = new SessionTitleGenerator(new Llm.MeaiTitleChatClientAdapter(_chat));
-        var effects = new AcpEffectExecutor(_sessionId, _client, _chat, _mcp, _logLlmPrompts, store: _store);
+        var sessionCwd = _store.TryLoadMetadata(_sessionId)?.Cwd;
+        var effects = new AcpEffectExecutor(_sessionId, _client, _chat, _mcp, _logLlmPrompts, sessionCwd: sessionCwd, store: _store);
         var runner = new SessionRunner(_coreOptions, titleGen, effects);
 
         var persist = new Agent.Harness.Persistence.JsonlEventSink(_sessionId, _store, logObserved: _logObservedEvents);

@@ -16,6 +16,7 @@ public sealed class AcpEffectExecutor : IEffectExecutor
     private readonly MeaiIChatClient _chat;
     private readonly IMcpToolInvoker _mcp;
     private readonly bool _logLlmPrompts;
+    private readonly string? _sessionCwd;
     private readonly Agent.Harness.Persistence.ISessionStore? _store;
 
     public AcpEffectExecutor(
@@ -24,6 +25,7 @@ public sealed class AcpEffectExecutor : IEffectExecutor
         MeaiIChatClient chat,
         IMcpToolInvoker? mcp = null,
         bool logLlmPrompts = false,
+        string? sessionCwd = null,
         Agent.Harness.Persistence.ISessionStore? store = null)
     {
         _sessionId = sessionId;
@@ -31,6 +33,7 @@ public sealed class AcpEffectExecutor : IEffectExecutor
         _chat = chat;
         _mcp = mcp ?? NullMcpToolInvoker.Instance;
         _logLlmPrompts = logLlmPrompts;
+        _sessionCwd = sessionCwd;
         _store = store;
     }
 
@@ -85,7 +88,10 @@ public sealed class AcpEffectExecutor : IEffectExecutor
             updatedAtIso = meta?.UpdatedAtIso,
         }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
-        meaiMessages.Insert(0, new MeaiChatMessage(MeaiChatRole.System, $"<session>{sessionPayload}</session>"));
+        var sessionPolicy = "Filesystem paths: provide absolute paths when possible. Relative paths will be normalized against session cwd.";
+        var stopLooping = "If you successfully read the requested file content, reply with the content and do not call any more tools.";
+
+        meaiMessages.Insert(0, new MeaiChatMessage(MeaiChatRole.System, $"<session>{sessionPayload}</session>\n<policy>{sessionPolicy}</policy>\n<policy>{stopLooping}</policy>"));
 
         var options = new Microsoft.Extensions.AI.ChatOptions
         {
@@ -240,7 +246,10 @@ public sealed class AcpEffectExecutor : IEffectExecutor
         // NOTE: ACP does not mandate any filesystem sandbox policy. Different clients may accept/reject
         // different paths. We normalize to a precise absolute path so the client can reliably enforce
         // whatever policy it wants (e.g. acpx requiring absolute paths and cwd subtree).
-        var cwd = _store?.TryLoadMetadata(_sessionId)?.Cwd;
+        var cwd = _sessionCwd;
+        if (string.IsNullOrWhiteSpace(cwd))
+            cwd = _store?.TryLoadMetadata(_sessionId)?.Cwd;
+
         if (string.IsNullOrWhiteSpace(cwd))
             return Path.GetFullPath(rawPath);
 
