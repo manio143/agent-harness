@@ -75,10 +75,8 @@ internal static class McpDiscovery
                 Command = command,
                 WorkingDirectory = request.Cwd,
                 EnvironmentVariables = env,
+                Arguments = args,
             };
-            foreach (var a in args)
-                transportOptions.Arguments.Add(a);
-
             var clientTransport = new StdioClientTransport(transportOptions);
             var mcp = await McpClient.CreateAsync(clientTransport, new McpClientOptions(), NullLoggerFactory.Instance, cancellationToken)
                 .ConfigureAwait(false);
