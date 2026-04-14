@@ -88,10 +88,7 @@ public sealed class AcpEffectExecutor : IEffectExecutor
             updatedAtIso = meta?.UpdatedAtIso,
         }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
-        var sessionPolicy = "Filesystem paths: provide absolute paths when possible. Relative paths will be normalized against session cwd.";
-        var stopLooping = "If you successfully read the requested file content, reply with the content and do not call any more tools.";
-
-        meaiMessages.Insert(0, new MeaiChatMessage(MeaiChatRole.System, $"<session>{sessionPayload}</session>\n<policy>{sessionPolicy}</policy>\n<policy>{stopLooping}</policy>"));
+        meaiMessages.Insert(0, new MeaiChatMessage(MeaiChatRole.System, $"<session>{sessionPayload}</session>"));
 
         var options = new Microsoft.Extensions.AI.ChatOptions
         {
