@@ -2,6 +2,8 @@
 
 This sample configures `acpx` to talk to this repo's ACP server and attach the **MCP Everything** stdio server.
 
+Note: Everything server requires an explicit transport argument (we pass `stdio`).
+
 ## Prereqs
 
 - `dotnet build Agent.slnx -c Release`
