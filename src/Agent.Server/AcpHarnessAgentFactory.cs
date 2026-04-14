@@ -16,6 +16,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
 {
     private readonly Microsoft.Extensions.AI.IChatClient _chat;
     private readonly AgentServerOptions _options;
+    private readonly IMcpDiscovery _mcpDiscovery;
 
     // Session store is rooted at ACP client-provided CWD to align with acpx expectations.
     // We keep a per-session cache because subsequent calls like CreateSessionAgent only provide sessionId.
@@ -23,10 +24,11 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
 
     private readonly Dictionary<string, (ImmutableArray<ToolDefinition> Tools, IMcpToolInvoker Invoker)> _mcp = new();
 
-    public AcpHarnessAgentFactory(Microsoft.Extensions.AI.IChatClient chat, AgentServerOptions options)
+    public AcpHarnessAgentFactory(Microsoft.Extensions.AI.IChatClient chat, AgentServerOptions options, IMcpDiscovery? mcpDiscovery = null)
     {
         _chat = chat;
         _options = options;
+        _mcpDiscovery = mcpDiscovery ?? new DefaultMcpDiscovery();
     }
 
     private ISessionStore CreateStoreForCwd(string cwd)
@@ -104,7 +106,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         // MCP discovery (ephemeral connections per session): connect and eagerly call tools/list.
         if (request.McpServers.Count > 0)
         {
-            var discovered = await McpDiscovery.DiscoverAsync(request, cancellationToken).ConfigureAwait(false);
+            var discovered = await _mcpDiscovery.DiscoverAsync(request, cancellationToken).ConfigureAwait(false);
             lock (_mcp)
             {
                 _mcp[sessionId] = discovered;
@@ -204,7 +206,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
                         {
                             var metaCwd = store.TryLoadMetadata(sessionId)?.Cwd ?? "/";
                             var req = new NewSessionRequest { Cwd = metaCwd, McpServers = servers };
-                            mcp = McpDiscovery.DiscoverAsync(req, CancellationToken.None).GetAwaiter().GetResult();
+                            mcp = _mcpDiscovery.DiscoverAsync(req, CancellationToken.None).GetAwaiter().GetResult();
                         }
                     }
                     catch
