@@ -83,84 +83,81 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         var effects = new AcpEffectExecutor(_sessionId, _client, _chat, _mcp, _logLlmPrompts);
         var runner = new SessionRunner(_coreOptions, titleGen, effects);
 
-        var sink = new Agent.Harness.Persistence.JsonlEventSink(_sessionId, _store, logObserved: _logObservedEvents);
+        var persist = new Agent.Harness.Persistence.JsonlEventSink(_sessionId, _store, logObserved: _logObservedEvents);
+        var sink = new AcpProjectingEventSink(
+            persist,
+            _coreOptions,
+            _publishOptions,
+            execute: (e, ct) => ExecuteEmissionAsync(e, turn, ct));
 
         var result = await runner.RunTurnAsync(_state, ObservedUserInput(), cancellationToken, sink: sink).ConfigureAwait(false);
         _state = result.Next;
 
-        // Committed events were persisted incrementally by the sink. Publishing remains committed-only.
-        foreach (var committed in result.NewlyCommitted)
-            await PublishCommittedAsync(committed, turn, cancellationToken).ConfigureAwait(false);
+        // Persistence + ACP presentation is incremental via the sink.
 
         return new PromptResponse { StopReason = StopReason.EndTurn };
     }
 
-    private async Task PublishCommittedAsync(SessionEvent committed, IAcpPromptTurn turn, CancellationToken cancellationToken)
+    private async ValueTask ExecuteEmissionAsync(AcpEmission e, IAcpPromptTurn turn, CancellationToken cancellationToken)
     {
-        // Publish output derived ONLY from committed events via a functional projection.
-        var emissions = AcpProjection.Project(committed, _coreOptions, _publishOptions);
-
-        foreach (var e in emissions)
+        switch (e)
         {
-            switch (e)
-            {
-                case AcpSendAgentMessageChunk m:
-                    await _events.SendSessionUpdateAsync(new AgentMessageChunk
+            case AcpSendAgentMessageChunk m:
+                await _events.SendSessionUpdateAsync(new AgentMessageChunk
+                {
+                    Content = new Agent.Acp.Schema.TextContent { Text = m.Text },
+                }, cancellationToken).ConfigureAwait(false);
+                break;
+
+            case AcpSendAgentThoughtChunk t:
+                await _events.SendSessionUpdateAsync(new AgentThoughtChunk
+                {
+                    Content = new Agent.Acp.Schema.TextContent { Text = t.Text },
+                }, cancellationToken).ConfigureAwait(false);
+                break;
+
+            case AcpToolCallStart s:
+                _toolCalls[s.ToolId] = GetOrStart(turn, s.ToolId, title: s.Title);
+                break;
+
+            case AcpToolCallInProgress ip:
+                if (_toolCalls.TryGetValue(ip.ToolId, out var inProgress))
+                    await inProgress.InProgressAsync(cancellationToken).ConfigureAwait(false);
+                break;
+
+            case AcpToolCallAddText u:
+                if (_toolCalls.TryGetValue(u.ToolId, out var updateCall))
+                {
+                    await updateCall.AddContentAsync(new ToolCallContentContent
                     {
-                        Content = new Agent.Acp.Schema.TextContent { Text = m.Text },
+                        Content = new Agent.Acp.Schema.TextContent { Text = u.Text },
                     }, cancellationToken).ConfigureAwait(false);
-                    break;
+                }
+                break;
 
-                case AcpSendAgentThoughtChunk t:
-                    await _events.SendSessionUpdateAsync(new AgentThoughtChunk
-                    {
-                        Content = new Agent.Acp.Schema.TextContent { Text = t.Text },
-                    }, cancellationToken).ConfigureAwait(false);
-                    break;
+            case AcpToolCallCompleted done:
+                if (_toolCalls.TryGetValue(done.ToolId, out var completed))
+                {
+                    await completed.CompletedAsync(cancellationToken).ConfigureAwait(false);
+                    _toolCalls.Remove(done.ToolId);
+                }
+                break;
 
-                case AcpToolCallStart s:
-                    _toolCalls[s.ToolId] = GetOrStart(turn, s.ToolId, title: s.Title);
-                    break;
+            case AcpToolCallFailed failed:
+                if (_toolCalls.TryGetValue(failed.ToolId, out var failedCall))
+                {
+                    await failedCall.FailedAsync(failed.Message, cancellationToken).ConfigureAwait(false);
+                    _toolCalls.Remove(failed.ToolId);
+                }
+                break;
 
-                case AcpToolCallInProgress ip:
-                    if (_toolCalls.TryGetValue(ip.ToolId, out var inProgress))
-                        await inProgress.InProgressAsync(cancellationToken).ConfigureAwait(false);
-                    break;
-
-                case AcpToolCallAddText u:
-                    if (_toolCalls.TryGetValue(u.ToolId, out var updateCall))
-                    {
-                        await updateCall.AddContentAsync(new ToolCallContentContent
-                        {
-                            Content = new Agent.Acp.Schema.TextContent { Text = u.Text },
-                        }, cancellationToken).ConfigureAwait(false);
-                    }
-                    break;
-
-                case AcpToolCallCompleted done:
-                    if (_toolCalls.TryGetValue(done.ToolId, out var completed))
-                    {
-                        await completed.CompletedAsync(cancellationToken).ConfigureAwait(false);
-                        _toolCalls.Remove(done.ToolId);
-                    }
-                    break;
-
-                case AcpToolCallFailed failed:
-                    if (_toolCalls.TryGetValue(failed.ToolId, out var failedCall))
-                    {
-                        await failedCall.FailedAsync(failed.Message, cancellationToken).ConfigureAwait(false);
-                        _toolCalls.Remove(failed.ToolId);
-                    }
-                    break;
-
-                case AcpToolCallCancelled cancelled:
-                    if (_toolCalls.TryGetValue(cancelled.ToolId, out var cancelledCall))
-                    {
-                        await cancelledCall.CancelledAsync(cancellationToken).ConfigureAwait(false);
-                        _toolCalls.Remove(cancelled.ToolId);
-                    }
-                    break;
-            }
+            case AcpToolCallCancelled cancelled:
+                if (_toolCalls.TryGetValue(cancelled.ToolId, out var cancelledCall))
+                {
+                    await cancelledCall.CancelledAsync(cancellationToken).ConfigureAwait(false);
+                    _toolCalls.Remove(cancelled.ToolId);
+                }
+                break;
         }
     }
 
