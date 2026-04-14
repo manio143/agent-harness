@@ -4,6 +4,12 @@ This sample configures `acpx` to talk to this repo's ACP server and attach the *
 
 Note: Everything server requires an explicit transport argument (we pass `stdio`).
 
+Also, the current Everything server package expects `ajv` to be resolvable at runtime (peer dependency). We run it via:
+
+- `npx -p ajv -p @modelcontextprotocol/server-everything @modelcontextprotocol/server-everything stdio`
+
+…so the peer dep is present in the npx sandbox.
+
 ## Prereqs
 
 - `dotnet build Agent.slnx -c Release`

@@ -10,7 +10,7 @@
       "type": "stdio",
       "name": "everything",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-everything", "stdio"]
+      "args": ["-y", "-p", "ajv", "-p", "@modelcontextprotocol/server-everything", "@modelcontextprotocol/server-everything", "stdio"]
     }
   ]
 }
