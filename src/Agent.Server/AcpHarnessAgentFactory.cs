@@ -58,6 +58,34 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         }
     }
 
+    private static McpServer NormalizeMcpServerForPersistence(McpServer server)
+    {
+        // If server already has a stdio wrapper, keep it.
+        if (server.AdditionalProperties.ContainsKey("stdio"))
+            return server;
+
+        // If server contains a flattened stdio config (command/args/env/name), wrap it.
+        if (server.AdditionalProperties.ContainsKey("command"))
+        {
+            var stdio = new Dictionary<string, object?>();
+
+            if (server.AdditionalProperties.TryGetValue("name", out var name)) stdio["name"] = name;
+            if (server.AdditionalProperties.TryGetValue("command", out var cmd)) stdio["command"] = cmd;
+            if (server.AdditionalProperties.TryGetValue("args", out var args)) stdio["args"] = args;
+            if (server.AdditionalProperties.TryGetValue("env", out var env)) stdio["env"] = env;
+
+            return new McpServer
+            {
+                AdditionalProperties = new Dictionary<string, object>
+                {
+                    ["stdio"] = stdio,
+                }
+            };
+        }
+
+        return server;
+    }
+
     private static void TryAppendMcpError(ISessionStore store, string sessionId, string phase, Exception ex)
     {
         try
@@ -124,7 +152,12 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         {
             var rootDir = (store as JsonlSessionStore)?.RootDir ?? Path.GetFullPath(Path.Combine(request.Cwd, _options.Sessions.Directory));
             var mcpConfigPath = Path.Combine(rootDir, sessionId, "mcpServers.json");
-            var json = JsonSerializer.Serialize(request.McpServers, AcpJson.Options);
+
+            // Normalize persisted config to ACP schema shape: { stdio: { name, command, args, env } }
+            // Some clients (e.g. acpx) may send a flattened stdio config; we persist the wrapped form so
+            // rehydrate + discovery remain stable.
+            var normalized = request.McpServers.Select(NormalizeMcpServerForPersistence).ToList();
+            var json = JsonSerializer.Serialize(normalized, AcpJson.Options);
             File.WriteAllText(mcpConfigPath, json);
         }
 
