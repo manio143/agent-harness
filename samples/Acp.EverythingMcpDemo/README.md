@@ -31,7 +31,9 @@ npx -y acpx@latest --cwd . prompt --session demo "Hello"
 
 Suggested prompt for a full demo:
 
-> Create an **absolute** path under this sample's cwd (e.g. `/home/node/.openclaw/workspace/marian-agent/samples/Acp.EverythingMcpDemo/demo.txt`) with "hello" (do not use relative paths like `./demo.txt`). Read it back. Run `uname -a`. Then call an MCP tool from the everything server and summarize.
+> Create an **absolute** path under this sample's cwd (e.g. `/home/node/.openclaw/workspace/marian-agent/samples/Acp.EverythingMcpDemo/demo.txt`) with "hello" (relative paths like `./demo.txt` also work; agent normalizes them). Read it back. Run `uname -a`. Then call an MCP tool from the everything server.
+>
+> For example: call `everything__get_sum` with `{ "a": 40, "b": 2 }` and summarize the result.
 
 Notes:
 - MCP tools will appear as `everything__<tool_name>` (snake_case). Use `acpx sessions tools --session demo` to see the exact names.
