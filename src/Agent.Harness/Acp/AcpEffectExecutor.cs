@@ -248,10 +248,33 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     var threadId = GetRequiredString(args, "threadId");
                     var message = GetRequiredString(args, "message");
                     var delivery = ParseDelivery(args);
-                    _threads?.Send(_threadId, threadId, message, delivery);
 
-                    if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
-                        _scheduler?.ScheduleRun(threadId);
+                    // Universal intake: express as an observed inbox arrival for the target thread.
+                    if (_scheduler is Agent.Harness.Threads.ThreadOrchestrator orchestrator)
+                    {
+                        var now = DateTimeOffset.UtcNow.ToString("O");
+                        var envId = Agent.Harness.Threads.ThreadEnvelopes.NewEnvelopeId();
+
+                        orchestrator.Observe(threadId, new ObservedInboxMessageArrived(
+                            Kind: Agent.Harness.Threads.ThreadInboxMessageKind.InterThreadMessage,
+                            Delivery: delivery,
+                            EnvelopeId: envId,
+                            EnqueuedAtIso: now,
+                            Source: "thread",
+                            SourceThreadId: _threadId,
+                            Text: message,
+                            Meta: null));
+
+                        if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
+                            _scheduler?.ScheduleRun(threadId);
+                    }
+                    else
+                    {
+                        // Fallback (legacy): direct enqueue.
+                        _threads?.Send(_threadId, threadId, message, delivery);
+                        if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
+                            _scheduler?.ScheduleRun(threadId);
+                    }
 
                     return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
                         t.ToolId,

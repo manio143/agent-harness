@@ -93,6 +93,31 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         throw new InvalidOperationException("thread_orchestrator_quiescence_loop_limit_exceeded");
     }
 
+    public void Observe(string threadId, ObservedChatEvent observed)
+    {
+        var initial = _states.GetOrAdd(threadId, _ => SessionState.Empty with
+        {
+            Tools = ImmutableArray.Create(
+                ToolSchemas.ReportIntent,
+                ToolSchemas.ThreadList,
+                ToolSchemas.ThreadNew,
+                ToolSchemas.ThreadFork,
+                ToolSchemas.ThreadSend,
+                ToolSchemas.ThreadRead),
+        });
+
+        var reduced = Core.Reduce(initial, observed);
+
+        foreach (var evt in reduced.NewlyCommitted)
+            _threadStore.AppendCommittedEvent(_sessionId, threadId, evt);
+
+        _states[threadId] = reduced.Next;
+
+        // If reducer requested a model call, schedule the thread.
+        if (reduced.Effects.Any(e => e is CallModel))
+            ScheduleRun(threadId);
+    }
+
     private async Task RunOneTurnIfNeededAsync(string threadId, CancellationToken cancellationToken)
     {
         var gate = _gates.GetOrAdd(threadId, _ => new SemaphoreSlim(1, 1));

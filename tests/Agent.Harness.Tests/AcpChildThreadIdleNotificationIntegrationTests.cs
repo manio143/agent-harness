@@ -6,6 +6,7 @@ using Agent.Acp.Tests;
 using Agent.Acp.Protocol;
 using Agent.Harness.Acp;
 using Agent.Harness.Persistence;
+using Agent.Harness.Threads;
 using FluentAssertions;
 using System.Collections.Immutable;
 
@@ -35,9 +36,6 @@ public sealed class AcpChildThreadIdleNotificationIntegrationTests
 
         await using var client = new AcpClientConnection(clientTransport);
 
-        var updates = new List<JsonRpcNotification>();
-        client.NotificationReceived += n => { if (n.Method == "session/update") updates.Add(n); };
-
         client.RequestHandler = (req, _) => throw new InvalidOperationException($"Unexpected request: {req.Method}");
 
         _ = await client.RequestAsync<InitializeRequest, InitializeResponse>(
@@ -65,31 +63,23 @@ public sealed class AcpChildThreadIdleNotificationIntegrationTests
             },
             cts.Token);
 
-        // Give any fire-and-forget ACP updates time to arrive.
-        await Task.Delay(200, cts.Token);
+        // Assert via committed logs (source of truth).
+        factory.Chat.LastChildThreadId.Should().NotBeNull();
+        var childId = factory.Chat.LastChildThreadId!;
 
-        // Extract custom updates.
-        var enqueued = new List<JsonElement>();
-        foreach (var n in updates)
-        {
-            var raw = n.Params?.GetRawText() ?? "{}";
-            using var doc = JsonDocument.Parse(raw);
-            if (!doc.RootElement.TryGetProperty("update", out var upd)) continue;
-            if (!upd.TryGetProperty("kind", out var kindEl)) continue;
-            if (kindEl.GetString() != "thread_inbox_message_enqueued") continue;
-            enqueued.Add(upd.Clone());
-        }
+        // Followup was enqueued to the child thread.
+        var childEvts = factory.ThreadStore!.LoadCommittedEvents("ses_child_idle_notify", childId);
+        var followup = childEvts
+            .OfType<ThreadInboxMessageEnqueued>()
+            .Single(e => e.Text.Contains("enqueue followup", StringComparison.Ordinal));
 
-        enqueued.Should().NotBeEmpty();
+        // Idle notification was enqueued to the parent (main) via the session store today.
+        var sessionEvts = factory.SessionStore!.LoadCommitted("ses_child_idle_notify");
+        var idle = sessionEvts
+            .OfType<ThreadInboxMessageEnqueued>()
+            .Single(e => e.Text.Contains("became idle", StringComparison.Ordinal));
 
-        var texts = enqueued.Select(e => e.GetProperty("text").GetString() ?? "").ToList();
-        texts.Should().Contain(t => t.Contains("enqueue followup", StringComparison.Ordinal), $"enqueued texts were: {string.Join(" | ", texts)}");
-        texts.Should().Contain(t => t.Contains("became idle", StringComparison.Ordinal), $"enqueued texts were: {string.Join(" | ", texts)}");
-
-        var followup = enqueued.Single(e => (e.GetProperty("text").GetString() ?? "").Contains("enqueue followup", StringComparison.Ordinal));
-        var idle = enqueued.Single(e => (e.GetProperty("text").GetString() ?? "").Contains("became idle", StringComparison.Ordinal));
-
-        DateTimeOffset.Parse(followup.GetProperty("enqueuedAtIso").GetString()!).Should().BeBefore(DateTimeOffset.Parse(idle.GetProperty("enqueuedAtIso").GetString()!));
+        DateTimeOffset.Parse(followup.EnqueuedAtIso).Should().BeBefore(DateTimeOffset.Parse(idle.EnqueuedAtIso));
 
         cts.Cancel();
         try { await serverTask; } catch { }
@@ -98,6 +88,8 @@ public sealed class AcpChildThreadIdleNotificationIntegrationTests
     private sealed class Factory : IAcpAgentFactory
     {
         public ScriptedMeaiChatClient Chat { get; } = new();
+        public JsonlSessionStore? SessionStore { get; private set; }
+        public JsonlThreadStore? ThreadStore { get; private set; }
 
         public Task<InitializeResponse> InitializeAsync(InitializeRequest request, CancellationToken cancellationToken)
             => Task.FromResult(new InitializeResponse
@@ -115,6 +107,8 @@ public sealed class AcpChildThreadIdleNotificationIntegrationTests
         {
             var rootDir = Path.Combine(Path.GetTempPath(), "harness-acp-child-idle-notify-tests", Guid.NewGuid().ToString("N"));
             var store = new JsonlSessionStore(rootDir);
+            SessionStore = store;
+            ThreadStore = new JsonlThreadStore(rootDir);
             store.CreateNew(sessionId, new SessionMetadata(
                 SessionId: sessionId,
                 Cwd: "/tmp",
@@ -145,6 +139,8 @@ public sealed class AcpChildThreadIdleNotificationIntegrationTests
         private bool _mainHiToolsDone;
         private bool _mainHiSendDone;
         private bool _mainHiTextDone;
+
+        public string? LastChildThreadId { get; private set; }
 
         private static readonly Regex ChildIdRe = new("thr_[a-f0-9]{12,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
@@ -189,6 +185,7 @@ public sealed class AcpChildThreadIdleNotificationIntegrationTests
                     throw new InvalidOperationException($"Expected child id in rendered prompt, got: {rendered}");
 
                 var childId = match.Value;
+                LastChildThreadId = childId;
 
                 yield return new MeaiChatResponseUpdate
                 {
