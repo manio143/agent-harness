@@ -12,6 +12,7 @@ public static class ObservedEventJson
         {
             ObservedTurnStarted => new Dictionary<string, object?> { ["type"] = "obs_turn_started" },
             ObservedTurnStabilized => new Dictionary<string, object?> { ["type"] = "obs_turn_stabilized" },
+            ObservedWakeModel w => new Dictionary<string, object?> { ["type"] = "obs_wake_model", ["threadId"] = w.ThreadId },
             ObservedUserMessage m => new Dictionary<string, object?> { ["type"] = "obs_user_message", ["text"] = m.Text },
             ObservedAssistantTextDelta d => new Dictionary<string, object?> { ["type"] = "obs_assistant_text_delta", ["textDelta"] = d.Text },
             ObservedReasoningTextDelta d => new Dictionary<string, object?> { ["type"] = "obs_reasoning_text_delta", ["textDelta"] = d.Text },
