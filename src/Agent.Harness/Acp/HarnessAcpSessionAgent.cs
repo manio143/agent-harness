@@ -107,9 +107,12 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         // we must immediately schedule another model call so the thread does not become idle.
         if (threads is not null)
         {
+            // Ensure the thread is considered idle at the boundary.
+            threads.MarkIdle(Agent.Harness.Threads.ThreadIds.Main);
+
             for (var i = 0; i < 25; i++)
             {
-                if (!threads.HasPendingEnqueue(Agent.Harness.Threads.ThreadIds.Main))
+                if (!threads.HasDeliverableEnqueueNow(Agent.Harness.Threads.ThreadIds.Main))
                     break;
 
                 async IAsyncEnumerable<ObservedChatEvent> WakeObserved()
@@ -119,6 +122,9 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
 
                 var wake = await runner.RunTurnAsync(_state, WakeObserved(), cancellationToken, sink: sink).ConfigureAwait(false);
                 _state = wake.Next;
+
+                // Re-establish idle at the boundary for the next check.
+                threads.MarkIdle(Agent.Harness.Threads.ThreadIds.Main);
             }
         }
 

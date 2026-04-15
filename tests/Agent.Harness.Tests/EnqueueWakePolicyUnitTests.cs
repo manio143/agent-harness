@@ -18,17 +18,24 @@ public sealed class EnqueueWakePolicyUnitTests
     }
 
     [Fact]
-    public void HasPendingEnqueue_ReturnsTrue_WhenInboxContainsEnqueue()
+    public void HasDeliverableEnqueueNow_OnlyTrue_WhenThreadIdle()
     {
         var store = new InMemoryThreadStore();
         var mgr = new ThreadManager("s1", store);
 
         var child = mgr.New(ThreadIds.Main, "hello", InboxDelivery.Enqueue);
 
-        mgr.HasPendingEnqueue(child).Should().BeTrue();
+        // Child defaults to idle.
+        mgr.HasDeliverableEnqueueNow(child).Should().BeTrue();
+
+        mgr.MarkRunning(child);
+        mgr.HasDeliverableEnqueueNow(child).Should().BeFalse();
+
+        mgr.MarkIdle(child);
+        mgr.HasDeliverableEnqueueNow(child).Should().BeTrue();
 
         // Drain while idle -> clears
         _ = mgr.DrainInboxForPrompt(child);
-        mgr.HasPendingEnqueue(child).Should().BeFalse();
+        mgr.HasDeliverableEnqueueNow(child).Should().BeFalse();
     }
 }

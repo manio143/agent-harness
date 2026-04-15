@@ -136,7 +136,17 @@ internal sealed class AcpToolCallTracker : IAcpToolCalls
             if (!ok)
                 throw new InvalidOperationException($"Invalid tool call transition {from} -> {to} for {toolCallId}");
 
-            _state[toolCallId] = to;
+            // Store terminal state, but remove from active map so ids can be reused across turns
+            // (LLMs typically generate tool call ids that are only unique within a turn).
+            if (to is State.Completed or State.Failed or State.Cancelled)
+            {
+                _state.TryRemove(toolCallId, out _);
+                _locks.TryRemove(toolCallId, out _);
+            }
+            else
+            {
+                _state[toolCallId] = to;
+            }
         }
 
         // Note: we emit outside lock.

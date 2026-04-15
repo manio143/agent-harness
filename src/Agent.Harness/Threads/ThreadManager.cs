@@ -5,8 +5,12 @@ namespace Agent.Harness.Threads;
 
 public sealed class ThreadManager
 {
-    public bool HasPendingEnqueue(string threadId)
+    public bool HasDeliverableEnqueueNow(string threadId)
     {
+        var meta = _store.TryLoadThreadMetadata(_sessionId, threadId);
+        if (meta?.Status != ThreadStatus.Idle)
+            return false;
+
         var items = _store.LoadInbox(_sessionId, threadId);
         return items.Any(e => e.Delivery == InboxDelivery.Enqueue);
     }
