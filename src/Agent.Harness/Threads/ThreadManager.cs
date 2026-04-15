@@ -109,30 +109,6 @@ public sealed class ThreadManager
         _store.AppendCommittedEvent(_sessionId, threadId, new ThreadIntentReported(intent));
     }
 
-    private void EnqueueFromThread(
-        string fromThreadId,
-        string toThreadId,
-        string message,
-        InboxDelivery delivery,
-        ThreadInboxMessageKind kind,
-        ImmutableDictionary<string, string>? meta)
-    {
-        var now = DateTimeOffset.UtcNow.ToString("O");
-        var envId = ThreadEnvelopes.NewEnvelopeId();
-
-        var evt = new ThreadInboxMessageEnqueued(
-            ThreadId: toThreadId,
-            EnvelopeId: envId,
-            Kind: kind,
-            Meta: meta,
-            Source: "thread",
-            SourceThreadId: fromThreadId,
-            Delivery: delivery.ToString().ToLowerInvariant(),
-            EnqueuedAtIso: now,
-            Text: message);
-
-        _store.AppendCommittedEvent(_sessionId, toThreadId, evt);
-    }
 
     private ImmutableArray<ThreadInboxMessageEnqueued> LoadPendingInbox(string threadId)
     {
