@@ -200,6 +200,7 @@ public sealed class AcpChildThreadOrchestrationIntegrationTests
     {
         private bool _main1ToolsDone;
         private bool _main2ToolsDone;
+        private bool _childToolsDone;
 
         private static readonly Regex ChildIdRe = new("thr_[a-f0-9]{12}", RegexOptions.Compiled);
 
@@ -247,7 +248,20 @@ public sealed class AcpChildThreadOrchestrationIntegrationTests
                 };
             }
 
-            async IAsyncEnumerable<MeaiChatResponseUpdate> Child_Text_Result()
+            async IAsyncEnumerable<MeaiChatResponseUpdate> Child1_Tools_ListThreads()
+            {
+                _childToolsDone = true;
+                yield return new MeaiChatResponseUpdate
+                {
+                    Contents = new List<MeaiAIContent>
+                    {
+                        new MeaiFunctionCallContent("call_c_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "child work" }),
+                        new MeaiFunctionCallContent("call_c_1", "thread_list", new Dictionary<string, object?>()),
+                    }
+                };
+            }
+
+            async IAsyncEnumerable<MeaiChatResponseUpdate> Child2_Text_Result()
             {
                 yield return new MeaiChatResponseUpdate
                 {
@@ -287,7 +301,7 @@ public sealed class AcpChildThreadOrchestrationIntegrationTests
                 return !_main2ToolsDone ? Main2_Tools_ReadChild() : Main2_Text_Done();
 
             if (isChildPrompt)
-                return Child_Text_Result();
+                return !_childToolsDone ? Child1_Tools_ListThreads() : Child2_Text_Result();
 
             if (isMainPrompt1)
                 return !_main1ToolsDone ? Main1_Tools_CreateChild() : Main1_Text_Done();
