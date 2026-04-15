@@ -119,10 +119,10 @@ public sealed record ThreadInboxMessageEnqueued(
 /// <summary>
 /// An inbox envelope has been rendered into the model prompt (made available to the LLM).
 /// </summary>
-public sealed record ThreadInboxMessageDrainedForPrompt(
+public sealed record ThreadInboxMessageDequeued(
     string ThreadId,
     string EnvelopeId,
-    string DrainedAtIso) : SessionEvent;
+    string DequeuedAtIso) : SessionEvent;
 
 public enum ChatRole
 {

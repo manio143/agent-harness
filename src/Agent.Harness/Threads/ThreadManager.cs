@@ -86,10 +86,10 @@ public sealed class ThreadManager
         // Commit "taken out of inbox" marker for each envelope that is made available to prompt rendering.
         foreach (var env in deliver)
         {
-            var evt = new ThreadInboxMessageDrainedForPrompt(
+            var evt = new ThreadInboxMessageDequeued(
                 ThreadId: threadId,
                 EnvelopeId: env.EnvelopeId,
-                DrainedAtIso: DateTimeOffset.UtcNow.ToString("O"));
+                DequeuedAtIso: DateTimeOffset.UtcNow.ToString("O"));
 
             _sessionStore.AppendCommitted(_sessionId, evt);
             _events?.InboxDeliveredToLlm(env, threadId);
@@ -206,7 +206,7 @@ public sealed class ThreadManager
             return ImmutableArray<ThreadEnvelope>.Empty;
 
         var deliveredIds = committed
-            .OfType<ThreadInboxMessageDrainedForPrompt>()
+            .OfType<ThreadInboxMessageDequeued>()
             .Where(d => d.ThreadId == threadId)
             .Select(d => d.EnvelopeId)
             .ToHashSet(StringComparer.Ordinal);

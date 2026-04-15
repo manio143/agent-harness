@@ -37,10 +37,10 @@ public sealed class AcpPublishingThreadEventRecorder : IThreadEventRecorder
     {
         _ = Task.Run(() => _events.SendSessionUpdateAsync(new Dictionary<string, object?>
         {
-            ["kind"] = "thread_inbox_message_drained_for_prompt",
+            ["kind"] = "thread_inbox_message_dequeued",
             ["threadId"] = threadId,
             ["envelopeId"] = envelope.EnvelopeId,
-            ["drainedAtIso"] = DateTimeOffset.UtcNow.ToString("O"),
+            ["dequeuedAtIso"] = DateTimeOffset.UtcNow.ToString("O"),
         }, CancellationToken.None));
     }
 }

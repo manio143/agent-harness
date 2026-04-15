@@ -43,12 +43,12 @@ public static class SessionEventJson
                 enqueuedAtIso = e.EnqueuedAtIso,
                 text = e.Text,
             },
-            ThreadInboxMessageDrainedForPrompt d => new
+            ThreadInboxMessageDequeued d => new
             {
-                type = "thread_inbox_message_drained_for_prompt",
+                type = "thread_inbox_message_dequeued",
                 threadId = d.ThreadId,
                 envelopeId = d.EnvelopeId,
-                drainedAtIso = d.DrainedAtIso,
+                dequeuedAtIso = d.DequeuedAtIso,
             },
 
             _ => null,
@@ -164,18 +164,25 @@ public static class SessionEventJson
                     EnqueuedAtIso: root.GetProperty("enqueuedAtIso").GetString() ?? string.Empty,
                     Text: root.GetProperty("text").GetString() ?? string.Empty);
 
-            case "thread_inbox_message_drained_for_prompt":
-                return new ThreadInboxMessageDrainedForPrompt(
+            case "thread_inbox_message_dequeued":
+                return new ThreadInboxMessageDequeued(
                     ThreadId: root.GetProperty("threadId").GetString() ?? string.Empty,
                     EnvelopeId: root.GetProperty("envelopeId").GetString() ?? string.Empty,
-                    DrainedAtIso: root.GetProperty("drainedAtIso").GetString() ?? string.Empty);
+                    DequeuedAtIso: root.GetProperty("dequeuedAtIso").GetString() ?? string.Empty);
+
+            // Back-compat: older name
+            case "thread_inbox_message_drained_for_prompt":
+                return new ThreadInboxMessageDequeued(
+                    ThreadId: root.GetProperty("threadId").GetString() ?? string.Empty,
+                    EnvelopeId: root.GetProperty("envelopeId").GetString() ?? string.Empty,
+                    DequeuedAtIso: root.GetProperty("drainedAtIso").GetString() ?? string.Empty);
 
             // Back-compat: older name
             case "thread_inbox_message_delivered_to_llm":
-                return new ThreadInboxMessageDrainedForPrompt(
+                return new ThreadInboxMessageDequeued(
                     ThreadId: root.GetProperty("threadId").GetString() ?? string.Empty,
                     EnvelopeId: root.GetProperty("envelopeId").GetString() ?? string.Empty,
-                    DrainedAtIso: root.GetProperty("deliveredAtIso").GetString() ?? string.Empty);
+                    DequeuedAtIso: root.GetProperty("deliveredAtIso").GetString() ?? string.Empty);
 
             default:
                 throw new InvalidOperationException($"unknown_event_type:{type}");

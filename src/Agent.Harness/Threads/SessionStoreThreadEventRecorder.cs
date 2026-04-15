@@ -27,9 +27,9 @@ public sealed class SessionStoreThreadEventRecorder : IThreadEventRecorder
 
     public void InboxDeliveredToLlm(ThreadEnvelope envelope, string threadId)
     {
-        _store.AppendCommitted(_sessionId, new ThreadInboxMessageDrainedForPrompt(
+        _store.AppendCommitted(_sessionId, new ThreadInboxMessageDequeued(
             ThreadId: threadId,
             EnvelopeId: envelope.EnvelopeId,
-            DrainedAtIso: DateTimeOffset.UtcNow.ToString("O")));
+            DequeuedAtIso: DateTimeOffset.UtcNow.ToString("O")));
     }
 }

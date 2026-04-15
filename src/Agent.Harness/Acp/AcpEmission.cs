@@ -100,13 +100,13 @@ public static class AcpProjection
                     ["text"] = enq.Text,
                 }));
 
-            case ThreadInboxMessageDrainedForPrompt del:
+            case ThreadInboxMessageDequeued del:
                 return ImmutableArray.Create<AcpEmission>(new AcpSendCustomUpdate(new Dictionary<string, object?>
                 {
-                    ["kind"] = "thread_inbox_message_drained_for_prompt",
+                    ["kind"] = "thread_inbox_message_dequeued",
                     ["threadId"] = del.ThreadId,
                     ["envelopeId"] = del.EnvelopeId,
-                    ["drainedAtIso"] = del.DrainedAtIso,
+                    ["dequeuedAtIso"] = del.DequeuedAtIso,
                 }));
 
             // Turn markers and other internal state are not projected to ACP.
