@@ -13,7 +13,7 @@ public sealed class EnqueueWakePolicyUnitTests
     {
         var state = SessionState.Empty;
 
-        var result = Core.Reduce(state, new ObservedWakeModel());
+        var result = Core.Reduce(state, new ObservedWakeModel(ThreadIds.Main));
 
         result.Effects.Should().BeEmpty();
     }
@@ -36,7 +36,7 @@ public sealed class EnqueueWakePolicyUnitTests
                     Text: "hi"))
         };
 
-        var result = Core.Reduce(state, new ObservedWakeModel());
+        var result = Core.Reduce(state, new ObservedWakeModel(ThreadIds.Main));
 
         result.Effects.Should().ContainSingle().Which.Should().BeOfType<CallModel>();
     }

@@ -23,7 +23,7 @@ public sealed record ObservedTurnStabilized() : ObservedChatEvent;
 /// Used for "enqueue" inbox semantics where a thread should continue processing
 /// without becoming idle.
 /// </summary>
-public sealed record ObservedWakeModel() : ObservedChatEvent;
+public sealed record ObservedWakeModel(string ThreadId) : ObservedChatEvent;
 
 public sealed record ObservedUserMessage(string Text) : ObservedChatEvent;
 

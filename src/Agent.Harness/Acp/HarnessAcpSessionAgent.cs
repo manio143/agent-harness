@@ -94,7 +94,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
 
             // Turn boundary wake: gives the reducer a chance to dequeue+promote inbox items
             // into first-class prompt events before the next CallModel.
-            yield return new ObservedWakeModel();
+            yield return new ObservedWakeModel(Agent.Harness.Threads.ThreadIds.Main);
         }
 
         var titleGen = new SessionTitleGenerator(new Llm.MeaiTitleChatClientAdapter(_chat));
@@ -149,7 +149,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                 {
                     async IAsyncEnumerable<ObservedChatEvent> WakeObserved()
                     {
-                        yield return new ObservedWakeModel();
+                        yield return new ObservedWakeModel(Agent.Harness.Threads.ThreadIds.Main);
                     }
 
                     var wake = await runner.RunTurnAsync(_state, WakeObserved(), cancellationToken, sink: sink).ConfigureAwait(false);

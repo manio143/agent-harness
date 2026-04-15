@@ -146,7 +146,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             // Run a single turn kicked off by wake.
             async IAsyncEnumerable<ObservedChatEvent> WakeObserved()
             {
-                yield return new ObservedWakeModel();
+                yield return new ObservedWakeModel(threadId);
             }
 
             var titleGen = new SessionTitleGenerator(new Llm.MeaiTitleChatClientAdapter(_chat));

@@ -32,7 +32,7 @@ public sealed class CoreReducerInboxPromotionTests
         var r1 = Core.Reduce(state, arrived);
         r1.NewlyCommitted.Should().ContainSingle(e => e is ThreadInboxMessageEnqueued);
 
-        var r2 = Core.Reduce(r1.Next, new ObservedWakeModel());
+        var r2 = Core.Reduce(r1.Next, new ObservedWakeModel(ThreadIds.Main));
         r2.NewlyCommitted.Any(e => e is ThreadInboxMessageDequeued d && d.EnvelopeId == envId).Should().BeTrue();
         r2.NewlyCommitted.Any(e => e is InterThreadMessage it && it.FromThreadId == "thr_a" && it.Text == "hello").Should().BeTrue();
     }
@@ -62,7 +62,7 @@ public sealed class CoreReducerInboxPromotionTests
             Meta: meta);
 
         var r1 = Core.Reduce(state, arrived);
-        var r2 = Core.Reduce(r1.Next, new ObservedWakeModel());
+        var r2 = Core.Reduce(r1.Next, new ObservedWakeModel(ThreadIds.Main));
 
         r2.NewlyCommitted.Any(e => e is ThreadIdleNotification n && n.ChildThreadId == "thr_child" && n.LastIntent == "doing work").Should().BeTrue();
     }

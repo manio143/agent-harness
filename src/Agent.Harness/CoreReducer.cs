@@ -130,9 +130,9 @@ public static class Core
                 return new ReduceResult(next, ImmutableArray.Create<SessionEvent>(enq), ImmutableArray<Effect>.Empty);
             }
 
-            case ObservedWakeModel:
+            case ObservedWakeModel wake:
             {
-                var (next, newly) = PromotePendingInbox(state);
+                var (next, newly) = PromotePendingInbox(state, wake.ThreadId);
 
                 // Only schedule a model call if the wake actually caused something to become visible
                 // to the prompt (i.e. we dequeued/promoted inbox items).
@@ -494,13 +494,16 @@ public static class Core
         return new ReduceResult(next, ImmutableArray.Create(evt), ImmutableArray<Effect>.Empty);
     }
 
-    private static (SessionState Next, ImmutableArray<SessionEvent> NewlyCommitted) PromotePendingInbox(SessionState state)
+    private static (SessionState Next, ImmutableArray<SessionEvent> NewlyCommitted) PromotePendingInbox(SessionState state, string currentThreadId)
     {
         // Delivery gating depends on projected thread status.
         static bool IsThreadIdleForPromotion(string threadId, ImmutableArray<SessionEvent> committed)
             => Agent.Harness.Threads.ThreadStatusProjector.IsIdle(committed);
 
-        var enq = state.Committed.OfType<ThreadInboxMessageEnqueued>().ToList();
+        var enq = state.Committed
+            .OfType<ThreadInboxMessageEnqueued>()
+            .Where(e => e.ThreadId == currentThreadId)
+            .ToList();
         if (enq.Count == 0)
             return (state, ImmutableArray<SessionEvent>.Empty);
 

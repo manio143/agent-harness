@@ -26,7 +26,7 @@ public sealed class CoreReducerInboxDeliveryGatingTests
                     Text: "hello"))
         };
 
-        var result = Core.Reduce(state, new ObservedWakeModel());
+        var result = Core.Reduce(state, new ObservedWakeModel(ThreadIds.Main));
 
         result.NewlyCommitted.Should().BeEmpty();
         result.Effects.Should().BeEmpty();
@@ -53,7 +53,7 @@ public sealed class CoreReducerInboxDeliveryGatingTests
                     Text: "hello"))
         };
 
-        var result = Core.Reduce(state, new ObservedWakeModel());
+        var result = Core.Reduce(state, new ObservedWakeModel(ThreadIds.Main));
 
         result.NewlyCommitted.OfType<ThreadInboxMessageDequeued>().Should().ContainSingle(d => d.EnvelopeId == "env_1");
         result.NewlyCommitted.OfType<InterThreadMessage>().Should().ContainSingle(m => m.Text == "hello");
@@ -79,7 +79,7 @@ public sealed class CoreReducerInboxDeliveryGatingTests
                     Text: "hello"))
         };
 
-        var result = Core.Reduce(state, new ObservedWakeModel());
+        var result = Core.Reduce(state, new ObservedWakeModel(ThreadIds.Main));
 
         result.NewlyCommitted.OfType<ThreadInboxMessageDequeued>().Should().ContainSingle(d => d.EnvelopeId == "env_1");
         result.NewlyCommitted.OfType<InterThreadMessage>().Should().ContainSingle(m => m.Text == "hello");
