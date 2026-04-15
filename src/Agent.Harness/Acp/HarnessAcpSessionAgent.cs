@@ -84,13 +84,26 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
 
         // Thread layer: persisted alongside the session store when backed by JsonlSessionStore.
         Agent.Harness.Threads.ThreadManager? threads = null;
+        Agent.Harness.Threads.IThreadScheduler? scheduler = null;
+        Agent.Harness.Threads.IThreadStore? threadStore = null;
+
         if (_store is JsonlSessionStore jsonl)
         {
-            var threadStore = new Agent.Harness.Threads.JsonlThreadStore(jsonl.RootDir);
+            threadStore = new Agent.Harness.Threads.JsonlThreadStore(jsonl.RootDir);
             threads = new Agent.Harness.Threads.ThreadManager(_sessionId, threadStore);
+
+            scheduler = new Agent.Harness.Threads.ThreadOrchestrator(
+                _sessionId,
+                _client,
+                _chat,
+                _mcp,
+                _coreOptions,
+                _store,
+                threadStore,
+                threads);
         }
 
-        var effects = new AcpEffectExecutor(_sessionId, _client, _chat, _mcp, _logLlmPrompts, sessionCwd: sessionCwd, store: _store, threads: threads);
+        var effects = new AcpEffectExecutor(_sessionId, _client, _chat, _mcp, _logLlmPrompts, sessionCwd: sessionCwd, store: _store, threads: threads, scheduler: scheduler, threadId: Agent.Harness.Threads.ThreadIds.Main);
         var runner = new SessionRunner(_coreOptions, titleGen, effects);
 
         var persist = new Agent.Harness.Persistence.JsonlEventSink(_sessionId, _store, logObserved: _logObservedEvents);
@@ -110,6 +123,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             // Ensure the thread is considered idle at the boundary.
             threads.MarkIdle(Agent.Harness.Threads.ThreadIds.Main);
 
+            // Event-driven wake: schedule follow-up run(s) only while enqueue becomes deliverable.
             for (var i = 0; i < 25; i++)
             {
                 if (!threads.HasDeliverableEnqueueNow(Agent.Harness.Threads.ThreadIds.Main))
@@ -123,7 +137,6 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                 var wake = await runner.RunTurnAsync(_state, WakeObserved(), cancellationToken, sink: sink).ConfigureAwait(false);
                 _state = wake.Next;
 
-                // Re-establish idle at the boundary for the next check.
                 threads.MarkIdle(Agent.Harness.Threads.ThreadIds.Main);
             }
         }

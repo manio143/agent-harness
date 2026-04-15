@@ -15,6 +15,17 @@ public sealed class ThreadManager
         return items.Any(e => e.Delivery == InboxDelivery.Enqueue);
     }
 
+    public bool HasImmediateOrDeliverableEnqueue(string threadId)
+    {
+        var items = _store.LoadInbox(_sessionId, threadId);
+        if (items.IsDefaultOrEmpty) return false;
+
+        if (items.Any(i => i.Delivery == InboxDelivery.Immediate))
+            return true;
+
+        return HasDeliverableEnqueueNow(threadId);
+    }
+
     private readonly string _sessionId;
     private readonly IThreadStore _store;
 

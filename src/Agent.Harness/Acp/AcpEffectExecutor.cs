@@ -19,6 +19,8 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
     private readonly string? _sessionCwd;
     private readonly Agent.Harness.Persistence.ISessionStore? _store;
     private readonly Agent.Harness.Threads.ThreadManager? _threads;
+    private readonly Agent.Harness.Threads.IThreadScheduler? _scheduler;
+    private readonly string _threadId;
 
     public AcpEffectExecutor(
         string sessionId,
@@ -28,7 +30,9 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         bool logLlmPrompts = false,
         string? sessionCwd = null,
         Agent.Harness.Persistence.ISessionStore? store = null,
-        Agent.Harness.Threads.ThreadManager? threads = null)
+        Agent.Harness.Threads.ThreadManager? threads = null,
+        Agent.Harness.Threads.IThreadScheduler? scheduler = null,
+        string threadId = Agent.Harness.Threads.ThreadIds.Main)
     {
         _sessionId = sessionId;
         _client = client;
@@ -38,6 +42,8 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         _sessionCwd = sessionCwd;
         _store = store;
         _threads = threads;
+        _scheduler = scheduler;
+        _threadId = threadId;
     }
 
     public async Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
@@ -93,9 +99,9 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         {
             // Drain inbox BEFORE marking running. Enqueue-delivery messages are eligible when the
             // thread is idle (i.e. just before starting the next model call).
-            var inbox = _threads?.DrainInboxForPrompt(Agent.Harness.Threads.ThreadIds.Main) ?? ImmutableArray<Agent.Harness.Threads.ThreadEnvelope>.Empty;
+            var inbox = _threads?.DrainInboxForPrompt(_threadId) ?? ImmutableArray<Agent.Harness.Threads.ThreadEnvelope>.Empty;
 
-            _threads?.MarkRunning(Agent.Harness.Threads.ThreadIds.Main);
+            _threads?.MarkRunning(_threadId);
 
             var rendered = Core.RenderPrompt(state);
 
@@ -169,7 +175,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         }
         finally
         {
-            _threads?.MarkIdle(Agent.Harness.Threads.ThreadIds.Main);
+            _threads?.MarkIdle(_threadId);
         }
     }
 
@@ -187,7 +193,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     if (_threads is not null)
                     {
                         var intent = GetRequiredString(args, "intent");
-                        _threads.ReportIntent(Agent.Harness.Threads.ThreadIds.Main, intent);
+                        _threads.ReportIntent(_threadId, intent);
                     }
 
                     return ImmutableArray.Create<ObservedChatEvent>(
@@ -215,7 +221,10 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                 {
                     var message = GetRequiredString(args, "message");
                     var delivery = ParseDelivery(args);
-                    var id = _threads?.New(Agent.Harness.Threads.ThreadIds.Main, message, delivery) ?? "";
+                    var id = _threads?.New(_threadId, message, delivery) ?? "";
+                    if (!string.IsNullOrWhiteSpace(id) && delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
+                        _scheduler?.ScheduleRun(id);
+
                     return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
                         t.ToolId,
                         JsonSerializer.SerializeToElement(new { threadId = id })));
@@ -225,7 +234,10 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                 {
                     var message = GetRequiredString(args, "message");
                     var delivery = ParseDelivery(args);
-                    var id = _threads?.Fork(Agent.Harness.Threads.ThreadIds.Main, state, message, delivery) ?? "";
+                    var id = _threads?.Fork(_threadId, state, message, delivery) ?? "";
+                    if (!string.IsNullOrWhiteSpace(id) && delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
+                        _scheduler?.ScheduleRun(id);
+
                     return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
                         t.ToolId,
                         JsonSerializer.SerializeToElement(new { threadId = id })));
@@ -236,7 +248,11 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     var threadId = GetRequiredString(args, "threadId");
                     var message = GetRequiredString(args, "message");
                     var delivery = ParseDelivery(args);
-                    _threads?.Send(Agent.Harness.Threads.ThreadIds.Main, threadId, message, delivery);
+                    _threads?.Send(_threadId, threadId, message, delivery);
+
+                    if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
+                        _scheduler?.ScheduleRun(threadId);
+
                     return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
                         t.ToolId,
                         JsonSerializer.SerializeToElement(new { ok = true })));
