@@ -14,6 +14,7 @@ public interface IThreadStore
 
     void AppendInbox(string sessionId, string threadId, ThreadEnvelope envelope);
     ImmutableArray<ThreadEnvelope> LoadInbox(string sessionId, string threadId);
+    void SaveInbox(string sessionId, string threadId, ImmutableArray<ThreadEnvelope> envelopes);
     void ClearInbox(string sessionId, string threadId);
 
     // Thread committed events (for thread_read)

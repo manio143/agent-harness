@@ -89,9 +89,14 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
 
     private async IAsyncEnumerable<ObservedChatEvent> CallModelStreamingAsync(SessionState state, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        _threads?.MarkRunning(Agent.Harness.Threads.ThreadIds.Main);
         try
         {
+            // Drain inbox BEFORE marking running. Enqueue-delivery messages are eligible when the
+            // thread is idle (i.e. just before starting the next model call).
+            var inbox = _threads?.DrainInboxForPrompt(Agent.Harness.Threads.ThreadIds.Main) ?? ImmutableArray<Agent.Harness.Threads.ThreadEnvelope>.Empty;
+
+            _threads?.MarkRunning(Agent.Harness.Threads.ThreadIds.Main);
+
             var rendered = Core.RenderPrompt(state);
 
             var meaiMessages = rendered
@@ -116,14 +121,10 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
             meaiMessages.Insert(0, new MeaiChatMessage(MeaiChatRole.System, $"<session>{sessionPayload}</session>"));
 
             // Inbox injection (main thread): convert thread->thread messages into system messages.
-            if (_threads is not null)
+            foreach (var env in inbox.Reverse())
             {
-                var inbox = _threads.DrainInboxForPrompt(Agent.Harness.Threads.ThreadIds.Main);
-                foreach (var env in inbox.Reverse())
-                {
-                    var payload = JsonSerializer.Serialize(env, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-                    meaiMessages.Insert(1, new MeaiChatMessage(MeaiChatRole.System, $"<inbox>{payload}</inbox>"));
-                }
+                var payload = JsonSerializer.Serialize(env, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                meaiMessages.Insert(1, new MeaiChatMessage(MeaiChatRole.System, $"<inbox>{payload}</inbox>"));
             }
 
         var options = new Microsoft.Extensions.AI.ChatOptions

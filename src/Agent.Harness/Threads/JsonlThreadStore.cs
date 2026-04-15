@@ -98,6 +98,22 @@ public sealed class JsonlThreadStore : IThreadStore
         return list.ToImmutableArray();
     }
 
+    public void SaveInbox(string sessionId, string threadId, ImmutableArray<ThreadEnvelope> envelopes)
+    {
+        var dir = ThreadDir(sessionId, threadId);
+        Directory.CreateDirectory(dir);
+        var path = InboxPath(sessionId, threadId);
+
+        if (envelopes.IsDefaultOrEmpty)
+        {
+            if (File.Exists(path)) File.Delete(path);
+            return;
+        }
+
+        var lines = envelopes.Select(e => JsonSerializer.Serialize(e, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        File.WriteAllText(path, string.Join("\n", lines) + "\n");
+    }
+
     public void ClearInbox(string sessionId, string threadId)
     {
         var path = InboxPath(sessionId, threadId);

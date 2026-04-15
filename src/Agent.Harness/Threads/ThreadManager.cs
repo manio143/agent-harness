@@ -31,10 +31,37 @@ public sealed class ThreadManager
 
     public ImmutableArray<ThreadEnvelope> DrainInboxForPrompt(string threadId)
     {
+        var meta = _store.TryLoadThreadMetadata(_sessionId, threadId);
+        var isIdle = meta?.Status == ThreadStatus.Idle;
+
         var items = _store.LoadInbox(_sessionId, threadId);
-        if (!items.IsDefaultOrEmpty)
-            _store.ClearInbox(_sessionId, threadId);
-        return items;
+        if (items.IsDefaultOrEmpty)
+            return ImmutableArray<ThreadEnvelope>.Empty;
+
+        var deliver = ImmutableArray.CreateBuilder<ThreadEnvelope>();
+        var keep = ImmutableArray.CreateBuilder<ThreadEnvelope>();
+
+        foreach (var env in items)
+        {
+            // immediate: always deliver on the next prompt
+            if (env.Delivery == InboxDelivery.Immediate)
+            {
+                deliver.Add(env);
+                continue;
+            }
+
+            // enqueue: only becomes eligible once the target thread is idle
+            if (env.Delivery == InboxDelivery.Enqueue && isIdle)
+            {
+                deliver.Add(env);
+                continue;
+            }
+
+            keep.Add(env);
+        }
+
+        _store.SaveInbox(_sessionId, threadId, keep.ToImmutable());
+        return deliver.ToImmutable();
     }
 
     public ImmutableArray<ThreadInfo> List()

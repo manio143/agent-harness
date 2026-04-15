@@ -61,7 +61,7 @@ public sealed class ThreadManagerTests
     }
 
     [Fact]
-    public void DrainInboxForPrompt_ClearsInbox()
+    public void DrainInboxForPrompt_WhenThreadIdle_DeliversAndClears()
     {
         var store = new InMemoryThreadStore();
         var mgr = new ThreadManager("s1", store);
@@ -69,12 +69,28 @@ public sealed class ThreadManagerTests
         // Create a child to receive inbox.
         var child = mgr.New(ThreadIds.Main, "hello", InboxDelivery.Enqueue);
 
-        // Thread_new enqueued a message into the child inbox.
         store.LoadInbox("s1", child).Should().HaveCount(1);
 
+        // Thread defaults to Idle.
         var drained = mgr.DrainInboxForPrompt(child);
         drained.Should().HaveCount(1);
 
         store.LoadInbox("s1", child).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void DrainInboxForPrompt_WhenThreadRunning_KeepsEnqueueMessages()
+    {
+        var store = new InMemoryThreadStore();
+        var mgr = new ThreadManager("s1", store);
+
+        var child = mgr.New(ThreadIds.Main, "hello", InboxDelivery.Enqueue);
+
+        mgr.MarkRunning(child);
+
+        var drained = mgr.DrainInboxForPrompt(child);
+        drained.Should().BeEmpty();
+
+        store.LoadInbox("s1", child).Should().HaveCount(1);
     }
 }

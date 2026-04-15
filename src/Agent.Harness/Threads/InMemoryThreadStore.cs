@@ -58,6 +58,17 @@ public sealed class InMemoryThreadStore : IThreadStore
         lock (list) { return list.ToImmutableArray(); }
     }
 
+    public void SaveInbox(string sessionId, string threadId, ImmutableArray<ThreadEnvelope> envelopes)
+    {
+        if (envelopes.IsDefaultOrEmpty)
+        {
+            _inbox.TryRemove((sessionId, threadId), out _);
+            return;
+        }
+
+        _inbox[(sessionId, threadId)] = envelopes.ToList();
+    }
+
     public void ClearInbox(string sessionId, string threadId)
     {
         _inbox.TryRemove((sessionId, threadId), out _);
