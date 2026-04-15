@@ -7,19 +7,10 @@ namespace Agent.Harness.Tests;
 
 public sealed class ChildThreadOrchestrationTests
 {
-    private static ISessionStore NewSessionStore(string sessionId)
-    {
-        var root = Path.Combine(Path.GetTempPath(), "harness-childorch-tests", Guid.NewGuid().ToString("N"));
-        var store = new JsonlSessionStore(root);
-        store.CreateNew(sessionId, new SessionMetadata(sessionId, "/tmp", Title: null,
-            CreatedAtIso: DateTimeOffset.UtcNow.ToString("O"), UpdatedAtIso: DateTimeOffset.UtcNow.ToString("O")));
-        return store;
-    }
     [Fact]
     public void ThreadNew_Immediate_Schedules_Run()
     {
         var threadStore = new InMemoryThreadStore();
-        var sessionStore = NewSessionStore("s1");
         var mgr = new ThreadManager("s1", threadStore);
 
         var scheduled = new List<string>();

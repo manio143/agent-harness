@@ -117,6 +117,7 @@ public sealed class ThreadManager
         return id;
     }
 
+    [Obsolete("Legacy imperative path. Prefer: CreateChildThread + ObservedInboxMessageArrived via ThreadOrchestrator.Observe.")]
     public string New(string parentThreadId, string message, InboxDelivery delivery)
     {
         var id = CreateChildThread(parentThreadId);
@@ -138,6 +139,7 @@ public sealed class ThreadManager
         return childId;
     }
 
+    [Obsolete("Legacy imperative path. Prefer: ForkChildThread + ObservedInboxMessageArrived via ThreadOrchestrator.Observe.")]
     public string Fork(string parentThreadId, SessionState parentState, string message, InboxDelivery delivery)
     {
         var childId = ForkChildThread(parentThreadId, parentState);
