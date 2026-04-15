@@ -91,8 +91,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         if (_store is JsonlSessionStore jsonl)
         {
             threadStore = new Agent.Harness.Threads.JsonlThreadStore(jsonl.RootDir);
-            var recorder = new Agent.Harness.Threads.AcpPublishingThreadEventRecorder(_sessionId, _store, _events);
-            threads = new Agent.Harness.Threads.ThreadManager(_sessionId, threadStore, recorder);
+            var publisher = new Agent.Harness.Threads.AcpPublishingThreadEventRecorder(_events);
+            threads = new Agent.Harness.Threads.ThreadManager(_sessionId, threadStore, _store, publisher);
 
             orchestrator = new Agent.Harness.Threads.ThreadOrchestrator(
                 _sessionId,

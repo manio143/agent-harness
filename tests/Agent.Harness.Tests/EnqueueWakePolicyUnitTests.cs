@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Agent.Harness;
+using Agent.Harness.Persistence;
 using Agent.Harness.Threads;
 using FluentAssertions;
 
@@ -7,6 +8,14 @@ namespace Agent.Harness.Tests;
 
 public sealed class EnqueueWakePolicyUnitTests
 {
+    private static ISessionStore NewSessionStore(string sessionId)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "harness-enqueuewake-tests", Guid.NewGuid().ToString("N"));
+        var store = new JsonlSessionStore(root);
+        store.CreateNew(sessionId, new SessionMetadata(sessionId, "/tmp", Title: null,
+            CreatedAtIso: DateTimeOffset.UtcNow.ToString("O"), UpdatedAtIso: DateTimeOffset.UtcNow.ToString("O")));
+        return store;
+    }
     [Fact]
     public void ObservedWakeModel_Emits_CallModel_Effect()
     {
@@ -20,8 +29,9 @@ public sealed class EnqueueWakePolicyUnitTests
     [Fact]
     public void HasDeliverableEnqueueNow_OnlyTrue_WhenThreadIdle()
     {
-        var store = new InMemoryThreadStore();
-        var mgr = new ThreadManager("s1", store);
+        var threadStore = new InMemoryThreadStore();
+        var sessionStore = NewSessionStore("s1");
+        var mgr = new ThreadManager("s1", threadStore, sessionStore);
 
         var child = mgr.New(ThreadIds.Main, "hello", InboxDelivery.Enqueue);
 

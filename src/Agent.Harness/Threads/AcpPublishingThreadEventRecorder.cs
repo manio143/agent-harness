@@ -5,64 +5,42 @@ using Agent.Harness.Persistence;
 namespace Agent.Harness.Threads;
 
 /// <summary>
-/// Records inbox lifecycle events by appending committed events to the session store,
-/// and also publishing an edge-visible ACP session/update payload.
+/// Publishes inbox lifecycle events as edge-visible ACP session/update payloads.
+/// The committed session event log is the single source of truth; this publisher is best-effort.
 /// </summary>
 public sealed class AcpPublishingThreadEventRecorder : IThreadEventRecorder
 {
-    private readonly string _sessionId;
-    private readonly ISessionStore _store;
     private readonly IAcpSessionEvents _events;
 
-    public AcpPublishingThreadEventRecorder(string sessionId, ISessionStore store, IAcpSessionEvents events)
+    public AcpPublishingThreadEventRecorder(IAcpSessionEvents events)
     {
-        _sessionId = sessionId;
-        _store = store;
         _events = events;
     }
 
     public void InboxEnqueued(ThreadEnvelope envelope, string threadId)
     {
-        var evt = new ThreadInboxMessageEnqueued(
-            ThreadId: threadId,
-            EnvelopeId: envelope.EnvelopeId,
-            Source: envelope.Source,
-            SourceThreadId: envelope.SourceThreadId,
-            Delivery: envelope.Delivery.ToString().ToLowerInvariant(),
-            EnqueuedAtIso: envelope.EnqueuedAtIso,
-            Text: envelope.Text);
-
-        _store.AppendCommitted(_sessionId, evt);
-
         // Publish as a custom session/update; best-effort (no awaiting inside tool execution).
         _ = Task.Run(() => _events.SendSessionUpdateAsync(new Dictionary<string, object?>
         {
             ["kind"] = "thread_inbox_message_enqueued",
-            ["threadId"] = evt.ThreadId,
-            ["envelopeId"] = evt.EnvelopeId,
-            ["source"] = evt.Source,
-            ["sourceThreadId"] = evt.SourceThreadId,
-            ["delivery"] = evt.Delivery,
-            ["enqueuedAtIso"] = evt.EnqueuedAtIso,
-            ["text"] = evt.Text,
+            ["threadId"] = threadId,
+            ["envelopeId"] = envelope.EnvelopeId,
+            ["source"] = envelope.Source,
+            ["sourceThreadId"] = envelope.SourceThreadId,
+            ["delivery"] = envelope.Delivery.ToString().ToLowerInvariant(),
+            ["enqueuedAtIso"] = envelope.EnqueuedAtIso,
+            ["text"] = envelope.Text,
         }, CancellationToken.None));
     }
 
     public void InboxDeliveredToLlm(ThreadEnvelope envelope, string threadId)
     {
-        var evt = new ThreadInboxMessageDeliveredToLlm(
-            ThreadId: threadId,
-            EnvelopeId: envelope.EnvelopeId,
-            DeliveredAtIso: DateTimeOffset.UtcNow.ToString("O"));
-
-        _store.AppendCommitted(_sessionId, evt);
-
         _ = Task.Run(() => _events.SendSessionUpdateAsync(new Dictionary<string, object?>
         {
             ["kind"] = "thread_inbox_message_delivered_to_llm",
-            ["threadId"] = evt.ThreadId,
-            ["envelopeId"] = evt.EnvelopeId,
-            ["deliveredAtIso"] = evt.DeliveredAtIso,
+            ["threadId"] = threadId,
+            ["envelopeId"] = envelope.EnvelopeId,
+            ["deliveredAtIso"] = DateTimeOffset.UtcNow.ToString("O"),
         }, CancellationToken.None));
     }
 }
