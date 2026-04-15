@@ -17,9 +17,32 @@ public sealed class EnqueueWakePolicyUnitTests
         return store;
     }
     [Fact]
-    public void ObservedWakeModel_Emits_CallModel_Effect()
+    public void ObservedWakeModel_DoesNotEmit_CallModel_WhenNoInboxWasPromoted()
     {
         var state = SessionState.Empty;
+
+        var result = Core.Reduce(state, new ObservedWakeModel());
+
+        result.Effects.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ObservedWakeModel_Emits_CallModel_WhenInboxWasPromoted()
+    {
+        var state = SessionState.Empty with
+        {
+            Committed = ImmutableArray.Create<SessionEvent>(
+                new ThreadInboxMessageEnqueued(
+                    ThreadId: ThreadIds.Main,
+                    EnvelopeId: "env_1",
+                    Kind: ThreadInboxMessageKind.InterThreadMessage,
+                    Meta: null,
+                    Source: "thread",
+                    SourceThreadId: "thr_a",
+                    Delivery: "immediate",
+                    EnqueuedAtIso: "t0",
+                    Text: "hi"))
+        };
 
         var result = Core.Reduce(state, new ObservedWakeModel());
 
@@ -31,7 +54,7 @@ public sealed class EnqueueWakePolicyUnitTests
     {
         var threadStore = new InMemoryThreadStore();
         var sessionStore = NewSessionStore("s1");
-        var mgr = new ThreadManager("s1", threadStore, sessionStore);
+        var mgr = new ThreadManager("s1", threadStore);
 
         var child = mgr.New(ThreadIds.Main, "hello", InboxDelivery.Enqueue);
 

@@ -133,10 +133,14 @@ public static class Core
             case ObservedWakeModel:
             {
                 var (next, newly) = PromotePendingInbox(state);
-                return new ReduceResult(
-                    next,
-                    newly,
-                    ImmutableArray.Create<Effect>(new CallModel()));
+
+                // Only schedule a model call if the wake actually caused something to become visible
+                // to the prompt (i.e. we dequeued/promoted inbox items).
+                var effects = newly.IsDefaultOrEmpty
+                    ? ImmutableArray<Effect>.Empty
+                    : ImmutableArray.Create<Effect>(new CallModel());
+
+                return new ReduceResult(next, newly, effects);
             }
 
             case ObservedAssistantTextDelta d:

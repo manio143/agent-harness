@@ -110,7 +110,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         {
             threadStore = new Agent.Harness.Threads.JsonlThreadStore(jsonl.RootDir);
             var publisher = new Agent.Harness.Threads.AcpPublishingThreadEventRecorder(_events);
-            threads = new Agent.Harness.Threads.ThreadManager(_sessionId, threadStore, _store, publisher);
+            threads = new Agent.Harness.Threads.ThreadManager(_sessionId, threadStore, publisher);
 
             orchestrator = new Agent.Harness.Threads.ThreadOrchestrator(
                 _sessionId,

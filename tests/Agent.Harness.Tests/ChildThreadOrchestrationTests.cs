@@ -20,7 +20,7 @@ public sealed class ChildThreadOrchestrationTests
     {
         var threadStore = new InMemoryThreadStore();
         var sessionStore = NewSessionStore("s1");
-        var mgr = new ThreadManager("s1", threadStore, sessionStore);
+        var mgr = new ThreadManager("s1", threadStore);
 
         var scheduled = new List<string>();
         IThreadScheduler scheduler = new FakeScheduler(scheduled);

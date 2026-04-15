@@ -29,14 +29,12 @@ public sealed class ThreadManager
 
     private readonly string _sessionId;
     private readonly IThreadStore _store;
-    private readonly Persistence.ISessionStore _sessionStore;
     private readonly IThreadEventRecorder? _events;
 
-    public ThreadManager(string sessionId, IThreadStore store, Persistence.ISessionStore sessionStore, IThreadEventRecorder? events = null)
+    public ThreadManager(string sessionId, IThreadStore store, IThreadEventRecorder? events = null)
     {
         _sessionId = sessionId;
         _store = store;
-        _sessionStore = sessionStore;
         _events = events;
         _store.CreateMainIfMissing(sessionId);
     }
@@ -91,7 +89,7 @@ public sealed class ThreadManager
                 EnvelopeId: env.EnvelopeId,
                 DequeuedAtIso: DateTimeOffset.UtcNow.ToString("O"));
 
-            _sessionStore.AppendCommitted(_sessionId, evt);
+            _store.AppendCommittedEvent(_sessionId, threadId, evt);
             _events?.InboxDeliveredToLlm(env, threadId);
         }
 
@@ -209,13 +207,13 @@ public sealed class ThreadManager
             EnqueuedAtIso: env.EnqueuedAtIso,
             Text: env.Text);
 
-        _sessionStore.AppendCommitted(_sessionId, evt);
+        _store.AppendCommittedEvent(_sessionId, toThreadId, evt);
         _events?.InboxEnqueued(env, toThreadId);
     }
 
     private ImmutableArray<ThreadEnvelope> LoadPendingInbox(string threadId)
     {
-        var committed = _sessionStore.LoadCommitted(_sessionId);
+        var committed = _store.LoadCommittedEvents(_sessionId, threadId);
 
         // Project the inbox from committed events (single source of truth).
         var enqueued = committed

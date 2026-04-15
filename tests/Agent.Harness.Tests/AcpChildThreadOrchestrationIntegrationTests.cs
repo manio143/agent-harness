@@ -223,7 +223,7 @@ public sealed class AcpChildThreadOrchestrationIntegrationTests
             var msgText = string.Join("\n", messages.Select(Render));
 
             bool isMainPrompt2 = msgText.Contains("Check child=", StringComparison.Ordinal);
-            bool isChildPrompt = msgText.Contains("<inbox>", StringComparison.Ordinal) && msgText.Contains("do work", StringComparison.Ordinal);
+            bool isChildPrompt = msgText.Contains("<inter_thread", StringComparison.Ordinal) && msgText.Contains("do work", StringComparison.Ordinal);
             bool isMainPrompt1 = !isMainPrompt2 && msgText.Contains("\nHi", StringComparison.Ordinal);
 
             async IAsyncEnumerable<MeaiChatResponseUpdate> Main1_Tools_CreateChild()

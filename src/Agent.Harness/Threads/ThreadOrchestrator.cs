@@ -127,13 +127,9 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             // Mark idle boundary before checking deliverability.
             _threads.MarkIdle(threadId);
 
-            // If nothing to do, emit idle notification to parent (if child).
-            if (!_threads.HasImmediateOrDeliverableEnqueue(threadId))
-            {
-                NotifyParentIfChildFullyIdle(threadId);
-                return;
-            }
-
+            // Run is explicitly scheduled when work is expected (e.g. CallModel requested by reducer).
+            // Do not gate execution purely on inbox state: inbox may already have been dequeued/promoted
+            // into first-class events (and still require a model call).
             var meta = _threadStore.TryLoadThreadMetadata(_sessionId, threadId);
             var parentId = meta?.ParentThreadId;
 

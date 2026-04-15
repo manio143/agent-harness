@@ -7,20 +7,11 @@ namespace Agent.Harness.Tests;
 
 public sealed class ThreadManagerTests
 {
-    private static ISessionStore NewSessionStore(string sessionId)
-    {
-        var root = Path.Combine(Path.GetTempPath(), "harness-threadmanager-tests", Guid.NewGuid().ToString("N"));
-        var store = new JsonlSessionStore(root);
-        store.CreateNew(sessionId, new SessionMetadata(sessionId, "/tmp", Title: null,
-            CreatedAtIso: DateTimeOffset.UtcNow.ToString("O"), UpdatedAtIso: DateTimeOffset.UtcNow.ToString("O")));
-        return store;
-    }
     [Fact]
     public void ThreadNew_CreatesChild_And_EnqueuesInitialMessage()
     {
         var threadStore = new InMemoryThreadStore();
-        var sessionStore = NewSessionStore("s1");
-        var mgr = new ThreadManager("s1", threadStore, sessionStore);
+        var mgr = new ThreadManager("s1", threadStore);
 
         var childId = mgr.New(ThreadIds.Main, "hello", InboxDelivery.Immediate);
 
@@ -31,7 +22,7 @@ public sealed class ThreadManagerTests
         threads.Should().Contain(t => t.ThreadId == childId && t.ParentThreadId == ThreadIds.Main);
 
         // inbox is reconstructed from committed events (single source of truth)
-        var evts = sessionStore.LoadCommitted("s1");
+        var evts = threadStore.LoadCommittedEvents("s1", childId);
         evts.OfType<ThreadInboxMessageEnqueued>().Should().ContainSingle(e =>
             e.ThreadId == childId &&
             e.Kind == ThreadInboxMessageKind.InterThreadMessage &&
@@ -45,8 +36,7 @@ public sealed class ThreadManagerTests
     public void ThreadFork_DebugAsserts_BufferEmpty_And_CopiesCommittedEvents()
     {
         var threadStore = new InMemoryThreadStore();
-        var sessionStore = NewSessionStore("s1");
-        var mgr = new ThreadManager("s1", threadStore, sessionStore);
+        var mgr = new ThreadManager("s1", threadStore);
 
         var parent = new SessionState(
             Committed: ImmutableArray.Create<SessionEvent>(new UserMessage("u"), new AssistantMessage("a")),
@@ -63,8 +53,7 @@ public sealed class ThreadManagerTests
     public void ReportIntent_Persists_Metadata_And_Commits_ThreadIntentReported()
     {
         var threadStore = new InMemoryThreadStore();
-        var sessionStore = NewSessionStore("s1");
-        var mgr = new ThreadManager("s1", threadStore, sessionStore);
+        var mgr = new ThreadManager("s1", threadStore);
 
         mgr.ReportIntent(ThreadIds.Main, "do stuff");
 
@@ -79,8 +68,7 @@ public sealed class ThreadManagerTests
     public void DrainInboxForPrompt_WhenThreadIdle_DeliversAndMarksDelivered()
     {
         var threadStore = new InMemoryThreadStore();
-        var sessionStore = NewSessionStore("s1");
-        var mgr = new ThreadManager("s1", threadStore, sessionStore);
+        var mgr = new ThreadManager("s1", threadStore);
 
         // Create a child to receive inbox.
         var child = mgr.New(ThreadIds.Main, "hello", InboxDelivery.Enqueue);
@@ -90,7 +78,7 @@ public sealed class ThreadManagerTests
         drained.Should().HaveCount(1);
 
         // Draining marks the message as delivered (so it won't be re-injected on resume).
-        sessionStore.LoadCommitted("s1").OfType<ThreadInboxMessageDequeued>()
+        threadStore.LoadCommittedEvents("s1", child).OfType<ThreadInboxMessageDequeued>()
             .Should().ContainSingle(d => d.ThreadId == child && d.EnvelopeId == drained[0].EnvelopeId);
 
         // Subsequent drains return nothing.
@@ -101,8 +89,7 @@ public sealed class ThreadManagerTests
     public void DrainInboxForPrompt_WhenThreadRunning_DoesNotDeliverEnqueueMessages()
     {
         var threadStore = new InMemoryThreadStore();
-        var sessionStore = NewSessionStore("s1");
-        var mgr = new ThreadManager("s1", threadStore, sessionStore);
+        var mgr = new ThreadManager("s1", threadStore);
 
         var child = mgr.New(ThreadIds.Main, "hello", InboxDelivery.Enqueue);
 
@@ -112,7 +99,7 @@ public sealed class ThreadManagerTests
         drained.Should().BeEmpty();
 
         // Still pending (not idle-deliverable), so no DeliveredToLlm event should exist.
-        sessionStore.LoadCommitted("s1").OfType<ThreadInboxMessageDequeued>()
+        threadStore.LoadCommittedEvents("s1", child).OfType<ThreadInboxMessageDequeued>()
             .Should().BeEmpty();
     }
 }

@@ -27,7 +27,7 @@ public sealed class ThreadOrchestratorIdleNotificationTests
         var threadStore = new InMemoryThreadStore();
 
         // ThreadManager will create main thread metadata.
-        var threads = new ThreadManager(sessionId, threadStore, sessionStore);
+        var threads = new ThreadManager(sessionId, threadStore);
 
         // Create child thread metadata (no inbox messages => fully idle => notify parent on scheduled run).
         var childId = "thr_child";
