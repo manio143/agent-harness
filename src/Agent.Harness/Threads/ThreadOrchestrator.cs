@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
+using Agent.Acp.Acp;
 using Agent.Harness.Acp;
 using Agent.Harness.Persistence;
 using Agent.Harness.TitleGeneration;
