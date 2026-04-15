@@ -496,6 +496,33 @@ public static class Core
 
     private static (SessionState Next, ImmutableArray<SessionEvent> NewlyCommitted) PromotePendingInbox(SessionState state)
     {
+        // Delivery gating depends on projected thread status. We treat the thread as Running if we
+        // have a TurnStarted with no subsequent TurnEnded in the committed log.
+        static bool IsThreadIdleForPromotion(string threadId, ImmutableArray<SessionEvent> committed)
+        {
+            var lastStarted = -1;
+            var lastEnded = -1;
+
+            for (var i = 0; i < committed.Length; i++)
+            {
+                switch (committed[i])
+                {
+                    case TurnStarted:
+                        lastStarted = i;
+                        break;
+                    case TurnEnded:
+                        lastEnded = i;
+                        break;
+                }
+            }
+
+            // No turn markers => treat as idle boundary.
+            if (lastStarted < 0)
+                return true;
+
+            return lastEnded > lastStarted;
+        }
+
         var enq = state.Committed.OfType<ThreadInboxMessageEnqueued>().ToList();
         if (enq.Count == 0)
             return (state, ImmutableArray<SessionEvent>.Empty);
@@ -506,6 +533,9 @@ public static class Core
 
         var pending = enq
             .Where(e => !dq.Contains(e.EnvelopeId))
+            // immediate: always promotable
+            // enqueue: only promotable once the target thread is idle
+            .Where(e => e.Delivery == "immediate" || IsThreadIdleForPromotion(e.ThreadId, state.Committed))
             .OrderBy(e => e.EnqueuedAtIso)
             .ThenBy(e => e.EnvelopeId)
             .ToList();
