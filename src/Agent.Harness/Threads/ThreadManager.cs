@@ -105,7 +105,7 @@ public sealed class ThreadManager
             .ToImmutableArray();
     }
 
-    public string New(string parentThreadId, string message, InboxDelivery delivery)
+    public string CreateChildThread(string parentThreadId)
     {
         var id = "thr_" + Guid.NewGuid().ToString("N")[..12];
         var now = DateTimeOffset.UtcNow.ToString("O");
@@ -116,22 +116,34 @@ public sealed class ThreadManager
             CreatedAtIso: now,
             UpdatedAtIso: now,
             Status: ThreadStatus.Idle));
+        return id;
+    }
 
+    public string New(string parentThreadId, string message, InboxDelivery delivery)
+    {
+        var id = CreateChildThread(parentThreadId);
         EnqueueFromThread(parentThreadId, id, message, delivery, ThreadInboxMessageKind.InterThreadMessage, meta: null);
         return id;
     }
 
-    public string Fork(string parentThreadId, SessionState parentState, string message, InboxDelivery delivery)
+    public string ForkChildThread(string parentThreadId, SessionState parentState)
     {
         Debug.Assert(parentState.Buffer == TurnBuffer.Empty, "Fork requires empty buffer (no in-flight streaming deltas)");
 
-        var childId = New(parentThreadId, message, delivery);
+        var childId = CreateChildThread(parentThreadId);
 
         // For now we do not persist cloned state; we will when we promote ThreadState to a first-class
         // persisted snapshot. At minimum, copy the committed events for readback.
         foreach (var evt in parentState.Committed)
             _store.AppendCommittedEvent(_sessionId, childId, evt);
 
+        return childId;
+    }
+
+    public string Fork(string parentThreadId, SessionState parentState, string message, InboxDelivery delivery)
+    {
+        var childId = ForkChildThread(parentThreadId, parentState);
+        EnqueueFromThread(parentThreadId, childId, message, delivery, ThreadInboxMessageKind.InterThreadMessage, meta: null);
         return childId;
     }
 

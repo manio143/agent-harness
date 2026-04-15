@@ -221,9 +221,39 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                 {
                     var message = GetRequiredString(args, "message");
                     var delivery = ParseDelivery(args);
-                    var id = _threads?.New(_threadId, message, delivery) ?? "";
-                    if (!string.IsNullOrWhiteSpace(id) && delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
-                        _scheduler?.ScheduleRun(id);
+
+                    // Create child thread metadata.
+                    var id = _threads?.CreateChildThread(_threadId) ?? "";
+
+                    // Universal intake: express initial message as observed inbox arrival to the child thread.
+                    if (!string.IsNullOrWhiteSpace(id) && _scheduler is Agent.Harness.Threads.ThreadOrchestrator orchestrator)
+                    {
+                        var now = DateTimeOffset.UtcNow.ToString("O");
+                        orchestrator.Observe(id, new ObservedInboxMessageArrived(
+                            ThreadId: id,
+                            Kind: Agent.Harness.Threads.ThreadInboxMessageKind.InterThreadMessage,
+                            Delivery: delivery,
+                            EnvelopeId: Agent.Harness.Threads.ThreadEnvelopes.NewEnvelopeId(),
+                            EnqueuedAtIso: now,
+                            Source: "thread",
+                            SourceThreadId: _threadId,
+                            Text: message,
+                            Meta: null));
+
+                        if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
+                        {
+                            // Promote inbox -> first-class events before first model call.
+                            orchestrator.Observe(id, new ObservedWakeModel());
+                            _scheduler?.ScheduleRun(id);
+                        }
+                    }
+                    else if (!string.IsNullOrWhiteSpace(id))
+                    {
+                        // Legacy fallback.
+                        _threads?.Send(_threadId, id, message, delivery);
+                        if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
+                            _scheduler?.ScheduleRun(id);
+                    }
 
                     return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
                         t.ToolId,
@@ -234,9 +264,35 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                 {
                     var message = GetRequiredString(args, "message");
                     var delivery = ParseDelivery(args);
-                    var id = _threads?.Fork(_threadId, state, message, delivery) ?? "";
-                    if (!string.IsNullOrWhiteSpace(id) && delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
-                        _scheduler?.ScheduleRun(id);
+
+                    var id = _threads?.ForkChildThread(_threadId, state) ?? "";
+
+                    if (!string.IsNullOrWhiteSpace(id) && _scheduler is Agent.Harness.Threads.ThreadOrchestrator orchestrator)
+                    {
+                        var now = DateTimeOffset.UtcNow.ToString("O");
+                        orchestrator.Observe(id, new ObservedInboxMessageArrived(
+                            ThreadId: id,
+                            Kind: Agent.Harness.Threads.ThreadInboxMessageKind.InterThreadMessage,
+                            Delivery: delivery,
+                            EnvelopeId: Agent.Harness.Threads.ThreadEnvelopes.NewEnvelopeId(),
+                            EnqueuedAtIso: now,
+                            Source: "thread",
+                            SourceThreadId: _threadId,
+                            Text: message,
+                            Meta: null));
+
+                        if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
+                        {
+                            orchestrator.Observe(id, new ObservedWakeModel());
+                            _scheduler?.ScheduleRun(id);
+                        }
+                    }
+                    else if (!string.IsNullOrWhiteSpace(id))
+                    {
+                        _threads?.Send(_threadId, id, message, delivery);
+                        if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
+                            _scheduler?.ScheduleRun(id);
+                    }
 
                     return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
                         t.ToolId,
@@ -267,7 +323,10 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                             Meta: null));
 
                         if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
+                        {
+                            orchestrator.Observe(threadId, new ObservedWakeModel());
                             _scheduler?.ScheduleRun(threadId);
+                        }
                     }
                     else
                     {
