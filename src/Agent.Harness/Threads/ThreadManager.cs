@@ -5,6 +5,12 @@ namespace Agent.Harness.Threads;
 
 public sealed class ThreadManager
 {
+    public bool HasPendingEnqueue(string threadId)
+    {
+        var items = _store.LoadInbox(_sessionId, threadId);
+        return items.Any(e => e.Delivery == InboxDelivery.Enqueue);
+    }
+
     private readonly string _sessionId;
     private readonly IThreadStore _store;
 

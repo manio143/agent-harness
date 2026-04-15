@@ -169,6 +169,10 @@ public static class Core
             case ObservedTurnStabilized:
                 return Commit(state, new TurnEnded());
 
+            case ObservedWakeModel:
+                // Explicit turn-boundary wakeup: request a new model call.
+                return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty, ImmutableArray.Create<Effect>(new CallModel()));
+
             // --- Tool Call Lifecycle Observations ---
 
             case ObservedToolCallDetected detected:

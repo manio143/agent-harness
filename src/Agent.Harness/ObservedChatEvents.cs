@@ -18,6 +18,13 @@ public sealed record ObservedTurnStarted() : ObservedChatEvent;
 
 public sealed record ObservedTurnStabilized() : ObservedChatEvent;
 
+/// <summary>
+/// Synthetic harness event used to explicitly trigger a model call at a turn boundary.
+/// Used for "enqueue" inbox semantics where a thread should continue processing
+/// without becoming idle.
+/// </summary>
+public sealed record ObservedWakeModel() : ObservedChatEvent;
+
 public sealed record ObservedUserMessage(string Text) : ObservedChatEvent;
 
 public sealed record ObservedAssistantTextDelta(string Text) : ObservedChatEvent;

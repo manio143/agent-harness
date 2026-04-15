@@ -103,6 +103,25 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         var result = await runner.RunTurnAsync(_state, ObservedUserInput(), cancellationToken, sink: sink).ConfigureAwait(false);
         _state = result.Next;
 
+        // Enqueue delivery semantics: if the inbox contains enqueue messages at turn end,
+        // we must immediately schedule another model call so the thread does not become idle.
+        if (threads is not null)
+        {
+            for (var i = 0; i < 25; i++)
+            {
+                if (!threads.HasPendingEnqueue(Agent.Harness.Threads.ThreadIds.Main))
+                    break;
+
+                async IAsyncEnumerable<ObservedChatEvent> WakeObserved()
+                {
+                    yield return new ObservedWakeModel();
+                }
+
+                var wake = await runner.RunTurnAsync(_state, WakeObserved(), cancellationToken, sink: sink).ConfigureAwait(false);
+                _state = wake.Next;
+            }
+        }
+
         // Persistence + ACP presentation is incremental via the sink.
 
         return new PromptResponse { StopReason = StopReason.EndTurn };
