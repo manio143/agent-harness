@@ -100,6 +100,10 @@ public sealed record ToolCallRejected(string ToolId, string Reason, ImmutableArr
 /// </summary>
 public sealed record ToolCallCancelled(string ToolId) : SessionEvent;
 
+// --- Threading ---
+// Committed to a thread's log when the model calls report_intent.
+public sealed record ThreadIntentReported(string Intent) : SessionEvent;
+
 public enum ChatRole
 {
     System,
