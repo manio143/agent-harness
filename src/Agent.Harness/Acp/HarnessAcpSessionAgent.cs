@@ -81,7 +81,16 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
 
         var titleGen = new SessionTitleGenerator(new Llm.MeaiTitleChatClientAdapter(_chat));
         var sessionCwd = _store.TryLoadMetadata(_sessionId)?.Cwd;
-        var effects = new AcpEffectExecutor(_sessionId, _client, _chat, _mcp, _logLlmPrompts, sessionCwd: sessionCwd, store: _store);
+
+        // Thread layer: persisted alongside the session store when backed by JsonlSessionStore.
+        Agent.Harness.Threads.ThreadManager? threads = null;
+        if (_store is JsonlSessionStore jsonl)
+        {
+            var threadStore = new Agent.Harness.Threads.JsonlThreadStore(jsonl.RootDir);
+            threads = new Agent.Harness.Threads.ThreadManager(_sessionId, threadStore);
+        }
+
+        var effects = new AcpEffectExecutor(_sessionId, _client, _chat, _mcp, _logLlmPrompts, sessionCwd: sessionCwd, store: _store, threads: threads);
         var runner = new SessionRunner(_coreOptions, titleGen, effects);
 
         var persist = new Agent.Harness.Persistence.JsonlEventSink(_sessionId, _store, logObserved: _logObservedEvents);

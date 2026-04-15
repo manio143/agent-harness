@@ -18,6 +18,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
     private readonly bool _logLlmPrompts;
     private readonly string? _sessionCwd;
     private readonly Agent.Harness.Persistence.ISessionStore? _store;
+    private readonly Agent.Harness.Threads.ThreadManager? _threads;
 
     public AcpEffectExecutor(
         string sessionId,
@@ -26,7 +27,8 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         IMcpToolInvoker? mcp = null,
         bool logLlmPrompts = false,
         string? sessionCwd = null,
-        Agent.Harness.Persistence.ISessionStore? store = null)
+        Agent.Harness.Persistence.ISessionStore? store = null,
+        Agent.Harness.Threads.ThreadManager? threads = null)
     {
         _sessionId = sessionId;
         _client = client;
@@ -35,6 +37,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         _logLlmPrompts = logLlmPrompts;
         _sessionCwd = sessionCwd;
         _store = store;
+        _threads = threads;
     }
 
     public async Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
@@ -61,7 +64,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                 yield break;
 
             case ExecuteToolCall t:
-                foreach (var o in await ExecuteToolAsync(t, cancellationToken).ConfigureAwait(false))
+                foreach (var o in await ExecuteToolAsync(state, t, cancellationToken).ConfigureAwait(false))
                     yield return o;
                 yield break;
 
@@ -73,6 +76,10 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
     private ImmutableArray<ObservedChatEvent> CheckPermission(SessionState state, CheckPermission p)
     {
         // MVP: deterministic capability-only gating.
+        // Harness-internal tools are always allowed.
+        if (p.ToolName is "report_intent" or "thread_list" or "thread_new" or "thread_fork" or "thread_send" or "thread_read")
+            return ImmutableArray.Create<ObservedChatEvent>(new ObservedPermissionApproved(p.ToolId, "internal_tool"));
+
         var known = state.Tools.Any(t => t.Name == p.ToolName);
         if (!known)
             return ImmutableArray.Create<ObservedChatEvent>(new ObservedPermissionDenied(p.ToolId, "unknown_tool"));
@@ -146,7 +153,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
             yield return o;
     }
 
-    private async Task<ImmutableArray<ObservedChatEvent>> ExecuteToolAsync(ExecuteToolCall t, CancellationToken cancellationToken)
+    private async Task<ImmutableArray<ObservedChatEvent>> ExecuteToolAsync(SessionState state, ExecuteToolCall t, CancellationToken cancellationToken)
     {
         // Args can be JsonElement (committed ToolCallRequested.Args) or a plain dictionary (from detection).
         var args = NormalizeArgs(t.Args);
@@ -157,10 +164,62 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
             {
                 case "report_intent":
                 {
-                    // Harness-internal: no ACP call, no permissions. Persisting/displaying intent is handled
-                    // by the future thread layer; for now we simply acknowledge.
+                    if (_threads is not null)
+                    {
+                        var intent = GetRequiredString(args, "intent");
+                        _threads.ReportIntent(Agent.Harness.Threads.ThreadIds.Main, intent);
+                    }
+
                     return ImmutableArray.Create<ObservedChatEvent>(
                         new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { ok = true })));
+                }
+
+                case "thread_list":
+                {
+                    var threads = _threads?.List() ?? ImmutableArray<Agent.Harness.Threads.ThreadInfo>.Empty;
+                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
+                        t.ToolId,
+                        JsonSerializer.SerializeToElement(new { threads })));
+                }
+
+                case "thread_read":
+                {
+                    var threadId = GetRequiredString(args, "threadId");
+                    var messages = _threads?.ReadAssistantMessages(threadId) ?? ImmutableArray<Agent.Harness.Threads.ThreadMessage>.Empty;
+                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
+                        t.ToolId,
+                        JsonSerializer.SerializeToElement(new { messages })));
+                }
+
+                case "thread_new":
+                {
+                    var message = GetRequiredString(args, "message");
+                    var delivery = ParseDelivery(args);
+                    var id = _threads?.New(Agent.Harness.Threads.ThreadIds.Main, message, delivery) ?? "";
+                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
+                        t.ToolId,
+                        JsonSerializer.SerializeToElement(new { threadId = id })));
+                }
+
+                case "thread_fork":
+                {
+                    var message = GetRequiredString(args, "message");
+                    var delivery = ParseDelivery(args);
+                    var id = _threads?.Fork(Agent.Harness.Threads.ThreadIds.Main, state, message, delivery) ?? "";
+                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
+                        t.ToolId,
+                        JsonSerializer.SerializeToElement(new { threadId = id })));
+                }
+
+                case "thread_send":
+                {
+                    var threadId = GetRequiredString(args, "threadId");
+                    var message = GetRequiredString(args, "message");
+                    var delivery = ParseDelivery(args);
+                    _threads?.Send(Agent.Harness.Threads.ThreadIds.Main, threadId, message, delivery);
+                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
+                        t.ToolId,
+                        JsonSerializer.SerializeToElement(new { ok = true })));
                 }
 
                 case "read_text_file":
@@ -245,11 +304,25 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         }
     }
 
-    private static Dictionary<string, JsonElement> NormalizeArgs(object args)
+    private static Agent.Harness.Threads.InboxDelivery ParseDelivery(Dictionary<string, JsonElement> args)
     {
+        if (!args.TryGetValue("delivery", out var el) || el.ValueKind != JsonValueKind.String)
+            return Agent.Harness.Threads.InboxDelivery.Immediate;
+
+        var v = el.GetString();
+        return v switch
+        {
+            "enqueue" => Agent.Harness.Threads.InboxDelivery.Enqueue,
+            "immediate" => Agent.Harness.Threads.InboxDelivery.Immediate,
+            _ => Agent.Harness.Threads.InboxDelivery.Immediate,
+        };
+    }
+
+    private static Dictionary<string, JsonElement> NormalizeArgs(object args)
+    { 
         if (args is JsonElement je && je.ValueKind == JsonValueKind.Object)
         {
-            return je.EnumerateObject().ToDictionary(p => p.Name, p => p.Value);
+            return je.EnumerateObject().ToDictionary(p => p.Name, p => p.Value, StringComparer.OrdinalIgnoreCase);
         }
 
         // best-effort: serialize then parse
@@ -257,7 +330,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         if (parsed.ValueKind != JsonValueKind.Object)
             return new Dictionary<string, JsonElement>();
 
-        return parsed.EnumerateObject().ToDictionary(p => p.Name, p => p.Value);
+        return parsed.EnumerateObject().ToDictionary(p => p.Name, p => p.Value, StringComparer.OrdinalIgnoreCase);
     }
 
     private void TryAppendPromptLog(object promptPayload)

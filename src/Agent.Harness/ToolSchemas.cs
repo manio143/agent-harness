@@ -73,7 +73,8 @@ public static class ToolSchemas
         {
           "type": "object",
           "properties": {
-            "message": { "type": "string", "description": "Initial message to attach to the new thread" }
+            "message": { "type": "string", "description": "Initial message to attach to the new thread" },
+            "delivery": { "type": "string", "enum": ["enqueue", "immediate"], "description": "Whether the message should be delivered immediately or enqueued until idle" }
           },
           "required": ["message"]
         }
@@ -86,7 +87,8 @@ public static class ToolSchemas
         {
           "type": "object",
           "properties": {
-            "message": { "type": "string", "description": "Initial message to attach to the child thread" }
+            "message": { "type": "string", "description": "Initial message to attach to the child thread" },
+            "delivery": { "type": "string", "enum": ["enqueue", "immediate"], "description": "Whether the message should be delivered immediately or enqueued until idle" }
           },
           "required": ["message"]
         }
@@ -100,7 +102,8 @@ public static class ToolSchemas
           "type": "object",
           "properties": {
             "threadId": { "type": "string", "description": "Target thread id" },
-            "message": { "type": "string", "description": "Message to enqueue" }
+            "message": { "type": "string", "description": "Message to enqueue" },
+            "delivery": { "type": "string", "enum": ["enqueue", "immediate"], "description": "Whether the message should be delivered immediately or enqueued until idle" }
           },
           "required": ["threadId", "message"]
         }
