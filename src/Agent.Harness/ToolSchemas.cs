@@ -113,8 +113,7 @@ public static class ToolSchemas
         {
           "type": "object",
           "properties": {
-            "threadId": { "type": "string", "description": "Thread id to read from" },
-            "since": { "type": "integer", "description": "Optional cursor index to read from" }
+            "threadId": { "type": "string", "description": "Thread id to read from" }
           },
           "required": ["threadId"]
         }

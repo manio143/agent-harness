@@ -35,6 +35,19 @@ public static class Core
         => state.Committed.OfType<ToolCallRequested>()
             .Any(r => r.ToolId == toolId && r.ToolName == ToolSchemas.ReportIntent.Name);
 
+    private static bool HasOtherOpenToolCalls(SessionState state, string excludingToolId)
+    {
+        // "Open" means: a ToolCallRequested exists and we haven't committed any terminal event for that toolId yet.
+        foreach (var r in state.Committed.OfType<ToolCallRequested>())
+        {
+            if (r.ToolId == excludingToolId) continue;
+            if (!HasTerminalToolCall(state, r.ToolId))
+                return true;
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Render the tool catalog based on client capabilities.
     /// Tools requiring unavailable capabilities are filtered out.
@@ -311,7 +324,13 @@ public static class Core
                 var committed = state.Committed.Add(completedEvent);
                 var next = state with { Committed = committed };
 
-                var effects = IsReportIntentTool(state, completed.ToolId)
+                // Report-intent should normally not force a re-prompt if the model already streamed
+                // additional tool intents in the same response.
+                // However if report_intent is the ONLY thing the model emitted, we must re-prompt.
+                var isReportIntent = IsReportIntentTool(state, completed.ToolId);
+                var hasOtherOpen = HasOtherOpenToolCalls(state, completed.ToolId);
+
+                var effects = (isReportIntent && hasOtherOpen)
                     ? ImmutableArray<Effect>.Empty
                     : ImmutableArray.Create<Effect>(new CallModel());
 
