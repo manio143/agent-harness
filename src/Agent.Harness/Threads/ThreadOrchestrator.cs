@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Agent.Acp.Acp;
+using Agent.Harness;
 using Agent.Harness.Acp;
 using Agent.Harness.Persistence;
 using Agent.Harness.TitleGeneration;
@@ -82,7 +83,16 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             var meta = _threadStore.TryLoadThreadMetadata(_sessionId, threadId);
             var parentId = meta?.ParentThreadId;
 
-            var initial = _states.GetOrAdd(threadId, _ => SessionState.Empty);
+            var initial = _states.GetOrAdd(threadId, _ => SessionState.Empty with
+            {
+                Tools = ImmutableArray.Create(
+                    ToolSchemas.ReportIntent,
+                    ToolSchemas.ThreadList,
+                    ToolSchemas.ThreadNew,
+                    ToolSchemas.ThreadFork,
+                    ToolSchemas.ThreadSend,
+                    ToolSchemas.ThreadRead),
+            });
 
             // Run a single turn kicked off by wake.
             async IAsyncEnumerable<ObservedChatEvent> WakeObserved()
@@ -143,7 +153,5 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             Delivery: InboxDelivery.Immediate,
             EnqueuedAtIso: DateTimeOffset.UtcNow.ToString("O")));
 
-        // Nudge parent to run if it wants immediate processing.
-        ScheduleRun(meta.ParentThreadId);
     }
 }
