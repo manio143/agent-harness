@@ -32,6 +32,24 @@ public static class SessionEventJson
             ToolCallRejected r => new { type = "tool_call_rejected", toolId = r.ToolId, reason = r.Reason, details = r.Details },
 
             ThreadIntentReported i => new { type = "thread_intent_reported", intent = i.Intent },
+            ThreadInboxMessageEnqueued e => new
+            {
+                type = "thread_inbox_message_enqueued",
+                threadId = e.ThreadId,
+                envelopeId = e.EnvelopeId,
+                source = e.Source,
+                sourceThreadId = e.SourceThreadId,
+                delivery = e.Delivery,
+                enqueuedAtIso = e.EnqueuedAtIso,
+                text = e.Text,
+            },
+            ThreadInboxMessageDeliveredToLlm d => new
+            {
+                type = "thread_inbox_message_delivered_to_llm",
+                threadId = d.ThreadId,
+                envelopeId = d.EnvelopeId,
+                deliveredAtIso = d.DeliveredAtIso,
+            },
 
             _ => null,
         };
@@ -135,6 +153,22 @@ public static class SessionEventJson
 
             case "thread_intent_reported":
                 return new ThreadIntentReported(root.GetProperty("intent").GetString() ?? string.Empty);
+
+            case "thread_inbox_message_enqueued":
+                return new ThreadInboxMessageEnqueued(
+                    ThreadId: root.GetProperty("threadId").GetString() ?? string.Empty,
+                    EnvelopeId: root.GetProperty("envelopeId").GetString() ?? string.Empty,
+                    Source: root.GetProperty("source").GetString() ?? string.Empty,
+                    SourceThreadId: root.TryGetProperty("sourceThreadId", out var st) ? st.GetString() : null,
+                    Delivery: root.GetProperty("delivery").GetString() ?? string.Empty,
+                    EnqueuedAtIso: root.GetProperty("enqueuedAtIso").GetString() ?? string.Empty,
+                    Text: root.GetProperty("text").GetString() ?? string.Empty);
+
+            case "thread_inbox_message_delivered_to_llm":
+                return new ThreadInboxMessageDeliveredToLlm(
+                    ThreadId: root.GetProperty("threadId").GetString() ?? string.Empty,
+                    EnvelopeId: root.GetProperty("envelopeId").GetString() ?? string.Empty,
+                    DeliveredAtIso: root.GetProperty("deliveredAtIso").GetString() ?? string.Empty);
 
             default:
                 throw new InvalidOperationException($"unknown_event_type:{type}");

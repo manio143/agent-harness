@@ -104,6 +104,26 @@ public sealed record ToolCallCancelled(string ToolId) : SessionEvent;
 // Committed to a thread's log when the model calls report_intent.
 public sealed record ThreadIntentReported(string Intent) : SessionEvent;
 
+/// <summary>
+/// An inbox envelope has been appended to a thread's inbox.
+/// </summary>
+public sealed record ThreadInboxMessageEnqueued(
+    string ThreadId,
+    string EnvelopeId,
+    string Source,
+    string? SourceThreadId,
+    string Delivery,
+    string EnqueuedAtIso,
+    string Text) : SessionEvent;
+
+/// <summary>
+/// An inbox envelope has been rendered into the model prompt (made available to the LLM).
+/// </summary>
+public sealed record ThreadInboxMessageDeliveredToLlm(
+    string ThreadId,
+    string EnvelopeId,
+    string DeliveredAtIso) : SessionEvent;
+
 public enum ChatRole
 {
     System,

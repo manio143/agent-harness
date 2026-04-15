@@ -84,15 +84,17 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
 
         // Thread layer: persisted alongside the session store when backed by JsonlSessionStore.
         Agent.Harness.Threads.ThreadManager? threads = null;
+        Agent.Harness.Threads.ThreadOrchestrator? orchestrator = null;
         Agent.Harness.Threads.IThreadScheduler? scheduler = null;
         Agent.Harness.Threads.IThreadStore? threadStore = null;
 
         if (_store is JsonlSessionStore jsonl)
         {
             threadStore = new Agent.Harness.Threads.JsonlThreadStore(jsonl.RootDir);
-            threads = new Agent.Harness.Threads.ThreadManager(_sessionId, threadStore);
+            var recorder = new Agent.Harness.Threads.AcpPublishingThreadEventRecorder(_sessionId, _store, _events);
+            threads = new Agent.Harness.Threads.ThreadManager(_sessionId, threadStore, recorder);
 
-            scheduler = new Agent.Harness.Threads.ThreadOrchestrator(
+            orchestrator = new Agent.Harness.Threads.ThreadOrchestrator(
                 _sessionId,
                 _client,
                 _chat,
@@ -101,6 +103,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                 _store,
                 threadStore,
                 threads);
+
+            scheduler = orchestrator;
         }
 
         var effects = new AcpEffectExecutor(_sessionId, _client, _chat, _mcp, _logLlmPrompts, sessionCwd: sessionCwd, store: _store, threads: threads, scheduler: scheduler, threadId: Agent.Harness.Threads.ThreadIds.Main);
@@ -116,28 +120,36 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         var result = await runner.RunTurnAsync(_state, ObservedUserInput(), cancellationToken, sink: sink).ConfigureAwait(false);
         _state = result.Next;
 
-        // Enqueue delivery semantics: if the inbox contains enqueue messages at turn end,
-        // we must immediately schedule another model call so the thread does not become idle.
+        // Global quiescence: do not end the ACP turn until the main thread AND all child threads are idle.
         if (threads is not null)
         {
-            // Ensure the thread is considered idle at the boundary.
-            threads.MarkIdle(Agent.Harness.Threads.ThreadIds.Main);
-
-            // Event-driven wake: schedule follow-up run(s) only while enqueue becomes deliverable.
-            for (var i = 0; i < 25; i++)
+            for (var i = 0; i < 250; i++)
             {
-                if (!threads.HasDeliverableEnqueueNow(Agent.Harness.Threads.ThreadIds.Main))
-                    break;
+                // Ensure the thread is considered idle at the boundary.
+                threads.MarkIdle(Agent.Harness.Threads.ThreadIds.Main);
 
-                async IAsyncEnumerable<ObservedChatEvent> WakeObserved()
+                // Main enqueue wake: keep calling model while enqueue becomes deliverable.
+                if (threads.HasDeliverableEnqueueNow(Agent.Harness.Threads.ThreadIds.Main))
                 {
-                    yield return new ObservedWakeModel();
+                    async IAsyncEnumerable<ObservedChatEvent> WakeObserved()
+                    {
+                        yield return new ObservedWakeModel();
+                    }
+
+                    var wake = await runner.RunTurnAsync(_state, WakeObserved(), cancellationToken, sink: sink).ConfigureAwait(false);
+                    _state = wake.Next;
+                    continue;
                 }
 
-                var wake = await runner.RunTurnAsync(_state, WakeObserved(), cancellationToken, sink: sink).ConfigureAwait(false);
-                _state = wake.Next;
+                // Run child threads that were scheduled by tool calls / inbox delivery.
+                if (orchestrator is not null && orchestrator.HasPendingWork)
+                {
+                    await orchestrator.RunUntilQuiescentAsync(cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
 
-                threads.MarkIdle(Agent.Harness.Threads.ThreadIds.Main);
+                // Stable: main has no deliverable enqueue and orchestrator has no queued work.
+                break;
             }
         }
 
@@ -205,6 +217,10 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                     await cancelledCall.CancelledAsync(cancellationToken).ConfigureAwait(false);
                     _toolCalls.Remove(cancelled.ToolId);
                 }
+                break;
+
+            case AcpSendCustomUpdate u:
+                await _events.SendSessionUpdateAsync(new Dictionary<string, object?>(u.Payload), cancellationToken).ConfigureAwait(false);
                 break;
         }
     }

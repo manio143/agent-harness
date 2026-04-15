@@ -28,11 +28,13 @@ public sealed class ThreadManager
 
     private readonly string _sessionId;
     private readonly IThreadStore _store;
+    private readonly IThreadEventRecorder? _events;
 
-    public ThreadManager(string sessionId, IThreadStore store)
+    public ThreadManager(string sessionId, IThreadStore store, IThreadEventRecorder? events = null)
     {
         _sessionId = sessionId;
         _store = store;
+        _events = events;
         _store.CreateMainIfMissing(sessionId);
     }
 
@@ -82,6 +84,11 @@ public sealed class ThreadManager
         }
 
         _store.SaveInbox(_sessionId, threadId, keep.ToImmutable());
+
+        // Emit committed events for each envelope that is made available to the LLM.
+        foreach (var env in deliver)
+            _events?.InboxDeliveredToLlm(env, threadId);
+
         return deliver.ToImmutable();
     }
 
@@ -151,11 +158,15 @@ public sealed class ThreadManager
     private void EnqueueFromThread(string fromThreadId, string toThreadId, string message, InboxDelivery delivery)
     {
         var now = DateTimeOffset.UtcNow.ToString("O");
-        _store.AppendInbox(_sessionId, toThreadId, new ThreadEnvelope(
+        var env = new ThreadEnvelope(
+            EnvelopeId: ThreadEnvelopes.NewEnvelopeId(),
             Source: "thread",
             SourceThreadId: fromThreadId,
             Text: message,
             Delivery: delivery,
-            EnqueuedAtIso: now));
+            EnqueuedAtIso: now);
+
+        _store.AppendInbox(_sessionId, toThreadId, env);
+        _events?.InboxEnqueued(env, toThreadId);
     }
 }

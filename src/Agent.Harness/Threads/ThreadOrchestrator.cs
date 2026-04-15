@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Agent.Acp.Acp;
+using Agent.Acp.Schema;
 using Agent.Harness;
 using Agent.Harness.Acp;
 using Agent.Harness.Persistence;
@@ -18,6 +19,19 @@ namespace Agent.Harness.Threads;
 /// </summary>
 public sealed class ThreadOrchestrator : IThreadScheduler
 {
+    private readonly ConcurrentQueue<string> _runQueue = new();
+    private readonly ConcurrentDictionary<string, byte> _queued = new();
+
+    private sealed class NullAcpClientCaller : IAcpClientCaller
+    {
+        public static readonly NullAcpClientCaller Instance = new();
+
+        public ClientCapabilities ClientCapabilities { get; } = new() { Fs = new FileSystemCapabilities() };
+
+        public Task<TResponse> RequestAsync<TRequest, TResponse>(string method, TRequest request, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException($"NullAcpClientCaller should not be used for method: {method}");
+    }
+
     private readonly string _sessionId;
     private readonly IAcpClientCaller _client;
     private readonly Microsoft.Extensions.AI.IChatClient _chat;
@@ -29,7 +43,6 @@ public sealed class ThreadOrchestrator : IThreadScheduler
 
     private readonly ConcurrentDictionary<string, SessionState> _states = new();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _gates = new();
-    private readonly ConcurrentDictionary<string, int> _scheduled = new();
 
     public ThreadOrchestrator(
         string sessionId,
@@ -53,15 +66,31 @@ public sealed class ThreadOrchestrator : IThreadScheduler
 
     public void ScheduleRun(string threadId)
     {
-        // Idempotent scheduling: only one pending run at a time.
-        if (_scheduled.TryAdd(threadId, 1))
+        // Idempotent scheduling: only one queued run per thread.
+        if (_queued.TryAdd(threadId, 0))
+            _runQueue.Enqueue(threadId);
+    }
+
+    public bool HasPendingWork => !_runQueue.IsEmpty;
+
+    public async Task RunUntilQuiescentAsync(CancellationToken cancellationToken)
+    {
+        // Drain queued thread runs until there is nothing left runnable.
+        // Invariant: per-thread gate prevents overlapping runs.
+        for (var i = 0; i < 10_000; i++)
         {
-            _ = Task.Run(async () =>
-            {
-                try { await RunOneTurnIfNeededAsync(threadId, CancellationToken.None).ConfigureAwait(false); }
-                finally { _scheduled.TryRemove(threadId, out _); }
-            });
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!_runQueue.TryDequeue(out var threadId))
+                return;
+
+            _queued.TryRemove(threadId, out _);
+            await RunOneTurnIfNeededAsync(threadId, cancellationToken).ConfigureAwait(false);
+
+            // If more work was queued by this run, loop.
         }
+
+        throw new InvalidOperationException("thread_orchestrator_quiescence_loop_limit_exceeded");
     }
 
     private async Task RunOneTurnIfNeededAsync(string threadId, CancellationToken cancellationToken)
@@ -101,9 +130,11 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             }
 
             var titleGen = new SessionTitleGenerator(new Llm.MeaiTitleChatClientAdapter(_chat));
+            var acpClient = threadId == ThreadIds.Main ? _client : NullAcpClientCaller.Instance;
+
             var effects = new AcpEffectExecutor(
                 _sessionId,
-                _client,
+                acpClient,
                 _chat,
                 _mcp,
                 logLlmPrompts: false,
@@ -146,12 +177,12 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             return;
 
         var intent = meta.Intent ?? string.Empty;
-        _threadStore.AppendInbox(_sessionId, meta.ParentThreadId, new ThreadEnvelope(
-            Source: "thread",
-            SourceThreadId: threadId,
-            Text: $"Child thread became idle. Last intent: {intent}",
-            Delivery: InboxDelivery.Immediate,
-            EnqueuedAtIso: DateTimeOffset.UtcNow.ToString("O")));
+        // Enqueue parent notification via ThreadManager so it is recorded consistently.
+        _threads.Send(
+            fromThreadId: threadId,
+            toThreadId: meta.ParentThreadId,
+            message: $"Child thread became idle. Last intent: {intent}",
+            delivery: InboxDelivery.Immediate);
 
     }
 }

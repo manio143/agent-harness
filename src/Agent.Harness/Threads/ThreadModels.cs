@@ -22,6 +22,7 @@ public sealed record ThreadMetadata(
     ThreadStatus Status);
 
 public sealed record ThreadEnvelope(
+    string EnvelopeId,
     string Source,
     string? SourceThreadId,
     string Text,

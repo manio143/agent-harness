@@ -26,6 +26,8 @@ public sealed record AcpToolCallFailed(string ToolId, string Message) : AcpEmiss
 
 public sealed record AcpToolCallCancelled(string ToolId) : AcpEmission;
 
+public sealed record AcpSendCustomUpdate(IReadOnlyDictionary<string, object?> Payload) : AcpEmission;
+
 public static class AcpProjection
 {
     public static ImmutableArray<AcpEmission> Project(SessionEvent committed, CoreOptions coreOptions, AcpPublishOptions publishOptions)
@@ -84,6 +86,28 @@ public static class AcpProjection
                     new AcpToolCallStart(rejected.ToolId, "rejected"),
                     new AcpToolCallFailed(rejected.ToolId, msg));
             }
+
+            case ThreadInboxMessageEnqueued enq:
+                return ImmutableArray.Create<AcpEmission>(new AcpSendCustomUpdate(new Dictionary<string, object?>
+                {
+                    ["kind"] = "thread_inbox_message_enqueued",
+                    ["threadId"] = enq.ThreadId,
+                    ["envelopeId"] = enq.EnvelopeId,
+                    ["source"] = enq.Source,
+                    ["sourceThreadId"] = enq.SourceThreadId,
+                    ["delivery"] = enq.Delivery,
+                    ["enqueuedAtIso"] = enq.EnqueuedAtIso,
+                    ["text"] = enq.Text,
+                }));
+
+            case ThreadInboxMessageDeliveredToLlm del:
+                return ImmutableArray.Create<AcpEmission>(new AcpSendCustomUpdate(new Dictionary<string, object?>
+                {
+                    ["kind"] = "thread_inbox_message_delivered_to_llm",
+                    ["threadId"] = del.ThreadId,
+                    ["envelopeId"] = del.EnvelopeId,
+                    ["deliveredAtIso"] = del.DeliveredAtIso,
+                }));
 
             // Turn markers and other internal state are not projected to ACP.
             case TurnStarted:
