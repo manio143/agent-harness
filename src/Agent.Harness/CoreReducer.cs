@@ -496,32 +496,9 @@ public static class Core
 
     private static (SessionState Next, ImmutableArray<SessionEvent> NewlyCommitted) PromotePendingInbox(SessionState state)
     {
-        // Delivery gating depends on projected thread status. We treat the thread as Running if we
-        // have a TurnStarted with no subsequent TurnEnded in the committed log.
+        // Delivery gating depends on projected thread status.
         static bool IsThreadIdleForPromotion(string threadId, ImmutableArray<SessionEvent> committed)
-        {
-            var lastStarted = -1;
-            var lastEnded = -1;
-
-            for (var i = 0; i < committed.Length; i++)
-            {
-                switch (committed[i])
-                {
-                    case TurnStarted:
-                        lastStarted = i;
-                        break;
-                    case TurnEnded:
-                        lastEnded = i;
-                        break;
-                }
-            }
-
-            // No turn markers => treat as idle boundary.
-            if (lastStarted < 0)
-                return true;
-
-            return lastEnded > lastStarted;
-        }
+            => Agent.Harness.Threads.ThreadStatusProjector.IsIdle(committed);
 
         var enq = state.Committed.OfType<ThreadInboxMessageEnqueued>().ToList();
         if (enq.Count == 0)

@@ -28,27 +28,7 @@ public sealed class ThreadManager
     private ThreadStatus ProjectStatus(string threadId)
     {
         var committed = _store.LoadCommittedEvents(_sessionId, threadId);
-
-        var lastStarted = -1;
-        var lastEnded = -1;
-
-        for (var i = 0; i < committed.Length; i++)
-        {
-            switch (committed[i])
-            {
-                case TurnStarted:
-                    lastStarted = i;
-                    break;
-                case TurnEnded:
-                    lastEnded = i;
-                    break;
-            }
-        }
-
-        if (lastStarted < 0)
-            return ThreadStatus.Idle;
-
-        return lastEnded > lastStarted ? ThreadStatus.Idle : ThreadStatus.Running;
+        return ThreadStatusProjector.ProjectStatus(committed);
     }
 
     private readonly string _sessionId;
