@@ -9,7 +9,7 @@ using MeaiChatRole = Microsoft.Extensions.AI.ChatRole;
 
 namespace Agent.Harness.Acp;
 
-public sealed class AcpEffectExecutor : IEffectExecutor
+public sealed class AcpEffectExecutor : IStreamingEffectExecutor
 {
     private readonly string _sessionId;
     private readonly IAcpClientCaller _client;
@@ -39,19 +39,34 @@ public sealed class AcpEffectExecutor : IEffectExecutor
 
     public async Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
     {
+        // Back-compat buffering wrapper.
+        var list = new List<ObservedChatEvent>();
+        await foreach (var o in ExecuteStreamingAsync(state, effect, cancellationToken).ConfigureAwait(false))
+            list.Add(o);
+        return list.ToImmutableArray();
+    }
+
+    public async IAsyncEnumerable<ObservedChatEvent> ExecuteStreamingAsync(SessionState state, Effect effect, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
         switch (effect)
         {
             case CallModel:
-                return await CallModelAsync(state, cancellationToken).ConfigureAwait(false);
+                await foreach (var o in CallModelStreamingAsync(state, cancellationToken).ConfigureAwait(false))
+                    yield return o;
+                yield break;
 
             case CheckPermission p:
-                return CheckPermission(state, p);
+                foreach (var o in CheckPermission(state, p))
+                    yield return o;
+                yield break;
 
             case ExecuteToolCall t:
-                return await ExecuteToolAsync(t, cancellationToken).ConfigureAwait(false);
+                foreach (var o in await ExecuteToolAsync(t, cancellationToken).ConfigureAwait(false))
+                    yield return o;
+                yield break;
 
             default:
-                return ImmutableArray<ObservedChatEvent>.Empty;
+                yield break;
         }
     }
 
@@ -65,7 +80,7 @@ public sealed class AcpEffectExecutor : IEffectExecutor
         return ImmutableArray.Create<ObservedChatEvent>(new ObservedPermissionApproved(p.ToolId, "capability_present"));
     }
 
-    private async Task<ImmutableArray<ObservedChatEvent>> CallModelAsync(SessionState state, CancellationToken cancellationToken)
+    private async IAsyncEnumerable<ObservedChatEvent> CallModelStreamingAsync(SessionState state, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var rendered = Core.RenderPrompt(state);
 
@@ -127,11 +142,8 @@ public sealed class AcpEffectExecutor : IEffectExecutor
 
         var updates = _chat.GetStreamingResponseAsync(meaiMessages, options, cancellationToken);
 
-        var observed = new List<ObservedChatEvent>();
         await foreach (var o in MeaiObservedEventSource.FromStreamingResponse(updates, cancellationToken).ConfigureAwait(false))
-            observed.Add(o);
-
-        return observed.ToImmutableArray();
+            yield return o;
     }
 
     private async Task<ImmutableArray<ObservedChatEvent>> ExecuteToolAsync(ExecuteToolCall t, CancellationToken cancellationToken)

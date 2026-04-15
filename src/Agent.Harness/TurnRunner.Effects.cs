@@ -119,13 +119,43 @@ public static partial class TurnRunner
                 // Remove ALL CallModel requests; one model call is enough.
                 pendingEffects.RemoveAll(e => e is CallModel);
 
-                var observations = await effects.ExecuteAsync(state, callModel, cancellationToken).ConfigureAwait(false);
-                foreach (var obs in observations)
-                    observedQueue.Enqueue(obs);
+                if (effects is IStreamingEffectExecutor streaming)
+                {
+                    // Stream model observations through the reducer immediately so deltas can be
+                    // committed/published live. Do NOT execute other effects until the model stream ends.
+                    await foreach (var obs in streaming.ExecuteStreamingAsync(state, callModel, cancellationToken).ConfigureAwait(false))
+                    {
+                        await sink.OnObservedAsync(obs, cancellationToken).ConfigureAwait(false);
 
-                // Important: we must now drain these observations through the reducer BEFORE executing
-                // any other effects (permissions/tools). So we continue the outer loop.
-                continue;
+                        var step = ReduceOne(state, obs, options);
+                        state = step.Next;
+                        onState?.Invoke(state);
+
+                        foreach (var committed in step.NewlyCommitted)
+                        {
+                            await sink.OnCommittedAsync(committed, cancellationToken).ConfigureAwait(false);
+                            yield return committed;
+                        }
+
+                        if (!step.Effects.IsDefaultOrEmpty)
+                            pendingEffects.AddRange(step.Effects);
+                    }
+
+                    // Now that the model stream has completed, loop back to drain any queued observations
+                    // and/or execute the resulting tool effects.
+                    continue;
+                }
+                else
+                {
+                    // Non-streaming fallback: buffer observations.
+                    var observations = await effects.ExecuteAsync(state, callModel, cancellationToken).ConfigureAwait(false);
+                    foreach (var obs in observations)
+                        observedQueue.Enqueue(obs);
+
+                    // Important: we must now drain these observations through the reducer BEFORE executing
+                    // any other effects (permissions/tools). So we continue the outer loop.
+                    continue;
+                }
             }
 
             // Phase 2: all other effects (deduped) after the model stream is fully reduced.
