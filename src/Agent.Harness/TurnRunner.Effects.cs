@@ -41,58 +41,102 @@ public static partial class TurnRunner
         if (observed is null) throw new ArgumentNullException(nameof(observed));
         if (effects is null) throw new ArgumentNullException(nameof(effects));
 
-        // Merge strategy:
-        // - external observed stream is consumed in order
-        // - effects produce internal observations that are processed before pulling more external items
-        // This keeps the loop deterministic and avoids channel bookkeeping.
+        // Scheduling strategy (important invariants):
+        // - We fully DRAIN the current observed batch through the reducer BEFORE executing any effects.
+        // - "Long" effects like CallModel must be treated as batch boundaries: we run CallModel,
+        //   wait for its streaming to finish (ExecuteAsync returns only after stream completes),
+        //   then reduce ALL produced observations before executing tool effects.
+        // This avoids interleaving tool execution with an in-flight model stream.
 
         var state = initial;
         onState?.Invoke(state);
 
         sink ??= NullEventSink.Instance;
 
-        var internalQueue = new Queue<ObservedChatEvent>();
+        var observedQueue = new Queue<ObservedChatEvent>();
+        var pendingEffects = new List<Effect>();
 
         await using var enumerator = observed.GetAsyncEnumerator(cancellationToken);
+        var externalDone = false;
+
+        async Task<bool> TryEnqueueNextExternalAsync()
+        {
+            if (externalDone) return false;
+            if (!await enumerator.MoveNextAsync().ConfigureAwait(false))
+            {
+                externalDone = true;
+                return false;
+            }
+
+            observedQueue.Enqueue(enumerator.Current);
+            return true;
+        }
 
         while (true)
         {
-            ObservedChatEvent next;
-
-            if (internalQueue.Count > 0)
+            // 1) If we have nothing to reduce, pull the next external observation (if any).
+            if (observedQueue.Count == 0)
             {
-                next = internalQueue.Dequeue();
+                await TryEnqueueNextExternalAsync().ConfigureAwait(false);
             }
-            else
+
+            // 2) Reduce the entire observed queue (a "batch") before running effects.
+            while (observedQueue.Count > 0)
             {
-                if (!await enumerator.MoveNextAsync().ConfigureAwait(false))
+                var next = observedQueue.Dequeue();
+
+                await sink.OnObservedAsync(next, cancellationToken).ConfigureAwait(false);
+
+                var step = ReduceOne(state, next, options);
+                state = step.Next;
+                onState?.Invoke(state);
+
+                foreach (var committed in step.NewlyCommitted)
+                {
+                    await sink.OnCommittedAsync(committed, cancellationToken).ConfigureAwait(false);
+                    yield return committed;
+                }
+
+                if (!step.Effects.IsDefaultOrEmpty)
+                    pendingEffects.AddRange(step.Effects);
+            }
+
+            // 3) If no pending effects, and no more external observations, we're done.
+            if (pendingEffects.Count == 0)
+            {
+                if (externalDone)
                     break;
 
-                next = enumerator.Current;
+                // Otherwise loop back to pull more external observed items.
+                continue;
             }
 
-            await sink.OnObservedAsync(next, cancellationToken).ConfigureAwait(false);
-
-            var step = ReduceOne(state, next, options);
-            state = step.Next;
-            onState?.Invoke(state);
-
-            foreach (var committed in step.NewlyCommitted)
+            // 4) Execute effects in phases.
+            // Phase 1: CallModel (at most once per phase, deduped).
+            var callModel = pendingEffects.OfType<CallModel>().FirstOrDefault();
+            if (callModel is not null)
             {
-                await sink.OnCommittedAsync(committed, cancellationToken).ConfigureAwait(false);
-                yield return committed;
+                // Remove ALL CallModel requests; one model call is enough.
+                pendingEffects.RemoveAll(e => e is CallModel);
+
+                var observations = await effects.ExecuteAsync(state, callModel, cancellationToken).ConfigureAwait(false);
+                foreach (var obs in observations)
+                    observedQueue.Enqueue(obs);
+
+                // Important: we must now drain these observations through the reducer BEFORE executing
+                // any other effects (permissions/tools). So we continue the outer loop.
+                continue;
             }
 
-            // Execute effects in batches. We deduplicate within the batch to avoid scheduling the
-            // same "long" effect (e.g. CallModel) multiple times before prior output is processed.
-            // This keeps the loop deterministic and prevents overlapping model streams.
-            var batch = DeduplicateEffects(step.Effects);
+            // Phase 2: all other effects (deduped) after the model stream is fully reduced.
+            var batch = DeduplicateEffects(pendingEffects.ToImmutableArray());
+            pendingEffects.Clear();
 
             foreach (var eff in batch)
             {
                 var observations = await effects.ExecuteAsync(state, eff, cancellationToken).ConfigureAwait(false);
                 foreach (var obs in observations)
-                    internalQueue.Enqueue(obs);
+                    observedQueue.Enqueue(obs);
             }
         }
     }
