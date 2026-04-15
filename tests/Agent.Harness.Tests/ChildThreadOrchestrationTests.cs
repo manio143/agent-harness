@@ -1,5 +1,3 @@
-using System.Collections.Immutable;
-using Agent.Harness.Persistence;
 using Agent.Harness.Threads;
 using FluentAssertions;
 
@@ -16,8 +14,8 @@ public sealed class ChildThreadOrchestrationTests
         var scheduled = new List<string>();
         IThreadScheduler scheduler = new FakeScheduler(scheduled);
 
-        // Simulate AcpEffectExecutor behavior: new thread + immediate schedules run.
-        var childId = mgr.New(ThreadIds.Main, "go", InboxDelivery.Immediate);
+        // Simulate AcpEffectExecutor behavior: create child metadata, then immediate schedules run.
+        var childId = mgr.CreateChildThread(ThreadIds.Main);
         scheduler.ScheduleRun(childId);
 
         scheduled.Should().Contain(childId);

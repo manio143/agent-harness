@@ -13,7 +13,17 @@ public sealed class ThreadManagerTests
         var threadStore = new InMemoryThreadStore();
         var mgr = new ThreadManager("s1", threadStore);
 
-        var childId = mgr.New(ThreadIds.Main, "hello", InboxDelivery.Immediate);
+        var childId = mgr.CreateChildThread(ThreadIds.Main);
+        threadStore.AppendCommittedEvent("s1", childId, new ThreadInboxMessageEnqueued(
+            ThreadId: childId,
+            EnvelopeId: "env_1",
+            Kind: ThreadInboxMessageKind.InterThreadMessage,
+            Meta: null,
+            Source: "thread",
+            SourceThreadId: ThreadIds.Main,
+            Delivery: "immediate",
+            EnqueuedAtIso: "t0",
+            Text: "hello"));
 
         childId.Should().StartWith("thr_");
 
@@ -43,7 +53,17 @@ public sealed class ThreadManagerTests
             Buffer: TurnBuffer.Empty,
             Tools: ImmutableArray<Agent.Harness.ToolDefinition>.Empty);
 
-        var childId = mgr.Fork(ThreadIds.Main, parent, "go", InboxDelivery.Enqueue);
+        var childId = mgr.ForkChildThread(ThreadIds.Main, parent);
+        threadStore.AppendCommittedEvent("s1", childId, new ThreadInboxMessageEnqueued(
+            ThreadId: childId,
+            EnvelopeId: "env_1",
+            Kind: ThreadInboxMessageKind.InterThreadMessage,
+            Meta: null,
+            Source: "thread",
+            SourceThreadId: ThreadIds.Main,
+            Delivery: "enqueue",
+            EnqueuedAtIso: "t0",
+            Text: "go"));
 
         var evts = threadStore.LoadCommittedEvents("s1", childId);
         evts.OfType<AssistantMessage>().Should().ContainSingle(m => m.Text == "a");
@@ -71,7 +91,18 @@ public sealed class ThreadManagerTests
         var mgr = new ThreadManager("s1", threadStore);
 
         // Create a child to receive inbox.
-        var child = mgr.New(ThreadIds.Main, "hello", InboxDelivery.Enqueue);
+        var child = mgr.CreateChildThread(ThreadIds.Main);
+
+        threadStore.AppendCommittedEvent("s1", child, new ThreadInboxMessageEnqueued(
+            ThreadId: child,
+            EnvelopeId: "env_1",
+            Kind: ThreadInboxMessageKind.InterThreadMessage,
+            Meta: null,
+            Source: "thread",
+            SourceThreadId: ThreadIds.Main,
+            Delivery: "enqueue",
+            EnqueuedAtIso: "t0",
+            Text: "hello"));
 
         // Thread defaults to Idle.
         var drained = mgr.DrainInboxForPrompt(child);
@@ -91,7 +122,18 @@ public sealed class ThreadManagerTests
         var threadStore = new InMemoryThreadStore();
         var mgr = new ThreadManager("s1", threadStore);
 
-        var child = mgr.New(ThreadIds.Main, "hello", InboxDelivery.Enqueue);
+        var child = mgr.CreateChildThread(ThreadIds.Main);
+
+        threadStore.AppendCommittedEvent("s1", child, new ThreadInboxMessageEnqueued(
+            ThreadId: child,
+            EnvelopeId: "env_1",
+            Kind: ThreadInboxMessageKind.InterThreadMessage,
+            Meta: null,
+            Source: "thread",
+            SourceThreadId: ThreadIds.Main,
+            Delivery: "enqueue",
+            EnqueuedAtIso: "t0",
+            Text: "hello"));
 
         mgr.MarkRunning(child);
 
