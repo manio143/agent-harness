@@ -62,10 +62,11 @@ public sealed class EnqueueWakePolicyUnitTests
         // Child defaults to idle.
         mgr.HasDeliverableEnqueueNow(child).Should().BeTrue();
 
-        mgr.MarkRunning(child);
+        // Thread considered Running when latest turn marker is TurnStarted without TurnEnded.
+        threadStore.AppendCommittedEvent("s1", child, new TurnStarted());
         mgr.HasDeliverableEnqueueNow(child).Should().BeFalse();
 
-        mgr.MarkIdle(child);
+        threadStore.AppendCommittedEvent("s1", child, new TurnEnded());
         mgr.HasDeliverableEnqueueNow(child).Should().BeTrue();
 
         // Promotion/dequeue is reducer-driven now; ThreadManager no longer drains.

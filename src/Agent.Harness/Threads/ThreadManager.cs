@@ -7,8 +7,7 @@ public sealed class ThreadManager
 {
     public bool HasDeliverableEnqueueNow(string threadId)
     {
-        var meta = _store.TryLoadThreadMetadata(_sessionId, threadId);
-        if (meta?.Status != ThreadStatus.Idle)
+        if (ProjectStatus(threadId) != ThreadStatus.Idle)
             return false;
 
         var items = LoadPendingInbox(threadId);
@@ -26,6 +25,32 @@ public sealed class ThreadManager
         return HasDeliverableEnqueueNow(threadId);
     }
 
+    private ThreadStatus ProjectStatus(string threadId)
+    {
+        var committed = _store.LoadCommittedEvents(_sessionId, threadId);
+
+        var lastStarted = -1;
+        var lastEnded = -1;
+
+        for (var i = 0; i < committed.Length; i++)
+        {
+            switch (committed[i])
+            {
+                case TurnStarted:
+                    lastStarted = i;
+                    break;
+                case TurnEnded:
+                    lastEnded = i;
+                    break;
+            }
+        }
+
+        if (lastStarted < 0)
+            return ThreadStatus.Idle;
+
+        return lastEnded > lastStarted ? ThreadStatus.Idle : ThreadStatus.Running;
+    }
+
     private readonly string _sessionId;
     private readonly IThreadStore _store;
     public ThreadManager(string sessionId, IThreadStore store)
@@ -35,25 +60,12 @@ public sealed class ThreadManager
         _store.CreateMainIfMissing(sessionId);
     }
 
-    public void MarkRunning(string threadId)
-    {
-        var meta = _store.TryLoadThreadMetadata(_sessionId, threadId);
-        if (meta is null) return;
-        _store.SaveThreadMetadata(_sessionId, meta with { Status = ThreadStatus.Running, UpdatedAtIso = DateTimeOffset.UtcNow.ToString("O") });
-    }
-
-    public void MarkIdle(string threadId)
-    {
-        var meta = _store.TryLoadThreadMetadata(_sessionId, threadId);
-        if (meta is null) return;
-        _store.SaveThreadMetadata(_sessionId, meta with { Status = ThreadStatus.Idle, UpdatedAtIso = DateTimeOffset.UtcNow.ToString("O") });
-    }
 
 
     public ImmutableArray<ThreadInfo> List()
     {
         return _store.ListThreads(_sessionId)
-            .Select(m => new ThreadInfo(m.ThreadId, m.ParentThreadId, m.Status, m.Intent))
+            .Select(m => new ThreadInfo(m.ThreadId, m.ParentThreadId, ProjectStatus(m.ThreadId), m.Intent))
             .ToImmutableArray();
     }
 

@@ -124,8 +124,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            // Mark idle boundary before checking deliverability.
-            _threads.MarkIdle(threadId);
+            // Thread status is derived from committed turn markers (TurnStarted/TurnEnded).
 
             // Run is explicitly scheduled when work is expected (e.g. CallModel requested by reducer).
             // Do not gate execution purely on inbox state: inbox may already have been dequeued/promoted
@@ -172,7 +171,6 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             _states[threadId] = result.Next;
 
             // Turn ended: if more deliverable work exists, reschedule.
-            _threads.MarkIdle(threadId);
             if (_threads.HasImmediateOrDeliverableEnqueue(threadId))
             {
                 ScheduleRun(threadId);

@@ -97,7 +97,6 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
     {
         try
         {
-            _threads?.MarkRunning(_threadId);
 
             var rendered = Core.RenderPrompt(state);
 
@@ -165,7 +164,6 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         }
         finally
         {
-            _threads?.MarkIdle(_threadId);
         }
     }
 

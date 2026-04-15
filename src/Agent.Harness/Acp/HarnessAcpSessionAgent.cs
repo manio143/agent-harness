@@ -142,8 +142,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         {
             for (var i = 0; i < 250; i++)
             {
-                // Ensure the thread is considered idle at the boundary.
-                threads.MarkIdle(Agent.Harness.Threads.ThreadIds.Main);
+                // Thread status is derived from committed turn markers (TurnStarted/TurnEnded).
 
                 // Main enqueue wake: keep calling model while enqueue becomes deliverable.
                 if (threads.HasDeliverableEnqueueNow(Agent.Harness.Threads.ThreadIds.Main))
