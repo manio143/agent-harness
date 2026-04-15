@@ -34,7 +34,7 @@ public sealed class ThreadManagerTests
         var evts = sessionStore.LoadCommitted("s1");
         evts.OfType<ThreadInboxMessageEnqueued>().Should().ContainSingle(e =>
             e.ThreadId == childId &&
-            e.Kind == ThreadInboxMessageKind.UserMessage &&
+            e.Kind == ThreadInboxMessageKind.InterThreadMessage &&
             e.Meta == null &&
             e.Text == "hello" &&
             e.SourceThreadId == ThreadIds.Main &&

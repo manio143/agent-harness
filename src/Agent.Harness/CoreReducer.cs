@@ -13,7 +13,7 @@ public sealed record CoreOptions(
 /// Functional core reducer.
 ///
 /// Rules (initial slice):
-/// - ObservedUserMessage commits UserMessage.
+/// - ObservedUserMessage is treated as an inbox arrival (back-compat).
 /// - ObservedAssistantTextDelta appends to the in-flight assistant buffer.
 /// - ObservedAssistantMessageCompleted flushes the assistant buffer into AssistantMessage.
 /// - RenderPrompt uses ONLY committed user/assistant messages (debug events are ignored).
@@ -102,13 +102,40 @@ public static class Core
 
             case ObservedUserMessage m:
             {
-                // Commit the message AND request a model call.
+                // Commit the user message AND request a model call.
                 var msgEvt = new UserMessage(m.Text);
                 var committedMsg = state.Committed.Add(msgEvt);
                 var next = state with { Committed = committedMsg };
                 return new ReduceResult(
                     next,
                     ImmutableArray.Create<SessionEvent>(msgEvt),
+                    ImmutableArray.Create<Effect>(new CallModel()));
+            }
+
+            case ObservedInboxMessageArrived arrived:
+            {
+                var enq = new ThreadInboxMessageEnqueued(
+                    ThreadId: Agent.Harness.Threads.ThreadIds.Main,
+                    EnvelopeId: arrived.EnvelopeId,
+                    Kind: arrived.Kind,
+                    Meta: arrived.Meta,
+                    Source: arrived.Source,
+                    SourceThreadId: arrived.SourceThreadId,
+                    Delivery: arrived.Delivery.ToString().ToLowerInvariant(),
+                    EnqueuedAtIso: arrived.EnqueuedAtIso,
+                    Text: arrived.Text);
+
+                var committed = state.Committed.Add(enq);
+                var next = state with { Committed = committed };
+                return new ReduceResult(next, ImmutableArray.Create<SessionEvent>(enq), ImmutableArray<Effect>.Empty);
+            }
+
+            case ObservedWakeModel:
+            {
+                var (next, newly) = PromotePendingInbox(state);
+                return new ReduceResult(
+                    next,
+                    newly,
                     ImmutableArray.Create<Effect>(new CallModel()));
             }
 
@@ -169,9 +196,6 @@ public static class Core
             case ObservedTurnStabilized:
                 return Commit(state, new TurnEnded());
 
-            case ObservedWakeModel:
-                // Explicit turn-boundary wakeup: request a new model call.
-                return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty, ImmutableArray.Create<Effect>(new CallModel()));
 
             // --- Tool Call Lifecycle Observations ---
 
@@ -396,6 +420,14 @@ public static class Core
                     builder.Add(new ChatMessage(ChatRole.User, u.Text));
                     break;
 
+                case InterThreadMessage it:
+                    builder.Add(new ChatMessage(ChatRole.System, $"<inter_thread from=\"{it.FromThreadId}\">{it.Text}</inter_thread>"));
+                    break;
+
+                case ThreadIdleNotification n:
+                    builder.Add(new ChatMessage(ChatRole.System, $"<thread_idle child=\"{n.ChildThreadId}\" intent=\"{n.LastIntent}\" />"));
+                    break;
+
                 case AssistantMessage a:
                     builder.Add(new ChatMessage(ChatRole.Assistant, a.Text));
                     break;
@@ -456,6 +488,75 @@ public static class Core
         var committed = state.Committed.Add(evt);
         var next = state with { Committed = committed };
         return new ReduceResult(next, ImmutableArray.Create(evt), ImmutableArray<Effect>.Empty);
+    }
+
+    private static (SessionState Next, ImmutableArray<SessionEvent> NewlyCommitted) PromotePendingInbox(SessionState state)
+    {
+        var enq = state.Committed.OfType<ThreadInboxMessageEnqueued>().ToList();
+        if (enq.Count == 0)
+            return (state, ImmutableArray<SessionEvent>.Empty);
+
+        var dq = state.Committed.OfType<ThreadInboxMessageDequeued>()
+            .Select(d => d.EnvelopeId)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var pending = enq
+            .Where(e => !dq.Contains(e.EnvelopeId))
+            .OrderBy(e => e.EnqueuedAtIso)
+            .ThenBy(e => e.EnvelopeId)
+            .ToList();
+
+        if (pending.Count == 0)
+            return (state, ImmutableArray<SessionEvent>.Empty);
+
+        var builder = ImmutableArray.CreateBuilder<SessionEvent>();
+        var committed = state.Committed;
+
+        foreach (var e in pending)
+        {
+            // Mark dequeued.
+            var deq = new ThreadInboxMessageDequeued(
+                ThreadId: e.ThreadId,
+                EnvelopeId: e.EnvelopeId,
+                DequeuedAtIso: DateTimeOffset.UtcNow.ToString("O"));
+            committed = committed.Add(deq);
+            builder.Add(deq);
+
+            // Promote to a first-class message event.
+            switch (e.Kind)
+            {
+                case Agent.Harness.Threads.ThreadInboxMessageKind.UserPrompt:
+                    var user = new UserMessage(e.Text);
+                    committed = committed.Add(user);
+                    builder.Add(user);
+                    break;
+
+                case Agent.Harness.Threads.ThreadInboxMessageKind.InterThreadMessage:
+                    var it = new InterThreadMessage(FromThreadId: e.SourceThreadId ?? "", Text: e.Text);
+                    committed = committed.Add(it);
+                    builder.Add(it);
+                    break;
+
+                case Agent.Harness.Threads.ThreadInboxMessageKind.ThreadIdleNotification:
+                {
+                    var childId = e.Meta is not null && e.Meta.TryGetValue("childThreadId", out var c) ? c : (e.SourceThreadId ?? "");
+                    var lastIntent = e.Meta is not null && e.Meta.TryGetValue("lastIntent", out var i) ? i : "";
+                    var idle = new ThreadIdleNotification(ChildThreadId: childId, LastIntent: lastIntent);
+                    committed = committed.Add(idle);
+                    builder.Add(idle);
+                    break;
+                }
+
+                default:
+                    // Unknown kind: treat as inter-thread system message for now.
+                    var fallback = new InterThreadMessage(FromThreadId: e.SourceThreadId ?? "", Text: e.Text);
+                    committed = committed.Add(fallback);
+                    builder.Add(fallback);
+                    break;
+            }
+        }
+
+        return (state with { Committed = committed }, builder.ToImmutable());
     }
 
     private static ReduceResult FlushAssistant(SessionState state)

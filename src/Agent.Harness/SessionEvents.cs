@@ -11,6 +11,20 @@ public abstract record SessionEvent;
 
 public sealed record UserMessage(string Text) : SessionEvent;
 public sealed record AssistantMessage(string Text) : SessionEvent;
+
+// --- Thread prompt first-class message events ---
+
+/// <summary>
+/// Message originating from another thread (thread_send / initial message).
+/// Renderer maps this to a system message.
+/// </summary>
+public sealed record InterThreadMessage(string FromThreadId, string Text) : SessionEvent;
+
+/// <summary>
+/// Notification that a child thread became idle.
+/// Renderer maps this to a system message.
+/// </summary>
+public sealed record ThreadIdleNotification(string ChildThreadId, string LastIntent) : SessionEvent;
 public sealed record ReasoningMessage(string Text) : SessionEvent;
 
 /// <summary>

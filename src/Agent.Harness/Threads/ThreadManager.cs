@@ -117,7 +117,7 @@ public sealed class ThreadManager
             UpdatedAtIso: now,
             Status: ThreadStatus.Idle));
 
-        EnqueueFromThread(parentThreadId, id, message, delivery, ThreadInboxMessageKind.UserMessage, meta: null);
+        EnqueueFromThread(parentThreadId, id, message, delivery, ThreadInboxMessageKind.InterThreadMessage, meta: null);
         return id;
     }
 
@@ -140,7 +140,7 @@ public sealed class ThreadManager
         string toThreadId,
         string message,
         InboxDelivery delivery,
-        ThreadInboxMessageKind kind = ThreadInboxMessageKind.UserMessage,
+        ThreadInboxMessageKind kind = ThreadInboxMessageKind.InterThreadMessage,
         ImmutableDictionary<string, string>? meta = null)
     {
         EnqueueFromThread(fromThreadId, toThreadId, message, delivery, kind, meta);

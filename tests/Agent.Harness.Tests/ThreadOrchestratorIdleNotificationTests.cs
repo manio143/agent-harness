@@ -56,7 +56,7 @@ public sealed class ThreadOrchestratorIdleNotificationTests
         var committed = sessionStore.LoadCommitted(sessionId);
         committed.OfType<ThreadInboxMessageEnqueued>().Should().ContainSingle(e =>
             e.ThreadId == ThreadIds.Main &&
-            e.Kind == ThreadInboxMessageKind.ChildBecameIdle &&
+            e.Kind == ThreadInboxMessageKind.ThreadIdleNotification &&
             e.Meta != null &&
             e.Meta["childThreadId"] == childId &&
             e.Meta["lastIntent"] == "doing work");

@@ -23,8 +23,9 @@ public sealed record ThreadMetadata(
 
 public enum ThreadInboxMessageKind
 {
-    UserMessage = 0,
-    ChildBecameIdle = 1,
+    UserPrompt = 0,
+    InterThreadMessage = 1,
+    ThreadIdleNotification = 2,
 }
 
 public sealed record ThreadEnvelope(

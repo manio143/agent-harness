@@ -27,6 +27,21 @@ public sealed record ObservedWakeModel() : ObservedChatEvent;
 
 public sealed record ObservedUserMessage(string Text) : ObservedChatEvent;
 
+/// <summary>
+/// Thread-scoped inbound message observation. The imperative shell emits this when something
+/// arrives to a thread (ACP user prompt, thread_send, idle notification, etc.).
+/// The reducer commits a ThreadInboxMessageEnqueued.
+/// </summary>
+public sealed record ObservedInboxMessageArrived(
+    Agent.Harness.Threads.ThreadInboxMessageKind Kind,
+    Agent.Harness.Threads.InboxDelivery Delivery,
+    string EnvelopeId,
+    string EnqueuedAtIso,
+    string Source,
+    string? SourceThreadId,
+    string Text,
+    System.Collections.Immutable.ImmutableDictionary<string, string>? Meta = null) : ObservedChatEvent;
+
 public sealed record ObservedAssistantTextDelta(string Text) : ObservedChatEvent;
 
 /// <summary>

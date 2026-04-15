@@ -189,7 +189,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             toThreadId: meta.ParentThreadId,
             message: $"Child thread became idle. Last intent: {intent}",
             delivery: InboxDelivery.Immediate,
-            kind: ThreadInboxMessageKind.ChildBecameIdle,
+            kind: ThreadInboxMessageKind.ThreadIdleNotification,
             meta: metaDict);
 
     }
