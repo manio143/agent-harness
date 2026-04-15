@@ -15,6 +15,28 @@ public sealed class ThreadManager
         _store.CreateMainIfMissing(sessionId);
     }
 
+    public void MarkRunning(string threadId)
+    {
+        var meta = _store.TryLoadThreadMetadata(_sessionId, threadId);
+        if (meta is null) return;
+        _store.SaveThreadMetadata(_sessionId, meta with { Status = ThreadStatus.Running, UpdatedAtIso = DateTimeOffset.UtcNow.ToString("O") });
+    }
+
+    public void MarkIdle(string threadId)
+    {
+        var meta = _store.TryLoadThreadMetadata(_sessionId, threadId);
+        if (meta is null) return;
+        _store.SaveThreadMetadata(_sessionId, meta with { Status = ThreadStatus.Idle, UpdatedAtIso = DateTimeOffset.UtcNow.ToString("O") });
+    }
+
+    public ImmutableArray<ThreadEnvelope> DrainInboxForPrompt(string threadId)
+    {
+        var items = _store.LoadInbox(_sessionId, threadId);
+        if (!items.IsDefaultOrEmpty)
+            _store.ClearInbox(_sessionId, threadId);
+        return items;
+    }
+
     public ImmutableArray<ThreadInfo> List()
     {
         return _store.ListThreads(_sessionId)

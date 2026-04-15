@@ -89,28 +89,42 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
 
     private async IAsyncEnumerable<ObservedChatEvent> CallModelStreamingAsync(SessionState state, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var rendered = Core.RenderPrompt(state);
-
-        var meaiMessages = rendered
-            .Select(m => new MeaiChatMessage(m.Role switch
-            {
-                ChatRole.User => MeaiChatRole.User,
-                ChatRole.Assistant => MeaiChatRole.Assistant,
-                _ => MeaiChatRole.System,
-            }, m.Text))
-            .ToList();
-
-        // Session metadata system prompt (client-/protocol-agnostic).
-        var meta = _store?.TryLoadMetadata(_sessionId);
-        var sessionPayload = JsonSerializer.Serialize(new
+        _threads?.MarkRunning(Agent.Harness.Threads.ThreadIds.Main);
+        try
         {
-            sessionId = _sessionId,
-            cwd = meta?.Cwd,
-            createdAtIso = meta?.CreatedAtIso,
-            updatedAtIso = meta?.UpdatedAtIso,
-        }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            var rendered = Core.RenderPrompt(state);
 
-        meaiMessages.Insert(0, new MeaiChatMessage(MeaiChatRole.System, $"<session>{sessionPayload}</session>"));
+            var meaiMessages = rendered
+                .Select(m => new MeaiChatMessage(m.Role switch
+                {
+                    ChatRole.User => MeaiChatRole.User,
+                    ChatRole.Assistant => MeaiChatRole.Assistant,
+                    _ => MeaiChatRole.System,
+                }, m.Text))
+                .ToList();
+
+            // Session metadata system prompt (client-/protocol-agnostic).
+            var meta = _store?.TryLoadMetadata(_sessionId);
+            var sessionPayload = JsonSerializer.Serialize(new
+            {
+                sessionId = _sessionId,
+                cwd = meta?.Cwd,
+                createdAtIso = meta?.CreatedAtIso,
+                updatedAtIso = meta?.UpdatedAtIso,
+            }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+            meaiMessages.Insert(0, new MeaiChatMessage(MeaiChatRole.System, $"<session>{sessionPayload}</session>"));
+
+            // Inbox injection (main thread): convert thread->thread messages into system messages.
+            if (_threads is not null)
+            {
+                var inbox = _threads.DrainInboxForPrompt(Agent.Harness.Threads.ThreadIds.Main);
+                foreach (var env in inbox.Reverse())
+                {
+                    var payload = JsonSerializer.Serialize(env, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                    meaiMessages.Insert(1, new MeaiChatMessage(MeaiChatRole.System, $"<inbox>{payload}</inbox>"));
+                }
+            }
 
         var options = new Microsoft.Extensions.AI.ChatOptions
         {
@@ -147,10 +161,15 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
             TryAppendPromptLog(promptPayload);
         }
 
-        var updates = _chat.GetStreamingResponseAsync(meaiMessages, options, cancellationToken);
+            var updates = _chat.GetStreamingResponseAsync(meaiMessages, options, cancellationToken);
 
-        await foreach (var o in MeaiObservedEventSource.FromStreamingResponse(updates, cancellationToken).ConfigureAwait(false))
-            yield return o;
+            await foreach (var o in MeaiObservedEventSource.FromStreamingResponse(updates, cancellationToken).ConfigureAwait(false))
+                yield return o;
+        }
+        finally
+        {
+            _threads?.MarkIdle(Agent.Harness.Threads.ThreadIds.Main);
+        }
     }
 
     private async Task<ImmutableArray<ObservedChatEvent>> ExecuteToolAsync(SessionState state, ExecuteToolCall t, CancellationToken cancellationToken)

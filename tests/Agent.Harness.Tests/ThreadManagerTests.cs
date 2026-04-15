@@ -59,4 +59,22 @@ public sealed class ThreadManagerTests
         var evts = store.LoadCommittedEvents("s1", ThreadIds.Main);
         evts.OfType<ThreadIntentReported>().Should().ContainSingle(i => i.Intent == "do stuff");
     }
+
+    [Fact]
+    public void DrainInboxForPrompt_ClearsInbox()
+    {
+        var store = new InMemoryThreadStore();
+        var mgr = new ThreadManager("s1", store);
+
+        // Create a child to receive inbox.
+        var child = mgr.New(ThreadIds.Main, "hello", InboxDelivery.Enqueue);
+
+        // Thread_new enqueued a message into the child inbox.
+        store.LoadInbox("s1", child).Should().HaveCount(1);
+
+        var drained = mgr.DrainInboxForPrompt(child);
+        drained.Should().HaveCount(1);
+
+        store.LoadInbox("s1", child).Should().BeEmpty();
+    }
 }
