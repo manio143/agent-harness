@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
-using Agent.Harness.Persistence;
 
 namespace Agent.Harness.Threads;
 
@@ -13,7 +12,7 @@ public sealed class ThreadManager
             return false;
 
         var items = LoadPendingInbox(threadId);
-        return items.Any(e => e.Delivery == InboxDelivery.Enqueue);
+        return items.Any(e => e.Delivery == "enqueue");
     }
 
     public bool HasImmediateOrDeliverableEnqueue(string threadId)
@@ -21,7 +20,7 @@ public sealed class ThreadManager
         var items = LoadPendingInbox(threadId);
         if (items.IsDefaultOrEmpty) return false;
 
-        if (items.Any(i => i.Delivery == InboxDelivery.Immediate))
+        if (items.Any(i => i.Delivery == "immediate"))
             return true;
 
         return HasDeliverableEnqueueNow(threadId);
@@ -29,13 +28,10 @@ public sealed class ThreadManager
 
     private readonly string _sessionId;
     private readonly IThreadStore _store;
-    private readonly IThreadEventRecorder? _events;
-
-    public ThreadManager(string sessionId, IThreadStore store, IThreadEventRecorder? events = null)
+    public ThreadManager(string sessionId, IThreadStore store)
     {
         _sessionId = sessionId;
         _store = store;
-        _events = events;
         _store.CreateMainIfMissing(sessionId);
     }
 
@@ -53,48 +49,6 @@ public sealed class ThreadManager
         _store.SaveThreadMetadata(_sessionId, meta with { Status = ThreadStatus.Idle, UpdatedAtIso = DateTimeOffset.UtcNow.ToString("O") });
     }
 
-    public ImmutableArray<ThreadEnvelope> DrainInboxForPrompt(string threadId)
-    {
-        var meta = _store.TryLoadThreadMetadata(_sessionId, threadId);
-        var isIdle = meta?.Status == ThreadStatus.Idle;
-
-        var items = LoadPendingInbox(threadId);
-        if (items.IsDefaultOrEmpty)
-            return ImmutableArray<ThreadEnvelope>.Empty;
-
-        var deliver = ImmutableArray.CreateBuilder<ThreadEnvelope>();
-
-        foreach (var env in items.OrderBy(e => e.EnqueuedAtIso).ThenBy(e => e.EnvelopeId))
-        {
-            // immediate: always deliver on the next prompt
-            if (env.Delivery == InboxDelivery.Immediate)
-            {
-                deliver.Add(env);
-                continue;
-            }
-
-            // enqueue: only becomes eligible once the target thread is idle
-            if (env.Delivery == InboxDelivery.Enqueue && isIdle)
-            {
-                deliver.Add(env);
-                continue;
-            }
-        }
-
-        // Commit "taken out of inbox" marker for each envelope that is made available to prompt rendering.
-        foreach (var env in deliver)
-        {
-            var evt = new ThreadInboxMessageDequeued(
-                ThreadId: threadId,
-                EnvelopeId: env.EnvelopeId,
-                DequeuedAtIso: DateTimeOffset.UtcNow.ToString("O"));
-
-            _store.AppendCommittedEvent(_sessionId, threadId, evt);
-            _events?.InboxDeliveredToLlm(env, threadId);
-        }
-
-        return deliver.ToImmutable();
-    }
 
     public ImmutableArray<ThreadInfo> List()
     {
@@ -133,16 +87,6 @@ public sealed class ThreadManager
     }
 
 
-    public void Send(
-        string fromThreadId,
-        string toThreadId,
-        string message,
-        InboxDelivery delivery,
-        ThreadInboxMessageKind kind = ThreadInboxMessageKind.InterThreadMessage,
-        ImmutableDictionary<string, string>? meta = null)
-    {
-        EnqueueFromThread(fromThreadId, toThreadId, message, delivery, kind, meta);
-    }
 
     public ImmutableArray<ThreadMessage> ReadAssistantMessages(string threadId)
     {
@@ -174,52 +118,25 @@ public sealed class ThreadManager
         ImmutableDictionary<string, string>? meta)
     {
         var now = DateTimeOffset.UtcNow.ToString("O");
-        var env = new ThreadEnvelope(
-            EnvelopeId: ThreadEnvelopes.NewEnvelopeId(),
+        var envId = ThreadEnvelopes.NewEnvelopeId();
+
+        var evt = new ThreadInboxMessageEnqueued(
+            ThreadId: toThreadId,
+            EnvelopeId: envId,
             Kind: kind,
             Meta: meta,
             Source: "thread",
             SourceThreadId: fromThreadId,
-            Text: message,
-            Delivery: delivery,
-            EnqueuedAtIso: now);
-
-        var evt = new ThreadInboxMessageEnqueued(
-            ThreadId: toThreadId,
-            EnvelopeId: env.EnvelopeId,
-            Kind: env.Kind,
-            Meta: env.Meta,
-            Source: env.Source,
-            SourceThreadId: env.SourceThreadId,
-            Delivery: env.Delivery.ToString().ToLowerInvariant(),
-            EnqueuedAtIso: env.EnqueuedAtIso,
-            Text: env.Text);
+            Delivery: delivery.ToString().ToLowerInvariant(),
+            EnqueuedAtIso: now,
+            Text: message);
 
         _store.AppendCommittedEvent(_sessionId, toThreadId, evt);
-        _events?.InboxEnqueued(env, toThreadId);
     }
 
-    private ImmutableArray<ThreadEnvelope> LoadPendingInbox(string threadId)
+    private ImmutableArray<ThreadInboxMessageEnqueued> LoadPendingInbox(string threadId)
     {
         var committed = _store.LoadCommittedEvents(_sessionId, threadId);
-
-        // Project the inbox from committed events (single source of truth).
-        var enqueued = committed
-            .OfType<ThreadInboxMessageEnqueued>()
-            .Where(e => e.ThreadId == threadId)
-            .Select(e => new ThreadEnvelope(
-                EnvelopeId: e.EnvelopeId,
-                Kind: e.Kind,
-                Meta: e.Meta,
-                Source: e.Source,
-                SourceThreadId: e.SourceThreadId,
-                Text: e.Text,
-                Delivery: e.Delivery == "enqueue" ? InboxDelivery.Enqueue : InboxDelivery.Immediate,
-                EnqueuedAtIso: e.EnqueuedAtIso))
-            .ToImmutableArray();
-
-        if (enqueued.IsDefaultOrEmpty)
-            return ImmutableArray<ThreadEnvelope>.Empty;
 
         var deliveredIds = committed
             .OfType<ThreadInboxMessageDequeued>()
@@ -227,6 +144,10 @@ public sealed class ThreadManager
             .Select(d => d.EnvelopeId)
             .ToHashSet(StringComparer.Ordinal);
 
-        return enqueued.Where(e => !deliveredIds.Contains(e.EnvelopeId)).ToImmutableArray();
+        return committed
+            .OfType<ThreadInboxMessageEnqueued>()
+            .Where(e => e.ThreadId == threadId)
+            .Where(e => !deliveredIds.Contains(e.EnvelopeId))
+            .ToImmutableArray();
     }
 }

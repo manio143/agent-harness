@@ -97,10 +97,6 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
     {
         try
         {
-            // Drain inbox BEFORE marking running. Enqueue-delivery messages are eligible when the
-            // thread is idle (i.e. just before starting the next model call).
-            var inbox = _threads?.DrainInboxForPrompt(_threadId) ?? ImmutableArray<Agent.Harness.Threads.ThreadEnvelope>.Empty;
-
             _threads?.MarkRunning(_threadId);
 
             var rendered = Core.RenderPrompt(state);
@@ -126,12 +122,6 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
 
             meaiMessages.Insert(0, new MeaiChatMessage(MeaiChatRole.System, $"<session>{sessionPayload}</session>"));
 
-            // Inbox injection (main thread): convert thread->thread messages into system messages.
-            foreach (var env in inbox.Reverse())
-            {
-                var payload = JsonSerializer.Serialize(env, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-                meaiMessages.Insert(1, new MeaiChatMessage(MeaiChatRole.System, $"<inbox>{payload}</inbox>"));
-            }
 
         var options = new Microsoft.Extensions.AI.ChatOptions
         {

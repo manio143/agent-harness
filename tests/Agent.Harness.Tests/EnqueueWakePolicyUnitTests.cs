@@ -68,8 +68,7 @@ public sealed class EnqueueWakePolicyUnitTests
         mgr.MarkIdle(child);
         mgr.HasDeliverableEnqueueNow(child).Should().BeTrue();
 
-        // Drain while idle -> clears
-        _ = mgr.DrainInboxForPrompt(child);
-        mgr.HasDeliverableEnqueueNow(child).Should().BeFalse();
+        // Promotion/dequeue is reducer-driven now; ThreadManager no longer drains.
+        // (We assert gating only: deliverable depends on idle status + enqueue presence.)
     }
 }

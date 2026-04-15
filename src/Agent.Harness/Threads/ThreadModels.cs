@@ -28,15 +28,6 @@ public enum ThreadInboxMessageKind
     ThreadIdleNotification = 2,
 }
 
-public sealed record ThreadEnvelope(
-    string EnvelopeId,
-    ThreadInboxMessageKind Kind,
-    ImmutableDictionary<string, string>? Meta,
-    string Source,
-    string? SourceThreadId,
-    string Text,
-    InboxDelivery Delivery,
-    string EnqueuedAtIso);
 
 public enum InboxDelivery
 {
