@@ -85,7 +85,7 @@ public sealed class ThreadManagerTests
         drained.Should().HaveCount(1);
 
         // Draining marks the message as delivered (so it won't be re-injected on resume).
-        sessionStore.LoadCommitted("s1").OfType<ThreadInboxMessageDeliveredToLlm>()
+        sessionStore.LoadCommitted("s1").OfType<ThreadInboxMessageDrainedForPrompt>()
             .Should().ContainSingle(d => d.ThreadId == child && d.EnvelopeId == drained[0].EnvelopeId);
 
         // Subsequent drains return nothing.
@@ -107,7 +107,7 @@ public sealed class ThreadManagerTests
         drained.Should().BeEmpty();
 
         // Still pending (not idle-deliverable), so no DeliveredToLlm event should exist.
-        sessionStore.LoadCommitted("s1").OfType<ThreadInboxMessageDeliveredToLlm>()
+        sessionStore.LoadCommitted("s1").OfType<ThreadInboxMessageDrainedForPrompt>()
             .Should().BeEmpty();
     }
 }

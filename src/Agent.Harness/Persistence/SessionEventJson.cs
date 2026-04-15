@@ -43,12 +43,12 @@ public static class SessionEventJson
                 enqueuedAtIso = e.EnqueuedAtIso,
                 text = e.Text,
             },
-            ThreadInboxMessageDeliveredToLlm d => new
+            ThreadInboxMessageDrainedForPrompt d => new
             {
-                type = "thread_inbox_message_delivered_to_llm",
+                type = "thread_inbox_message_drained_for_prompt",
                 threadId = d.ThreadId,
                 envelopeId = d.EnvelopeId,
-                deliveredAtIso = d.DeliveredAtIso,
+                drainedAtIso = d.DrainedAtIso,
             },
 
             _ => null,
@@ -164,11 +164,18 @@ public static class SessionEventJson
                     EnqueuedAtIso: root.GetProperty("enqueuedAtIso").GetString() ?? string.Empty,
                     Text: root.GetProperty("text").GetString() ?? string.Empty);
 
-            case "thread_inbox_message_delivered_to_llm":
-                return new ThreadInboxMessageDeliveredToLlm(
+            case "thread_inbox_message_drained_for_prompt":
+                return new ThreadInboxMessageDrainedForPrompt(
                     ThreadId: root.GetProperty("threadId").GetString() ?? string.Empty,
                     EnvelopeId: root.GetProperty("envelopeId").GetString() ?? string.Empty,
-                    DeliveredAtIso: root.GetProperty("deliveredAtIso").GetString() ?? string.Empty);
+                    DrainedAtIso: root.GetProperty("drainedAtIso").GetString() ?? string.Empty);
+
+            // Back-compat: older name
+            case "thread_inbox_message_delivered_to_llm":
+                return new ThreadInboxMessageDrainedForPrompt(
+                    ThreadId: root.GetProperty("threadId").GetString() ?? string.Empty,
+                    EnvelopeId: root.GetProperty("envelopeId").GetString() ?? string.Empty,
+                    DrainedAtIso: root.GetProperty("deliveredAtIso").GetString() ?? string.Empty);
 
             default:
                 throw new InvalidOperationException($"unknown_event_type:{type}");
