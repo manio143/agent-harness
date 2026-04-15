@@ -72,54 +72,6 @@ public sealed class JsonlThreadStore : IThreadStore
         File.WriteAllText(path, json);
     }
 
-    public void AppendInbox(string sessionId, string threadId, ThreadEnvelope envelope)
-    {
-        var dir = ThreadDir(sessionId, threadId);
-        Directory.CreateDirectory(dir);
-        var path = InboxPath(sessionId, threadId);
-
-        var line = JsonSerializer.Serialize(envelope, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-        File.AppendAllText(path, line + "\n");
-    }
-
-    public ImmutableArray<ThreadEnvelope> LoadInbox(string sessionId, string threadId)
-    {
-        var path = InboxPath(sessionId, threadId);
-        if (!File.Exists(path)) return ImmutableArray<ThreadEnvelope>.Empty;
-
-        var list = new List<ThreadEnvelope>();
-        foreach (var line in File.ReadAllLines(path))
-        {
-            if (string.IsNullOrWhiteSpace(line)) continue;
-            var env = JsonSerializer.Deserialize<ThreadEnvelope>(line, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-            if (env is not null) list.Add(env);
-        }
-
-        return list.ToImmutableArray();
-    }
-
-    public void SaveInbox(string sessionId, string threadId, ImmutableArray<ThreadEnvelope> envelopes)
-    {
-        var dir = ThreadDir(sessionId, threadId);
-        Directory.CreateDirectory(dir);
-        var path = InboxPath(sessionId, threadId);
-
-        if (envelopes.IsDefaultOrEmpty)
-        {
-            if (File.Exists(path)) File.Delete(path);
-            return;
-        }
-
-        var lines = envelopes.Select(e => JsonSerializer.Serialize(e, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
-        File.WriteAllText(path, string.Join("\n", lines) + "\n");
-    }
-
-    public void ClearInbox(string sessionId, string threadId)
-    {
-        var path = InboxPath(sessionId, threadId);
-        if (File.Exists(path)) File.Delete(path);
-    }
-
     public void AppendCommittedEvent(string sessionId, string threadId, SessionEvent evt)
     {
         var dir = ThreadDir(sessionId, threadId);
@@ -150,6 +102,5 @@ public sealed class JsonlThreadStore : IThreadStore
     private string ThreadDir(string sessionId, string threadId) => Path.Combine(ThreadsDir(sessionId), threadId);
 
     private string ThreadMetaPath(string sessionId, string threadId) => Path.Combine(ThreadDir(sessionId, threadId), "thread.json");
-    private string InboxPath(string sessionId, string threadId) => Path.Combine(ThreadDir(sessionId, threadId), "inbox.jsonl");
     private string EventsPath(string sessionId, string threadId) => Path.Combine(ThreadDir(sessionId, threadId), "events.jsonl");
 }

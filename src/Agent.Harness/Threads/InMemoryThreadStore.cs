@@ -6,7 +6,6 @@ namespace Agent.Harness.Threads;
 public sealed class InMemoryThreadStore : IThreadStore
 {
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, ThreadMetadata>> _meta = new();
-    private readonly ConcurrentDictionary<(string sessionId, string threadId), List<ThreadEnvelope>> _inbox = new();
     private readonly ConcurrentDictionary<(string sessionId, string threadId), List<SessionEvent>> _events = new();
 
     public void CreateMainIfMissing(string sessionId)
@@ -46,33 +45,6 @@ public sealed class InMemoryThreadStore : IThreadStore
         session[metadata.ThreadId] = metadata;
     }
 
-    public void AppendInbox(string sessionId, string threadId, ThreadEnvelope envelope)
-    {
-        var list = _inbox.GetOrAdd((sessionId, threadId), _ => new List<ThreadEnvelope>());
-        lock (list) { list.Add(envelope); }
-    }
-
-    public ImmutableArray<ThreadEnvelope> LoadInbox(string sessionId, string threadId)
-    {
-        if (!_inbox.TryGetValue((sessionId, threadId), out var list)) return ImmutableArray<ThreadEnvelope>.Empty;
-        lock (list) { return list.ToImmutableArray(); }
-    }
-
-    public void SaveInbox(string sessionId, string threadId, ImmutableArray<ThreadEnvelope> envelopes)
-    {
-        if (envelopes.IsDefaultOrEmpty)
-        {
-            _inbox.TryRemove((sessionId, threadId), out _);
-            return;
-        }
-
-        _inbox[(sessionId, threadId)] = envelopes.ToList();
-    }
-
-    public void ClearInbox(string sessionId, string threadId)
-    {
-        _inbox.TryRemove((sessionId, threadId), out _);
-    }
 
     public void AppendCommittedEvent(string sessionId, string threadId, SessionEvent evt)
     {
