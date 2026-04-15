@@ -33,7 +33,12 @@ public sealed class ThreadManagerTests
         // inbox is reconstructed from committed events (single source of truth)
         var evts = sessionStore.LoadCommitted("s1");
         evts.OfType<ThreadInboxMessageEnqueued>().Should().ContainSingle(e =>
-            e.ThreadId == childId && e.Text == "hello" && e.SourceThreadId == ThreadIds.Main && e.Delivery == "immediate");
+            e.ThreadId == childId &&
+            e.Kind == ThreadInboxMessageKind.UserMessage &&
+            e.Meta == null &&
+            e.Text == "hello" &&
+            e.SourceThreadId == ThreadIds.Main &&
+            e.Delivery == "immediate");
     }
 
     [Fact]

@@ -25,6 +25,8 @@ public sealed class AcpPublishingThreadEventRecorder : IThreadEventRecorder
             ["kind"] = "thread_inbox_message_enqueued",
             ["threadId"] = threadId,
             ["envelopeId"] = envelope.EnvelopeId,
+            ["messageKind"] = envelope.Kind.ToString(),
+            ["meta"] = envelope.Meta,
             ["source"] = envelope.Source,
             ["sourceThreadId"] = envelope.SourceThreadId,
             ["delivery"] = envelope.Delivery.ToString().ToLowerInvariant(),

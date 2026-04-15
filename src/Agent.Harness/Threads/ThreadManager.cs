@@ -117,7 +117,7 @@ public sealed class ThreadManager
             UpdatedAtIso: now,
             Status: ThreadStatus.Idle));
 
-        EnqueueFromThread(parentThreadId, id, message, delivery);
+        EnqueueFromThread(parentThreadId, id, message, delivery, ThreadInboxMessageKind.UserMessage, meta: null);
         return id;
     }
 
@@ -135,9 +135,15 @@ public sealed class ThreadManager
         return childId;
     }
 
-    public void Send(string fromThreadId, string toThreadId, string message, InboxDelivery delivery)
+    public void Send(
+        string fromThreadId,
+        string toThreadId,
+        string message,
+        InboxDelivery delivery,
+        ThreadInboxMessageKind kind = ThreadInboxMessageKind.UserMessage,
+        ImmutableDictionary<string, string>? meta = null)
     {
-        EnqueueFromThread(fromThreadId, toThreadId, message, delivery);
+        EnqueueFromThread(fromThreadId, toThreadId, message, delivery, kind, meta);
     }
 
     public ImmutableArray<ThreadMessage> ReadAssistantMessages(string threadId)
@@ -161,11 +167,19 @@ public sealed class ThreadManager
         _store.AppendCommittedEvent(_sessionId, threadId, new ThreadIntentReported(intent));
     }
 
-    private void EnqueueFromThread(string fromThreadId, string toThreadId, string message, InboxDelivery delivery)
+    private void EnqueueFromThread(
+        string fromThreadId,
+        string toThreadId,
+        string message,
+        InboxDelivery delivery,
+        ThreadInboxMessageKind kind,
+        ImmutableDictionary<string, string>? meta)
     {
         var now = DateTimeOffset.UtcNow.ToString("O");
         var env = new ThreadEnvelope(
             EnvelopeId: ThreadEnvelopes.NewEnvelopeId(),
+            Kind: kind,
+            Meta: meta,
             Source: "thread",
             SourceThreadId: fromThreadId,
             Text: message,
@@ -175,6 +189,8 @@ public sealed class ThreadManager
         var evt = new ThreadInboxMessageEnqueued(
             ThreadId: toThreadId,
             EnvelopeId: env.EnvelopeId,
+            Kind: env.Kind,
+            Meta: env.Meta,
             Source: env.Source,
             SourceThreadId: env.SourceThreadId,
             Delivery: env.Delivery.ToString().ToLowerInvariant(),
@@ -195,6 +211,8 @@ public sealed class ThreadManager
             .Where(e => e.ThreadId == threadId)
             .Select(e => new ThreadEnvelope(
                 EnvelopeId: e.EnvelopeId,
+                Kind: e.Kind,
+                Meta: e.Meta,
                 Source: e.Source,
                 SourceThreadId: e.SourceThreadId,
                 Text: e.Text,

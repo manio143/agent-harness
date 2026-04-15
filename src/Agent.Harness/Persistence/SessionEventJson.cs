@@ -37,6 +37,8 @@ public static class SessionEventJson
                 type = "thread_inbox_message_enqueued",
                 threadId = e.ThreadId,
                 envelopeId = e.EnvelopeId,
+                kind = e.Kind.ToString(),
+                meta = e.Meta,
                 source = e.Source,
                 sourceThreadId = e.SourceThreadId,
                 delivery = e.Delivery,
@@ -155,14 +157,32 @@ public static class SessionEventJson
                 return new ThreadIntentReported(root.GetProperty("intent").GetString() ?? string.Empty);
 
             case "thread_inbox_message_enqueued":
+            {
+                var kindStr = root.TryGetProperty("kind", out var kindEl) ? kindEl.GetString() : null;
+                var kind = Enum.TryParse<Agent.Harness.Threads.ThreadInboxMessageKind>(kindStr, ignoreCase: true, out var parsed)
+                    ? parsed
+                    : Agent.Harness.Threads.ThreadInboxMessageKind.UserMessage;
+
+                ImmutableDictionary<string, string>? meta = null;
+                if (root.TryGetProperty("meta", out var metaEl) && metaEl.ValueKind == JsonValueKind.Object)
+                {
+                    var b = ImmutableDictionary.CreateBuilder<string, string>(StringComparer.Ordinal);
+                    foreach (var p in metaEl.EnumerateObject())
+                        b[p.Name] = p.Value.GetString() ?? p.Value.ToString();
+                    meta = b.ToImmutable();
+                }
+
                 return new ThreadInboxMessageEnqueued(
                     ThreadId: root.GetProperty("threadId").GetString() ?? string.Empty,
                     EnvelopeId: root.GetProperty("envelopeId").GetString() ?? string.Empty,
+                    Kind: kind,
+                    Meta: meta,
                     Source: root.GetProperty("source").GetString() ?? string.Empty,
                     SourceThreadId: root.TryGetProperty("sourceThreadId", out var st) ? st.GetString() : null,
                     Delivery: root.GetProperty("delivery").GetString() ?? string.Empty,
                     EnqueuedAtIso: root.GetProperty("enqueuedAtIso").GetString() ?? string.Empty,
                     Text: root.GetProperty("text").GetString() ?? string.Empty);
+            }
 
             case "thread_inbox_message_dequeued":
                 return new ThreadInboxMessageDequeued(

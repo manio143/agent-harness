@@ -18,6 +18,8 @@ public sealed class SessionStoreThreadEventRecorder : IThreadEventRecorder
         _store.AppendCommitted(_sessionId, new ThreadInboxMessageEnqueued(
             ThreadId: threadId,
             EnvelopeId: envelope.EnvelopeId,
+            Kind: envelope.Kind,
+            Meta: envelope.Meta,
             Source: envelope.Source,
             SourceThreadId: envelope.SourceThreadId,
             Delivery: envelope.Delivery.ToString().ToLowerInvariant(),

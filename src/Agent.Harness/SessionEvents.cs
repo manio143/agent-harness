@@ -110,6 +110,8 @@ public sealed record ThreadIntentReported(string Intent) : SessionEvent;
 public sealed record ThreadInboxMessageEnqueued(
     string ThreadId,
     string EnvelopeId,
+    Agent.Harness.Threads.ThreadInboxMessageKind Kind,
+    ImmutableDictionary<string, string>? Meta,
     string Source,
     string? SourceThreadId,
     string Delivery,

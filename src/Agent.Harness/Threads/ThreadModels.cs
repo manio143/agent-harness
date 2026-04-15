@@ -21,8 +21,16 @@ public sealed record ThreadMetadata(
     string UpdatedAtIso,
     ThreadStatus Status);
 
+public enum ThreadInboxMessageKind
+{
+    UserMessage = 0,
+    ChildBecameIdle = 1,
+}
+
 public sealed record ThreadEnvelope(
     string EnvelopeId,
+    ThreadInboxMessageKind Kind,
+    ImmutableDictionary<string, string>? Meta,
     string Source,
     string? SourceThreadId,
     string Text,

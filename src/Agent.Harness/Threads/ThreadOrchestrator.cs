@@ -178,11 +178,19 @@ public sealed class ThreadOrchestrator : IThreadScheduler
 
         var intent = meta.Intent ?? string.Empty;
         // Enqueue parent notification via ThreadManager so it is recorded consistently.
+        var metaDict = ImmutableDictionary.CreateRange(new Dictionary<string, string>
+        {
+            ["childThreadId"] = threadId,
+            ["lastIntent"] = intent,
+        });
+
         _threads.Send(
             fromThreadId: threadId,
             toThreadId: meta.ParentThreadId,
             message: $"Child thread became idle. Last intent: {intent}",
-            delivery: InboxDelivery.Immediate);
+            delivery: InboxDelivery.Immediate,
+            kind: ThreadInboxMessageKind.ChildBecameIdle,
+            meta: metaDict);
 
     }
 }
