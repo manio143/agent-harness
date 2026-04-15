@@ -148,7 +148,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             case AcpToolCallCompleted done:
                 if (_toolCalls.TryGetValue(done.ToolId, out var completed))
                 {
-                    await completed.CompletedAsync(cancellationToken).ConfigureAwait(false);
+                    await completed.CompletedAsync(cancellationToken, rawOutput: done.RawOutput).ConfigureAwait(false);
                     _toolCalls.Remove(done.ToolId);
                 }
                 break;

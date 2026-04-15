@@ -77,16 +77,16 @@ internal sealed class AcpToolCallTracker : IAcpToolCalls
             _tracker.AppendContentAsync(ToolCallId, content, cancellationToken);
 
         public Task InProgressAsync(CancellationToken cancellationToken = default) =>
-            _tracker.TransitionAsync(ToolCallId, to: State.InProgress, message: null, content: null, cancellationToken);
+            _tracker.TransitionAsync(ToolCallId, to: State.InProgress, message: null, rawOutput: null, content: null, cancellationToken);
 
-        public Task CompletedAsync(CancellationToken cancellationToken = default) =>
-            _tracker.TransitionAsync(ToolCallId, to: State.Completed, message: null, content: null, cancellationToken);
+        public Task CompletedAsync(CancellationToken cancellationToken = default, object? rawOutput = null) =>
+            _tracker.TransitionAsync(ToolCallId, to: State.Completed, message: null, rawOutput: rawOutput, content: null, cancellationToken);
 
         public Task FailedAsync(string message, CancellationToken cancellationToken = default) =>
-            _tracker.TransitionAsync(ToolCallId, to: State.Failed, message: message, content: null, cancellationToken);
+            _tracker.TransitionAsync(ToolCallId, to: State.Failed, message: message, rawOutput: null, content: null, cancellationToken);
 
         public Task CancelledAsync(CancellationToken cancellationToken = default) =>
-            _tracker.TransitionAsync(ToolCallId, to: State.Cancelled, message: "cancelled", content: null, cancellationToken);
+            _tracker.TransitionAsync(ToolCallId, to: State.Cancelled, message: "cancelled", rawOutput: null, content: null, cancellationToken);
     }
 
     private async Task AppendContentAsync(string toolCallId, ToolCallContent content, CancellationToken cancellationToken)
@@ -109,7 +109,7 @@ internal sealed class AcpToolCallTracker : IAcpToolCalls
         }, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task TransitionAsync(string toolCallId, State to, string? message, IReadOnlyList<ToolCallContent>? content, CancellationToken cancellationToken)
+    private async Task TransitionAsync(string toolCallId, State to, string? message, object? rawOutput, IReadOnlyList<ToolCallContent>? content, CancellationToken cancellationToken)
     {
         var gate = _locks.GetOrAdd(toolCallId, _ => new object());
         State from;
@@ -159,7 +159,7 @@ internal sealed class AcpToolCallTracker : IAcpToolCalls
             toolCallId,
             status,
             content,
-            rawOutput = message is null ? null : new { error = message },
+            rawOutput = rawOutput ?? (message is null ? null : new { error = message }),
         }, cancellationToken).ConfigureAwait(false);
     }
 }

@@ -2,6 +2,7 @@ using System.Text.Json;
 using Agent.Acp.Acp;
 using Agent.Acp.Schema;
 using Agent.Acp.Tests;
+using Agent.Acp.Protocol;
 using Agent.Harness.Acp;
 using Agent.Harness.Persistence;
 using FluentAssertions;
@@ -33,6 +34,9 @@ public sealed class AcpThreadListIntegrationTests
 
         await using var client = new AcpClientConnection(clientTransport);
 
+        var updates = new List<Agent.Acp.Protocol.JsonRpcNotification>();
+        client.NotificationReceived += n => { if (n.Method == "session/update") updates.Add(n); };
+
         // Client doesn't need to handle anything; we only call internal tools.
         client.RequestHandler = (req, _) => throw new InvalidOperationException($"Unexpected request: {req.Method}");
 
@@ -60,19 +64,35 @@ public sealed class AcpThreadListIntegrationTests
             },
             cts.Token);
 
-        // Assert thread metadata was updated by report_intent and is visible for thread_list.
-        // (Tool raw outputs are not currently surfaced over ACP, so we validate persistence.)
-        var metaPath = Path.Combine(factory.RootDir, newSession.SessionId, "threads", "main", "thread.json");
-        File.Exists(metaPath).Should().BeTrue($"Expected thread metadata at {metaPath}");
+        // Assert thread_list tool output is surfaced over ACP tool-call updates.
+        await Task.Delay(100, cts.Token);
 
-        var sessionEventsPath = Path.Combine(factory.RootDir, newSession.SessionId, "events.jsonl");
-        var sessionEvents = File.Exists(sessionEventsPath) ? File.ReadAllText(sessionEventsPath) : "<missing>";
+        JsonElement? toolResult = null;
+        foreach (var n in updates)
+        {
+            var payload = JsonSerializer.Deserialize<SessionNotification>(n.Params?.GetRawText() ?? "{}", AcpJson.Options);
+            if (payload?.Update is not Agent.Acp.Schema.ToolCallUpdate tc) continue;
+            if (tc.ToolCallId != "call_1_1") continue;
+            if (tc.Status.Value != ToolCallStatus.Completed) continue;
 
-        using var doc = JsonDocument.Parse(File.ReadAllText(metaPath));
-        doc.RootElement.GetProperty("intent").GetString().Should().Be("list threads", $"session events: {sessionEvents}");
+            var raw = JsonSerializer.Serialize(tc.RawOutput, AcpJson.Options);
+            using var doc = JsonDocument.Parse(raw);
+            toolResult = doc.RootElement.Clone();
+            break;
+        }
 
-        var eventsPath = Path.Combine(factory.RootDir, newSession.SessionId, "threads", "main", "events.jsonl");
-        File.ReadAllText(eventsPath).Should().Contain("\"type\":\"thread_intent_reported\"", $"session events: {sessionEvents}");
+        toolResult.Should().NotBeNull();
+        var threads = toolResult!.Value.GetProperty("threads");
+        threads.ValueKind.Should().Be(JsonValueKind.Array);
+        static string? GetString(JsonElement el, string a, string b)
+        {
+            if (el.TryGetProperty(a, out var pa) && pa.ValueKind == JsonValueKind.String) return pa.GetString();
+            if (el.TryGetProperty(b, out var pb) && pb.ValueKind == JsonValueKind.String) return pb.GetString();
+            return null;
+        }
+
+        var main = threads.EnumerateArray().First(t => GetString(t, "threadId", "ThreadId") == "main");
+        GetString(main, "intent", "Intent").Should().Be("list threads");
 
         cts.Cancel();
         try { await serverTask; } catch { }

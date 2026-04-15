@@ -134,7 +134,7 @@ public sealed class AcpMcpRehydrateOnLoadTests
 
                 public Task AddContentAsync(ToolCallContent content, CancellationToken cancellationToken = default) => Task.CompletedTask;
                 public Task InProgressAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-                public Task CompletedAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+                public Task CompletedAsync(CancellationToken cancellationToken = default, object? rawOutput = null) => Task.CompletedTask;
                 public Task FailedAsync(string message, CancellationToken cancellationToken = default) => Task.CompletedTask;
                 public Task CancelledAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
             }

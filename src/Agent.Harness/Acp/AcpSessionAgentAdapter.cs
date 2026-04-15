@@ -131,7 +131,7 @@ public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
                 {
                     if (_toolCalls.TryGetValue(done.ToolId, out var call))
                     {
-                        await call.CompletedAsync(cancellationToken).ConfigureAwait(false);
+                        await call.CompletedAsync(cancellationToken, rawOutput: done.Result).ConfigureAwait(false);
                         _toolCalls.Remove(done.ToolId);
                     }
                     break;

@@ -20,7 +20,7 @@ public sealed record AcpToolCallInProgress(string ToolId) : AcpEmission;
 
 public sealed record AcpToolCallAddText(string ToolId, string Text) : AcpEmission;
 
-public sealed record AcpToolCallCompleted(string ToolId) : AcpEmission;
+public sealed record AcpToolCallCompleted(string ToolId, object? RawOutput) : AcpEmission;
 
 public sealed record AcpToolCallFailed(string ToolId, string Message) : AcpEmission;
 
@@ -64,7 +64,7 @@ public static class AcpProjection
             }
 
             case ToolCallCompleted done:
-                return ImmutableArray.Create<AcpEmission>(new AcpToolCallCompleted(done.ToolId));
+                return ImmutableArray.Create<AcpEmission>(new AcpToolCallCompleted(done.ToolId, done.Result));
 
             case ToolCallFailed failed:
                 return ImmutableArray.Create<AcpEmission>(new AcpToolCallFailed(failed.ToolId, failed.Error));

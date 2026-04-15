@@ -22,7 +22,7 @@ public interface IAcpToolCall
 
     Task InProgressAsync(CancellationToken cancellationToken = default);
 
-    Task CompletedAsync(CancellationToken cancellationToken = default);
+    Task CompletedAsync(CancellationToken cancellationToken = default, object? rawOutput = null);
 
     Task FailedAsync(string message, CancellationToken cancellationToken = default);
 
