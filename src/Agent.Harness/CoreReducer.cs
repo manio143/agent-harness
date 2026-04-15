@@ -496,19 +496,9 @@ public static class Core
 
     private static (SessionState Next, ImmutableArray<SessionEvent> NewlyCommitted) PromotePendingInbox(SessionState state, string currentThreadId)
     {
-        // Delivery gating depends on projected thread status.
-        // Note: SessionRunner prepends ObservedTurnStarted at the start of a run. WakeModel is then
-        // reduced immediately after, and should observe the *prior* turn's idle/running state.
-        // So for promotion gating we ignore a trailing TurnStarted marker if it is the last
-        // committed event at wake time.
+        // Delivery gating depends on projected thread status at a wake boundary.
         static bool IsThreadIdleForPromotion(string threadId, ImmutableArray<SessionEvent> committed)
-        {
-            var view = committed;
-            if (!view.IsDefaultOrEmpty && view[^1] is TurnStarted)
-                view = view.RemoveAt(view.Length - 1);
-
-            return Agent.Harness.Threads.ThreadStatusProjector.IsIdle(view);
-        }
+            => Agent.Harness.Threads.ThreadStatusProjector.IsIdleAtWakeBoundary(committed);
 
         var enq = state.Committed
             .OfType<ThreadInboxMessageEnqueued>()
