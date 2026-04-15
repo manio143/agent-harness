@@ -13,13 +13,16 @@ public enum ThreadStatus
     Idle,
 }
 
+/// <summary>
+/// Persisted thread metadata. Treated as a cache/projection artifact; the source of truth is the
+/// committed thread event log (events.jsonl).
+/// </summary>
 public sealed record ThreadMetadata(
     string ThreadId,
     string? ParentThreadId,
     string? Intent,
     string CreatedAtIso,
-    string UpdatedAtIso,
-    ThreadStatus Status);
+    string UpdatedAtIso);
 
 public enum ThreadInboxMessageKind
 {

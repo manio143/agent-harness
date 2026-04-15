@@ -78,8 +78,7 @@ public sealed class ThreadManager
             ParentThreadId: parentThreadId,
             Intent: null,
             CreatedAtIso: now,
-            UpdatedAtIso: now,
-            Status: ThreadStatus.Idle));
+            UpdatedAtIso: now));
         return id;
     }
 

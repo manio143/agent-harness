@@ -37,8 +37,7 @@ public sealed class ThreadOrchestratorIdleNotificationTests
             ParentThreadId: ThreadIds.Main,
             Intent: "doing work",
             CreatedAtIso: now,
-            UpdatedAtIso: now,
-            Status: ThreadStatus.Idle));
+            UpdatedAtIso: now));
 
         var orchestrator = new ThreadOrchestrator(
             sessionId: sessionId,
