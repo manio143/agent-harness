@@ -20,13 +20,17 @@ public sealed record TurnBuffer(
     string AssistantText,
     bool AssistantMessageOpen,
     string ReasoningText,
-    bool ReasoningMessageOpen)
+    bool ReasoningMessageOpen,
+    bool IntentReportedThisTurn)
 {
     public static TurnBuffer Empty { get; } = new(
         AssistantText: "",
         AssistantMessageOpen: false,
         ReasoningText: "",
-        ReasoningMessageOpen: false);
+        ReasoningMessageOpen: false,
+        // Default true so unit tests that call Core.Reduce directly (without ObservedTurnStarted)
+        // do not accidentally trip the per-turn intent policy.
+        IntentReportedThisTurn: true);
 }
 
 public sealed record ReduceResult(

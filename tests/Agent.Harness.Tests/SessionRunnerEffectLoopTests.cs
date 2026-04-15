@@ -13,7 +13,7 @@ public class SessionRunnerEffectLoopTests
         // Tool calling requires a reducer/effects loop: reducer emits effects, imperative shell executes
         // them and feeds observations back, and only the reducer commits.
 
-        var state = SessionState.Empty with { Tools = ImmutableArray.Create(ToolSchemas.ReadTextFile) };
+        var state = SessionState.Empty with { Tools = ImmutableArray.Create(ToolSchemas.ReportIntent, ToolSchemas.ReadTextFile) };
 
         var effects = new FakeEffectExecutor();
         var runner = new SessionRunner(new CoreOptions(), new SessionTitleGenerator(new ThrowingChatClient()), effects);
@@ -21,6 +21,7 @@ public class SessionRunnerEffectLoopTests
         // External observed stream: the model proposes a tool call.
         async IAsyncEnumerable<ObservedChatEvent> Observed()
         {
+            yield return new ObservedToolCallDetected("call_0", "report_intent", new { intent = "read a file" });
             yield return new ObservedToolCallDetected("call_1", "read_text_file", new { path = "/tmp/a.txt" });
         }
 
@@ -35,10 +36,12 @@ public class SessionRunnerEffectLoopTests
         Assert.Contains(result.NewlyCommitted, e => e is ToolCallCompleted { ToolId: "call_1" });
 
         // ASSERT: effects were executed.
-        Assert.Equal(3, effects.Executed.Count);
-        Assert.IsType<CheckPermission>(effects.Executed[0]);
-        Assert.IsType<ExecuteToolCall>(effects.Executed[1]);
-        Assert.IsType<CallModel>(effects.Executed[2]);
+        Assert.Equal(5, effects.Executed.Count);
+        Assert.IsType<CheckPermission>(effects.Executed[0]);   // report_intent
+        Assert.IsType<ExecuteToolCall>(effects.Executed[1]);   // report_intent
+        Assert.IsType<CheckPermission>(effects.Executed[2]);   // read_text_file
+        Assert.IsType<ExecuteToolCall>(effects.Executed[3]);   // read_text_file
+        Assert.IsType<CallModel>(effects.Executed[4]);
     }
 
     private sealed class FakeEffectExecutor : IEffectExecutor

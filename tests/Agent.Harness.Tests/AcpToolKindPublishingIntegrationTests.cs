@@ -147,8 +147,8 @@ public sealed class AcpToolKindPublishingIntegrationTests
             var initialState = SessionState.Empty with
             {
                 Tools = toolName == "write_text_file"
-                    ? ImmutableArray.Create(ToolSchemas.WriteTextFile)
-                    : ImmutableArray.Create(ToolSchemas.ReadTextFile),
+                    ? ImmutableArray.Create(ToolSchemas.ReportIntent, ToolSchemas.WriteTextFile)
+                    : ImmutableArray.Create(ToolSchemas.ReportIntent, ToolSchemas.ReadTextFile),
             };
 
             return new HarnessAcpSessionAgent(sessionId, client, chat, events, coreOptions, publishOptions, store, initialState);
@@ -176,6 +176,7 @@ public sealed class AcpToolKindPublishingIntegrationTests
                 {
                     Contents = new List<MeaiAIContent>
                     {
+                        new MeaiFunctionCallContent("call_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "run a tool" }),
                         new MeaiFunctionCallContent("call_1", toolName, args)
                     }
                 };

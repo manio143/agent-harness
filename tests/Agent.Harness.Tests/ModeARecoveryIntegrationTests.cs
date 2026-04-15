@@ -11,7 +11,7 @@ public sealed class ModeARecoveryIntegrationTests
     {
         var state = SessionState.Empty with
         {
-            Tools = ImmutableArray.Create(ToolSchemas.ReadTextFile),
+            Tools = ImmutableArray.Create(ToolSchemas.ReportIntent, ToolSchemas.ReadTextFile),
         };
 
         var effects = new InvalidArgsThenAnswerEffectExecutor();
@@ -56,6 +56,7 @@ public sealed class ModeARecoveryIntegrationTests
             {
                 // Missing required "path" -> rejected by reducer with invalid_args.
                 return ImmutableArray.Create<ObservedChatEvent>(
+                    new ObservedToolCallDetected("call_0", "report_intent", new { intent = "read a file" }),
                     new ObservedToolCallDetected("call_1", "read_text_file", new { }));
             }
 

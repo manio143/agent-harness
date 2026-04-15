@@ -11,7 +11,7 @@ public sealed class ModeAToolFailureRecoveryIntegrationTests
     {
         var state = SessionState.Empty with
         {
-            Tools = ImmutableArray.Create(ToolSchemas.ReadTextFile),
+            Tools = ImmutableArray.Create(ToolSchemas.ReportIntent, ToolSchemas.ReadTextFile),
         };
 
         var effects = new ToolFailsThenAnswerEffectExecutor();
@@ -49,8 +49,9 @@ public sealed class ModeAToolFailureRecoveryIntegrationTests
                 CheckPermission p => Task.FromResult(ImmutableArray.Create<ObservedChatEvent>(
                     new ObservedPermissionApproved(p.ToolId, "capability_present"))),
 
-                ExecuteToolCall t => Task.FromResult(ImmutableArray.Create<ObservedChatEvent>(
-                    new ObservedToolCallFailed(t.ToolId, "boom"))),
+                ExecuteToolCall t => Task.FromResult(t.ToolName == "report_intent"
+                    ? ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, new { ok = true }))
+                    : ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallFailed(t.ToolId, "boom"))),
 
                 _ => Task.FromResult(ImmutableArray<ObservedChatEvent>.Empty),
             };
@@ -63,6 +64,7 @@ public sealed class ModeAToolFailureRecoveryIntegrationTests
             if (_modelCalls == 1)
             {
                 return ImmutableArray.Create<ObservedChatEvent>(
+                    new ObservedToolCallDetected("call_0", "report_intent", new { intent = "read a file" }),
                     new ObservedToolCallDetected("call_1", "read_text_file", new { path = "/tmp/a.txt" }));
             }
 

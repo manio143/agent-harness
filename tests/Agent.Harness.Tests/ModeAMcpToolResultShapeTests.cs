@@ -51,7 +51,7 @@ public sealed class ModeAMcpToolResultShapeTests
             coreOptions: new CoreOptions(),
             publishOptions: new AcpPublishOptions(PublishReasoning: false),
             store: store,
-            initialState: SessionState.Empty with { Tools = ImmutableArray.Create(tool) },
+            initialState: SessionState.Empty with { Tools = ImmutableArray.Create(ToolSchemas.ReportIntent, tool) },
             mcp: invoker,
             logLlmPrompts: false,
             logObservedEvents: false);
@@ -68,7 +68,7 @@ public sealed class ModeAMcpToolResultShapeTests
         resp.StopReason.Value.Should().Be(StopReason.EndTurn);
 
         var committed = store.LoadCommitted("s1");
-        var completed = committed.OfType<ToolCallCompleted>().Single();
+        var completed = committed.OfType<ToolCallCompleted>().Single(c => c.ToolId == "call_1");
 
         completed.Result.TryGetProperty("isError", out var isError).Should().BeTrue();
         isError.ValueKind.Should().Be(JsonValueKind.False);
@@ -115,6 +115,7 @@ public sealed class ModeAMcpToolResultShapeTests
                 {
                     Contents = new List<MeaiAIContent>
                     {
+                        new MeaiFunctionCallContent("call_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "call mcp tool" }),
                         new MeaiFunctionCallContent("call_1", _toolName, new Dictionary<string, object?> { ["message"] = "hi" })
                     }
                 };

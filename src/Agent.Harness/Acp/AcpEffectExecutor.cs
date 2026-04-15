@@ -143,6 +143,14 @@ public sealed class AcpEffectExecutor : IEffectExecutor
         {
             switch (t.ToolName)
             {
+                case "report_intent":
+                {
+                    // Harness-internal: no ACP call, no permissions. Persisting/displaying intent is handled
+                    // by the future thread layer; for now we simply acknowledge.
+                    return ImmutableArray.Create<ObservedChatEvent>(
+                        new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { ok = true })));
+                }
+
                 case "read_text_file":
                 {
                     var rawPath = GetRequiredString(args, "path");

@@ -21,7 +21,7 @@ public sealed class ModeATurnIntegrationTests
 
         var state = SessionState.Empty with
         {
-            Tools = ImmutableArray.Create(ToolSchemas.ReadTextFile),
+            Tools = ImmutableArray.Create(ToolSchemas.ReportIntent, ToolSchemas.ReadTextFile),
         };
 
         var effects = new ScriptedEffectExecutor();
@@ -48,10 +48,13 @@ public sealed class ModeATurnIntegrationTests
         Assert.Contains(result.NewlyCommitted, e => e is AssistantMessage { Text: "Done." });
 
         // Effects executed in the expected Mode A order.
+        // Note: report_intent is required before other tools.
         effects.Executed.Select(e => e.GetType()).Should().ContainInOrder(
             typeof(CallModel),
-            typeof(CheckPermission),
-            typeof(ExecuteToolCall),
+            typeof(CheckPermission),   // report_intent
+            typeof(CheckPermission),   // read_text_file (queued before report_intent execution)
+            typeof(ExecuteToolCall),   // report_intent
+            typeof(ExecuteToolCall),   // read_text_file
             typeof(CallModel));
     }
 
@@ -83,10 +86,11 @@ public sealed class ModeATurnIntegrationTests
         {
             _modelCalls++;
 
-            // First model call: tool intent only.
+            // First model call: report intent + tool intent.
             if (_modelCalls == 1)
             {
                 return ImmutableArray.Create<ObservedChatEvent>(
+                    new ObservedToolCallDetected("call_0", "report_intent", new { intent = "read /tmp/a.txt" }),
                     new ObservedToolCallDetected("call_1", "read_text_file", new { path = "/tmp/a.txt" }));
             }
 

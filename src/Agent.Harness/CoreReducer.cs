@@ -31,6 +31,10 @@ public static class Core
             _ => false,
         });
 
+    private static bool IsReportIntentTool(SessionState state, string toolId)
+        => state.Committed.OfType<ToolCallRequested>()
+            .Any(r => r.ToolId == toolId && r.ToolName == ToolSchemas.ReportIntent.Name);
+
     /// <summary>
     /// Render the tool catalog based on client capabilities.
     /// Tools requiring unavailable capabilities are filtered out.
@@ -59,6 +63,14 @@ public static class Core
 
         }
 
+        // Harness-internal tools (always available)
+        builder.Add(ToolSchemas.ReportIntent);
+        builder.Add(ToolSchemas.ThreadList);
+        builder.Add(ToolSchemas.ThreadNew);
+        builder.Add(ToolSchemas.ThreadFork);
+        builder.Add(ToolSchemas.ThreadSend);
+        builder.Add(ToolSchemas.ThreadRead);
+
         return builder.ToImmutable();
     }
     public static ReduceResult Reduce(SessionState state, ObservedChatEvent evt, CoreOptions? options = null)
@@ -69,7 +81,11 @@ public static class Core
         switch (evt)
         {
             case ObservedTurnStarted:
-                return Commit(state, new TurnStarted());
+            {
+                // New turn: clear per-turn buffers/policies.
+                var next = state with { Buffer = state.Buffer with { IntentReportedThisTurn = false } };
+                return Commit(next, new TurnStarted());
+            }
 
             case ObservedUserMessage m:
             {
@@ -149,6 +165,18 @@ public static class Core
                 if (state.Committed.Any(e => e is ToolCallRequested r && r.ToolId == detected.ToolId))
                     return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty, ImmutableArray<Effect>.Empty);
 
+                // Policy: the model MUST report intent before calling any other tools in a turn.
+                if (detected.ToolName != ToolSchemas.ReportIntent.Name && !state.Buffer.IntentReportedThisTurn)
+                {
+                    var rejected = new ToolCallRejected(detected.ToolId, "missing_report_intent", ImmutableArray.Create("must_call:report_intent"));
+                    var committedRej = state.Committed.Add(rejected);
+                    var nextRej = state with { Committed = committedRej };
+                    return new ReduceResult(
+                        nextRej,
+                        ImmutableArray.Create<SessionEvent>(rejected),
+                        ImmutableArray.Create<Effect>(new CallModel()));
+                }
+
                 // Early rejection: unknown tool / invalid args
                 var tool = state.Tools.FirstOrDefault(t => t.Name == detected.ToolName);
                 if (tool is null)
@@ -180,7 +208,14 @@ public static class Core
                 var permissionEffect = new CheckPermission(detected.ToolId, detected.ToolName, detected.Args);
 
                 var committed = state.Committed.Add(requested);
-                var next = state with { Committed = committed };
+
+                var next = state with
+                {
+                    Committed = committed,
+                    Buffer = detected.ToolName == ToolSchemas.ReportIntent.Name
+                        ? state.Buffer with { IntentReportedThisTurn = true }
+                        : state.Buffer,
+                };
 
                 return new ReduceResult(
                     next,
@@ -276,10 +311,14 @@ public static class Core
                 var committed = state.Committed.Add(completedEvent);
                 var next = state with { Committed = committed };
 
+                var effects = IsReportIntentTool(state, completed.ToolId)
+                    ? ImmutableArray<Effect>.Empty
+                    : ImmutableArray.Create<Effect>(new CallModel());
+
                 return new ReduceResult(
                     next,
                     ImmutableArray.Create<SessionEvent>(completedEvent),
-                    ImmutableArray.Create<Effect>(new CallModel()));
+                    effects);
             }
 
             case ObservedToolCallFailed failed:

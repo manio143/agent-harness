@@ -15,7 +15,8 @@ public sealed class ReasoningMessageCommitTests
                 AssistantText: "",
                 AssistantMessageOpen: false,
                 ReasoningText: "think",
-                ReasoningMessageOpen: true)
+                ReasoningMessageOpen: true,
+                IntentReportedThisTurn: false)
         };
 
         var result = Core.Reduce(state, new ObservedReasoningMessageCompleted());
