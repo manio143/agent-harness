@@ -73,9 +73,9 @@ public sealed class AcpChildThreadIdleNotificationIntegrationTests
             .OfType<ThreadInboxMessageEnqueued>()
             .Single(e => e.Text.Contains("enqueue followup", StringComparison.Ordinal));
 
-        // Idle notification was enqueued to the parent (main) via the session store today.
-        var sessionEvts = factory.SessionStore!.LoadCommitted("ses_child_idle_notify");
-        var idle = sessionEvts
+        // Idle notification was enqueued to the parent (main) via the parent thread committed log.
+        var parentEvts = factory.ThreadStore!.LoadCommittedEvents("ses_child_idle_notify", ThreadIds.Main);
+        var idle = parentEvts
             .OfType<ThreadInboxMessageEnqueued>()
             .Single(e => e.Text.Contains("became idle", StringComparison.Ordinal));
 

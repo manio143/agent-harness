@@ -19,6 +19,7 @@ public sealed class CoreReducerInboxPromotionTests
         });
 
         var arrived = new ObservedInboxMessageArrived(
+            ThreadId: ThreadIds.Main,
             Kind: ThreadInboxMessageKind.InterThreadMessage,
             Delivery: InboxDelivery.Immediate,
             EnvelopeId: envId,
@@ -50,6 +51,7 @@ public sealed class CoreReducerInboxPromotionTests
         });
 
         var arrived = new ObservedInboxMessageArrived(
+            ThreadId: ThreadIds.Main,
             Kind: ThreadInboxMessageKind.ThreadIdleNotification,
             Delivery: InboxDelivery.Immediate,
             EnvelopeId: envId,

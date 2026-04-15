@@ -256,6 +256,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                         var envId = Agent.Harness.Threads.ThreadEnvelopes.NewEnvelopeId();
 
                         orchestrator.Observe(threadId, new ObservedInboxMessageArrived(
+                            ThreadId: threadId,
                             Kind: Agent.Harness.Threads.ThreadInboxMessageKind.InterThreadMessage,
                             Delivery: delivery,
                             EnvelopeId: envId,

@@ -33,6 +33,7 @@ public sealed record ObservedUserMessage(string Text) : ObservedChatEvent;
 /// The reducer commits a ThreadInboxMessageEnqueued.
 /// </summary>
 public sealed record ObservedInboxMessageArrived(
+    string ThreadId,
     Agent.Harness.Threads.ThreadInboxMessageKind Kind,
     Agent.Harness.Threads.InboxDelivery Delivery,
     string EnvelopeId,

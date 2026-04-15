@@ -209,13 +209,16 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             ["lastIntent"] = intent,
         });
 
-        _threads.Send(
-            fromThreadId: threadId,
-            toThreadId: meta.ParentThreadId,
-            message: $"Child thread became idle. Last intent: {intent}",
-            delivery: InboxDelivery.Immediate,
-            kind: ThreadInboxMessageKind.ThreadIdleNotification,
-            meta: metaDict);
+        Observe(meta.ParentThreadId, new ObservedInboxMessageArrived(
+            ThreadId: meta.ParentThreadId,
+            Kind: ThreadInboxMessageKind.ThreadIdleNotification,
+            Delivery: InboxDelivery.Immediate,
+            EnvelopeId: ThreadEnvelopes.NewEnvelopeId(),
+            EnqueuedAtIso: DateTimeOffset.UtcNow.ToString("O"),
+            Source: "thread",
+            SourceThreadId: threadId,
+            Text: $"Child thread became idle. Last intent: {intent}",
+            Meta: metaDict));
 
     }
 }

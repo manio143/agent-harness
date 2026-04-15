@@ -82,6 +82,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
 
             // Universal intake: user prompt enters the main thread inbox as an observed event.
             yield return new ObservedInboxMessageArrived(
+                ThreadId: Agent.Harness.Threads.ThreadIds.Main,
                 Kind: Agent.Harness.Threads.ThreadInboxMessageKind.UserPrompt,
                 Delivery: Agent.Harness.Threads.InboxDelivery.Immediate,
                 EnvelopeId: envId,

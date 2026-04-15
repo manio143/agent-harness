@@ -115,7 +115,7 @@ public static class Core
             case ObservedInboxMessageArrived arrived:
             {
                 var enq = new ThreadInboxMessageEnqueued(
-                    ThreadId: Agent.Harness.Threads.ThreadIds.Main,
+                    ThreadId: arrived.ThreadId,
                     EnvelopeId: arrived.EnvelopeId,
                     Kind: arrived.Kind,
                     Meta: arrived.Meta,

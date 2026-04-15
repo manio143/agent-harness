@@ -53,7 +53,7 @@ public sealed class ThreadOrchestratorIdleNotificationTests
         orchestrator.ScheduleRun(childId);
         await orchestrator.RunUntilQuiescentAsync(CancellationToken.None);
 
-        var committed = sessionStore.LoadCommitted(sessionId);
+        var committed = threadStore.LoadCommittedEvents(sessionId, ThreadIds.Main);
         committed.OfType<ThreadInboxMessageEnqueued>().Should().ContainSingle(e =>
             e.ThreadId == ThreadIds.Main &&
             e.Kind == ThreadInboxMessageKind.ThreadIdleNotification &&
