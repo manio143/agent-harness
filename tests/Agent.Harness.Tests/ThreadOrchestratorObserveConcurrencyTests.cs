@@ -39,6 +39,7 @@ public sealed class ThreadOrchestratorObserveConcurrencyTests
             chat: chat,
             mcp: NullMcpToolInvoker.Instance,
             coreOptions: coreOptions,
+            logLlmPrompts: false,
             sessionStore: sessionStore,
             threadStore: threadStore,
             threads: threads);

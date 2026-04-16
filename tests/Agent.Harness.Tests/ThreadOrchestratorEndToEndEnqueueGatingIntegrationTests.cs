@@ -45,6 +45,7 @@ public sealed class ThreadOrchestratorEndToEndEnqueueGatingIntegrationTests
             chat: chat,
             mcp: NullMcpToolInvoker.Instance,
             coreOptions: coreOptions,
+            logLlmPrompts: false,
             sessionStore: sessionStore,
             threadStore: threadStore,
             threads: threads);

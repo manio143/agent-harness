@@ -42,9 +42,10 @@ public sealed class ThreadOrchestratorIdleNotificationTests
         var orchestrator = new ThreadOrchestrator(
             sessionId: sessionId,
             client: new FakeClientCaller(),
-            chat: new ThrowingChatClient(),
+            chat: new MinimalChatClient(),
             mcp: NullMcpToolInvoker.Instance,
             coreOptions: new CoreOptions(),
+            logLlmPrompts: false,
             sessionStore: sessionStore,
             threadStore: threadStore,
             threads: threads);
@@ -69,16 +70,27 @@ public sealed class ThreadOrchestratorIdleNotificationTests
             => throw new NotSupportedException();
     }
 
-    private sealed class ThrowingChatClient : Microsoft.Extensions.AI.IChatClient
+    private sealed class MinimalChatClient : Microsoft.Extensions.AI.IChatClient
     {
         public object? GetService(Type serviceType, object? serviceKey = null) => null;
 
         public void Dispose() { }
 
         public Task<Microsoft.Extensions.AI.ChatResponse> GetResponseAsync(IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages, Microsoft.Extensions.AI.ChatOptions? options = null, CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException("Chat should not be called in this test");
+            => Task.FromResult(new Microsoft.Extensions.AI.ChatResponse(Array.Empty<Microsoft.Extensions.AI.ChatMessage>()));
 
-        public IAsyncEnumerable<Microsoft.Extensions.AI.ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages, Microsoft.Extensions.AI.ChatOptions? options = null, CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException("Chat should not be called in this test");
+        public async IAsyncEnumerable<Microsoft.Extensions.AI.ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages, Microsoft.Extensions.AI.ChatOptions? options = null, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            // Satisfy per-turn policy: report intent, then finish quickly.
+            yield return new Microsoft.Extensions.AI.ChatResponseUpdate
+            {
+                Contents = new List<Microsoft.Extensions.AI.AIContent>
+                {
+                    new Microsoft.Extensions.AI.FunctionCallContent("call_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "noop" }),
+                    new Microsoft.Extensions.AI.TextContent("ok")
+                }
+            };
+            await Task.CompletedTask;
+        }
     }
 }

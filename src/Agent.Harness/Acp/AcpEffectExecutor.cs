@@ -287,35 +287,43 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     var delivery = ParseDelivery(args);
 
                     // Universal intake: express as an observed inbox arrival for the target thread.
+                    // IMPORTANT: if the target is the current thread, do NOT go through ThreadOrchestrator.ObserveAsync
+                    // (it is thread-gated and would deadlock inside an in-flight turn).
+                    var now = DateTimeOffset.UtcNow.ToString("O");
+                    var envId = Agent.Harness.Threads.ThreadEnvelopes.NewEnvelopeId();
+                    var inboxArrived = new ObservedInboxMessageArrived(
+                        ThreadId: threadId,
+                        Kind: Agent.Harness.Threads.ThreadInboxMessageKind.InterThreadMessage,
+                        Delivery: delivery,
+                        EnvelopeId: envId,
+                        EnqueuedAtIso: now,
+                        Source: "thread",
+                        SourceThreadId: _threadId,
+                        Text: message,
+                        Meta: null);
+
+                    if (threadId == _threadId)
+                    {
+                        return ImmutableArray.Create<ObservedChatEvent>(
+                            inboxArrived,
+                            new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { ok = true })));
+                    }
+
                     if (_scheduler is Agent.Harness.Threads.ThreadOrchestrator orchestrator)
                     {
-                        var now = DateTimeOffset.UtcNow.ToString("O");
-                        var envId = Agent.Harness.Threads.ThreadEnvelopes.NewEnvelopeId();
-
-                        await orchestrator.ObserveAsync(threadId, new ObservedInboxMessageArrived(
-                            ThreadId: threadId,
-                            Kind: Agent.Harness.Threads.ThreadInboxMessageKind.InterThreadMessage,
-                            Delivery: delivery,
-                            EnvelopeId: envId,
-                            EnqueuedAtIso: now,
-                            Source: "thread",
-                            SourceThreadId: _threadId,
-                            Text: message,
-                            Meta: null), cancellationToken).ConfigureAwait(false);
+                        await orchestrator.ObserveAsync(threadId, inboxArrived, cancellationToken).ConfigureAwait(false);
 
                         if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
                         {
                             _scheduler.ScheduleRun(threadId);
                         }
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException("thread_tools_require_orchestrator");
+
+                        return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
+                            t.ToolId,
+                            JsonSerializer.SerializeToElement(new { ok = true })));
                     }
 
-                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
-                        t.ToolId,
-                        JsonSerializer.SerializeToElement(new { ok = true })));
+                    throw new InvalidOperationException("thread_tools_require_orchestrator");
                 }
 
                 case "read_text_file":

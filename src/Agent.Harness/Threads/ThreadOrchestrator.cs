@@ -37,6 +37,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
     private readonly Microsoft.Extensions.AI.IChatClient _chat;
     private readonly IMcpToolInvoker _mcp;
     private readonly CoreOptions _coreOptions;
+    private readonly bool _logLlmPrompts;
     private readonly ISessionStore _sessionStore;
     private readonly IThreadStore _threadStore;
     private readonly ThreadManager _threads;
@@ -50,6 +51,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         Microsoft.Extensions.AI.IChatClient chat,
         IMcpToolInvoker mcp,
         CoreOptions coreOptions,
+        bool logLlmPrompts,
         ISessionStore sessionStore,
         IThreadStore threadStore,
         ThreadManager threads)
@@ -59,6 +61,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         _chat = chat;
         _mcp = mcp;
         _coreOptions = coreOptions;
+        _logLlmPrompts = logLlmPrompts;
         _sessionStore = sessionStore;
         _threadStore = threadStore;
         _threads = threads;
@@ -73,7 +76,10 @@ public sealed class ThreadOrchestrator : IThreadScheduler
 
     public bool HasPendingWork => !_runQueue.IsEmpty;
 
-    public async Task RunUntilQuiescentAsync(CancellationToken cancellationToken)
+    public Task RunUntilQuiescentAsync(CancellationToken cancellationToken)
+        => RunUntilQuiescentAsync(sinkFactory: null, cancellationToken);
+
+    public async Task RunUntilQuiescentAsync(Func<string, IEventSink?>? sinkFactory, CancellationToken cancellationToken)
     {
         // Drain queued thread runs until there is nothing left runnable.
         // Invariant: per-thread gate prevents overlapping runs.
@@ -85,13 +91,30 @@ public sealed class ThreadOrchestrator : IThreadScheduler
                 return;
 
             _queued.TryRemove(threadId, out _);
-            await RunOneTurnIfNeededAsync(threadId, cancellationToken).ConfigureAwait(false);
+            await RunOneTurnIfNeededAsync(threadId, sinkFactory, cancellationToken).ConfigureAwait(false);
 
             // If more work was queued by this run, loop.
         }
 
         throw new InvalidOperationException("thread_orchestrator_quiescence_loop_limit_exceeded");
     }
+
+    public async Task SeedStateAsync(string threadId, SessionState state, CancellationToken cancellationToken = default)
+    {
+        var gate = _gates.GetOrAdd(threadId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            _states[threadId] = state;
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    public SessionState GetStateOrEmpty(string threadId)
+        => _states.TryGetValue(threadId, out var s) ? s : SessionState.Empty;
 
     public async Task ObserveAsync(string threadId, ObservedChatEvent observed, CancellationToken cancellationToken = default)
     {
@@ -129,7 +152,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         }
     }
 
-    private async Task RunOneTurnIfNeededAsync(string threadId, CancellationToken cancellationToken)
+    private async Task RunOneTurnIfNeededAsync(string threadId, Func<string, IEventSink?>? sinkFactory, CancellationToken cancellationToken)
     {
         var gate = _gates.GetOrAdd(threadId, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -154,6 +177,12 @@ public sealed class ThreadOrchestrator : IThreadScheduler
                     ToolSchemas.ThreadRead),
             });
 
+            // Always refresh committed history from the store before executing a wake.
+            // Other threads may have appended inbox enqueues (e.g. idle notifications / enqueue delivery)
+            // directly into this thread’s committed log.
+            var committedNow = _threadStore.LoadCommittedEvents(_sessionId, threadId);
+            initial = initial with { Committed = committedNow, Buffer = TurnBuffer.Empty };
+
             // Run a single turn kicked off by wake.
             async IAsyncEnumerable<ObservedChatEvent> WakeObserved()
             {
@@ -168,7 +197,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
                 acpClient,
                 _chat,
                 _mcp,
-                logLlmPrompts: false,
+                logLlmPrompts: threadId == ThreadIds.Main && _logLlmPrompts,
                 sessionCwd: _sessionStore.TryLoadMetadata(_sessionId)?.Cwd,
                 store: _sessionStore,
                 threads: _threads,
@@ -176,7 +205,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
                 threadId: threadId);
 
             var runner = new SessionRunner(_coreOptions, titleGen, effects);
-            var sink = new ThreadEventSink(_sessionId, threadId, _threadStore);
+            var sink = sinkFactory?.Invoke(threadId) ?? new ThreadEventSink(_sessionId, threadId, _threadStore);
 
             var result = await runner.RunTurnAsync(threadId, initial, WakeObserved(), cancellationToken, sink: sink).ConfigureAwait(false);
             _states[threadId] = result.Next;
@@ -225,6 +254,9 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             Text: $"Child thread became idle. Last intent: {intent}");
 
         _threadStore.AppendCommittedEvent(_sessionId, meta.ParentThreadId, enq);
+
+        // Ensure parent gets a chance to process the notification without user interaction.
+        ScheduleRun(meta.ParentThreadId);
 
     }
 }

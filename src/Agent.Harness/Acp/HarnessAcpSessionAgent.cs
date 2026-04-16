@@ -93,10 +93,10 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         // Merge: (pre-existing tools e.g. MCP) + internal + builtins
         _state = _state with { Tools = ClientToolCatalog.Merge(_state.Tools, ClientToolCatalog.Merge(internalTools, builtins)) };
 
-        async IAsyncEnumerable<ObservedChatEvent> ObservedUserInput()
-        {
-            var userText = ExtractUserText(request);
+        var userText = ExtractUserText(request);
 
+        async IAsyncEnumerable<ObservedChatEvent> ObservedUserInput(string text)
+        {
             var now = DateTimeOffset.UtcNow.ToString("O");
             var envId = Agent.Harness.Threads.ThreadEnvelopes.NewEnvelopeId();
 
@@ -109,7 +109,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                 EnqueuedAtIso: now,
                 Source: "user",
                 SourceThreadId: null,
-                Text: userText,
+                Text: text,
                 Meta: null);
 
             // Turn boundary wake: gives the reducer a chance to dequeue+promote inbox items
@@ -137,6 +137,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                 _chat,
                 _mcp,
                 _coreOptions,
+                logLlmPrompts: _logLlmPrompts,
                 _store,
                 threadStore,
                 threads);
@@ -164,51 +165,47 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             _publishOptions,
             execute: (e, ct) => ExecuteEmissionAsync(e, turn, ct));
 
-        var result = await runner.RunTurnAsync(Agent.Harness.Threads.ThreadIds.Main, _state, ObservedUserInput(), cancellationToken, sink: sink).ConfigureAwait(false);
-        _state = result.Next;
-
-        // Global quiescence: do not end the ACP turn until the main thread AND all child threads are idle.
-        if (threads is not null)
+        // If threads aren't enabled (e.g. InMemory session store), fall back to the single-thread runner.
+        if (orchestrator is null || threadStore is null)
         {
-            for (var i = 0; i < 250; i++)
-            {
-                // Refresh main committed state from the thread store.
-                // Main is persisted as a thread; child execution may append inbox enqueues to main.
-                if (threadStore is not null)
-                {
-                    var committed = threadStore.LoadCommittedEvents(_sessionId, Agent.Harness.Threads.ThreadIds.Main);
-                    _state = _state with { Committed = committed };
-                }
-
-                // Thread status is derived from committed turn markers (TurnStarted/TurnEnded).
-
-                // Main enqueue wake: keep calling model while enqueue becomes deliverable.
-                if (threads.HasImmediateOrDeliverableEnqueue(Agent.Harness.Threads.ThreadIds.Main))
-                {
-                    async IAsyncEnumerable<ObservedChatEvent> WakeObserved()
-                    {
-                        yield return new ObservedWakeModel(Agent.Harness.Threads.ThreadIds.Main);
-                    }
-
-                    var wake = await runner.RunTurnAsync(Agent.Harness.Threads.ThreadIds.Main, _state, WakeObserved(), cancellationToken, sink: sink).ConfigureAwait(false);
-                    _state = wake.Next;
-                    continue;
-                }
-
-                // Run child threads that were scheduled by tool calls / inbox delivery.
-                if (orchestrator is not null && orchestrator.HasPendingWork)
-                {
-                    await orchestrator.RunUntilQuiescentAsync(cancellationToken).ConfigureAwait(false);
-                    continue;
-                }
-
-                // Stable: main has no deliverable enqueue and orchestrator has no queued work.
-                break;
-            }
+            var result = await runner.RunTurnAsync(Agent.Harness.Threads.ThreadIds.Main, _state, ObservedUserInput(userText), cancellationToken, sink: sink).ConfigureAwait(false);
+            _state = result.Next;
+            return new PromptResponse { StopReason = StopReason.EndTurn };
         }
 
-        // Persistence + ACP presentation is incremental via the sink.
+        // Single processing loop: delegate all thread execution (main + children) to the thread orchestrator.
+        // Main thread is just another thread; the only special-casing is projection/publishing to ACP.
 
+        // Seed orchestrator cache for main from our current session state.
+        // (Committed history is persisted in thread store; buffers should be empty at turn boundaries.)
+        var mainCommitted = threadStore.LoadCommittedEvents(_sessionId, Agent.Harness.Threads.ThreadIds.Main);
+        await orchestrator.SeedStateAsync(
+            Agent.Harness.Threads.ThreadIds.Main,
+            _state with { Committed = mainCommitted, Buffer = TurnBuffer.Empty },
+            cancellationToken).ConfigureAwait(false);
+
+        // Express user prompt as universal inbox arrival.
+        await orchestrator.ObserveAsync(
+            Agent.Harness.Threads.ThreadIds.Main,
+            new ObservedInboxMessageArrived(
+                ThreadId: Agent.Harness.Threads.ThreadIds.Main,
+                Kind: Agent.Harness.Threads.ThreadInboxMessageKind.UserPrompt,
+                Delivery: Agent.Harness.Threads.InboxDelivery.Immediate,
+                EnvelopeId: Agent.Harness.Threads.ThreadEnvelopes.NewEnvelopeId(),
+                EnqueuedAtIso: DateTimeOffset.UtcNow.ToString("O"),
+                Source: "acp",
+                SourceThreadId: null,
+                Text: userText,
+                Meta: null),
+            cancellationToken).ConfigureAwait(false);
+
+        // Drain to quiescence in ONE orchestrator loop.
+        await orchestrator.RunUntilQuiescentAsync(
+            sinkFactory: tid => tid == Agent.Harness.Threads.ThreadIds.Main ? sink : null,
+            cancellationToken).ConfigureAwait(false);
+
+        // Sync our main session state from orchestrator cache (and ensure buffer is cleared).
+        _state = orchestrator.GetStateOrEmpty(Agent.Harness.Threads.ThreadIds.Main) with { Buffer = TurnBuffer.Empty };
         return new PromptResponse { StopReason = StopReason.EndTurn };
     }
 
