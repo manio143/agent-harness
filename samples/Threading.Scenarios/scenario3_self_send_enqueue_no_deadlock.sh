@@ -6,15 +6,29 @@ SESSION="scen3-$(date +%s)"
 
 echo "[scenario3] session=$SESSION"
 
-acpx --agent "$AGENT_CMD" --timeout 180 sessions new --name "$SESSION" >/dev/null
+NEW_OUT="$(acpx --agent "$AGENT_CMD" --timeout 180 sessions new --name "$SESSION")"
+SESSION_ID="$(echo "$NEW_OUT" | sed -n 's/.*(\([0-9a-f-]\{36\}\)).*/\1/p' | tail -n 1)"
+if [[ -z "$SESSION_ID" ]]; then
+  SESSION_ID="$(echo "$NEW_OUT" | tr -d '[:space:]')"
+fi
+
+if [[ ! "$SESSION_ID" =~ ^[0-9a-f-]{36}$ ]]; then
+  echo "Failed to parse session id from: $NEW_OUT" >&2
+  exit 1
+fi
+
+echo "[scenario3] sessionId=$SESSION_ID"
 
 # Turn 1: self-send enqueue (historical deadlock class)
 acpx --agent "$AGENT_CMD" --timeout 180 prompt -s "$SESSION" \
   'Call thread_send targeting threadId="main" with delivery="enqueue" and message="PING".
-Then continue and print exactly: AFTER_PING'
+Do NOT call any other tool in the same message.
+After the tool completes, print exactly: AFTER_PING'
 
 echo "---"
 
 # Turn 2: ensure tools still work in same session (catalog stability)
 acpx --agent "$AGENT_CMD" --timeout 180 prompt -s "$SESSION" \
-  'Now call thread_list and tell me the intent for the main thread. Then print exactly: DONE'
+  'Call thread_list.
+Then tell me the intent for the main thread.
+Finally print exactly: DONE'
