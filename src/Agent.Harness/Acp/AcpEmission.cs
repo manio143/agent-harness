@@ -87,27 +87,12 @@ public static class AcpProjection
                     new AcpToolCallFailed(rejected.ToolId, msg));
             }
 
-            case ThreadInboxMessageEnqueued enq:
-                return ImmutableArray.Create<AcpEmission>(new AcpSendCustomUpdate(new Dictionary<string, object?>
-                {
-                    ["kind"] = "thread_inbox_message_enqueued",
-                    ["threadId"] = enq.ThreadId,
-                    ["envelopeId"] = enq.EnvelopeId,
-                    ["source"] = enq.Source,
-                    ["sourceThreadId"] = enq.SourceThreadId,
-                    ["delivery"] = enq.Delivery,
-                    ["enqueuedAtIso"] = enq.EnqueuedAtIso,
-                    ["text"] = enq.Text,
-                }));
-
-            case ThreadInboxMessageDequeued del:
-                return ImmutableArray.Create<AcpEmission>(new AcpSendCustomUpdate(new Dictionary<string, object?>
-                {
-                    ["kind"] = "thread_inbox_message_dequeued",
-                    ["threadId"] = del.ThreadId,
-                    ["envelopeId"] = del.EnvelopeId,
-                    ["dequeuedAtIso"] = del.DequeuedAtIso,
-                }));
+            // Thread inbox events are internal engine details; do not publish them over ACP.
+            // (Real ACP clients such as `acpx` validate `session/update` payloads strictly and will reject
+            // unrecognized update kinds.)
+            case ThreadInboxMessageEnqueued:
+            case ThreadInboxMessageDequeued:
+                return ImmutableArray<AcpEmission>.Empty;
 
             // Turn markers and other internal state are not projected to ACP.
             case TurnStarted:

@@ -1,0 +1,12 @@
+[build] Building Agent.Server (Release)
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Agent.Acp -> /home/node/.openclaw/workspace/marian-agent/src/Agent.Acp/bin/Release/net8.0/Agent.Acp.dll
+  Agent.Harness -> /home/node/.openclaw/workspace/marian-agent/src/Agent.Harness/bin/Release/net8.0/Agent.Harness.dll
+  Agent.Server -> /home/node/.openclaw/workspace/marian-agent/src/Agent.Server/bin/Release/net8.0/Agent.Server.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:09.26
