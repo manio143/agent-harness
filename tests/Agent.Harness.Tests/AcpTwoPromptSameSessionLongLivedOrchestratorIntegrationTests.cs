@@ -9,7 +9,7 @@ namespace Agent.Harness.Tests;
 
 public sealed class AcpTwoPromptSameSessionLongLivedOrchestratorIntegrationTests
 {
-    private sealed class TwoPromptChatClient : Microsoft.Extensions.AI.IChatClient
+    internal sealed class TwoPromptChatClient : Microsoft.Extensions.AI.IChatClient
     {
         private int _calls;
         public string? LastSecondPromptText { get; private set; }
@@ -39,19 +39,19 @@ public sealed class AcpTwoPromptSameSessionLongLivedOrchestratorIntegrationTests
         public void Dispose() { }
     }
 
-    private sealed class NullClientCaller : IAcpClientCaller
+    internal sealed class NullClientCaller : IAcpClientCaller
     {
         public ClientCapabilities ClientCapabilities { get; } = new() { Fs = new FileSystemCapabilities() };
         public Task<TResponse> RequestAsync<TRequest, TResponse>(string method, TRequest request, CancellationToken cancellationToken = default)
             => throw new NotImplementedException(method);
     }
 
-    private sealed class NullSessionEvents : IAcpSessionEvents
+    internal sealed class NullSessionEvents : IAcpSessionEvents
     {
         public Task SendSessionUpdateAsync(object update, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
-    private sealed class NullPromptTurn : IAcpPromptTurn
+    internal sealed class NullPromptTurn : IAcpPromptTurn
     {
         public IAcpToolCalls ToolCalls { get; } = new NullToolCalls();
 
