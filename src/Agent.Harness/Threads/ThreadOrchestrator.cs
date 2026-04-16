@@ -99,22 +99,20 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         throw new InvalidOperationException("thread_orchestrator_quiescence_loop_limit_exceeded");
     }
 
-    public async Task SeedStateAsync(string threadId, SessionState state, CancellationToken cancellationToken = default)
+    public async Task SeedToolsAsync(string threadId, ImmutableArray<ToolDefinition> tools, CancellationToken cancellationToken = default)
     {
         var gate = _gates.GetOrAdd(threadId, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            _states[threadId] = state;
+            var existing = _states.TryGetValue(threadId, out var s) ? s : SessionState.Empty;
+            _states[threadId] = existing with { Tools = tools };
         }
         finally
         {
             gate.Release();
         }
     }
-
-    public SessionState GetStateOrEmpty(string threadId)
-        => _states.TryGetValue(threadId, out var s) ? s : SessionState.Empty;
 
     public async Task ObserveAsync(string threadId, ObservedChatEvent observed, CancellationToken cancellationToken = default)
     {
