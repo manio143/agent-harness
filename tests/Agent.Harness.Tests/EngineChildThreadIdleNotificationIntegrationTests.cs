@@ -1,14 +1,10 @@
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using Agent.Acp.Acp;
 using Agent.Acp.Schema;
-using Agent.Acp.Tests;
-using Agent.Acp.Protocol;
 using Agent.Harness.Acp;
 using Agent.Harness.Persistence;
 using Agent.Harness.Threads;
 using FluentAssertions;
-using System.Collections.Immutable;
 
 using MeaiIChatClient = Microsoft.Extensions.AI.IChatClient;
 using MeaiChatMessage = Microsoft.Extensions.AI.ChatMessage;
@@ -21,117 +17,67 @@ using MeaiTextContent = Microsoft.Extensions.AI.TextContent;
 
 namespace Agent.Harness.Tests;
 
-public sealed class AcpChildThreadIdleNotificationIntegrationTests
+/// <summary>
+/// Engine-seam migration of <see cref="AcpChildThreadIdleNotificationIntegrationTests"/>.
+/// Validates the causal ordering: child follow-up enqueue happens before the parent idle notification enqueue.
+/// </summary>
+public sealed class EngineChildThreadIdleNotificationIntegrationTests
 {
-    [Fact(Skip = "Migrated to EngineChildThreadIdleNotificationIntegrationTests (engine seam, no JSON-RPC transport)")]
+    [Fact]
     public async Task ChildIdleNotification_IsEnqueuedOnlyAfterChildConsumesPendingEnqueue()
     {
-        var (clientTransport, serverTransport) = InMemoryTransport.CreatePair();
+        var sessionId = "ses_child_idle_notify";
+        var root = Path.Combine(Path.GetTempPath(), "harness-engine-child-idle-notify-tests", Guid.NewGuid().ToString("N"));
 
-        var factory = new Factory();
-        var server = new AcpAgentServer(factory);
+        var store = new JsonlSessionStore(root);
+        store.CreateNew(sessionId, new SessionMetadata(
+            SessionId: sessionId,
+            Cwd: "/tmp",
+            Title: "",
+            CreatedAtIso: "t0",
+            UpdatedAtIso: "t1"));
+
+        var threadStore = new JsonlThreadStore(root);
+        var chat = new ScriptedMeaiChatClient();
+
+        var agent = new HarnessAcpSessionAgent(
+            sessionId,
+            client: new AcpTwoPromptSameSessionLongLivedOrchestratorIntegrationTests.NullClientCaller(),
+            chat,
+            events: new AcpTwoPromptSameSessionLongLivedOrchestratorIntegrationTests.NullSessionEvents(),
+            coreOptions: new Agent.Harness.CoreOptions { CommitAssistantTextDeltas = true },
+            publishOptions: new Agent.Harness.Acp.AcpPublishOptions(PublishReasoning: false),
+            store,
+            initialState: Agent.Harness.SessionState.Empty);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var serverTask = Task.Run(() => server.RunAsync(serverTransport, cts.Token), cts.Token);
-
-        await using var client = new AcpClientConnection(clientTransport);
-
-        client.RequestHandler = (req, _) => throw new InvalidOperationException($"Unexpected request: {req.Method}");
-
-        _ = await client.RequestAsync<InitializeRequest, InitializeResponse>(
-            "initialize",
-            new InitializeRequest
-            {
-                ProtocolVersion = 1,
-                ClientInfo = new ClientInfo { AdditionalProperties = new Dictionary<string, object> { ["name"] = "test", ["version"] = "0" } },
-                ClientCapabilities = new ClientCapabilities { Fs = new FileSystemCapabilities() },
-            },
-            cts.Token);
-
-        var newSession = await client.RequestAsync<NewSessionRequest, NewSessionResponse>(
-            "session/new",
-            new NewSessionRequest { Cwd = "/tmp", McpServers = new List<McpServer>() },
-            cts.Token);
 
         // Prompt 1: create child + enqueue follow-up message.
-        _ = await client.RequestAsync<PromptRequest, PromptResponse>(
-            "session/prompt",
+        _ = await agent.PromptAsync(
             new PromptRequest
             {
-                SessionId = newSession.SessionId,
+                SessionId = sessionId,
                 Prompt = new List<ContentBlock> { new TextContent { Text = "Hi" } },
             },
+            new AcpTwoPromptSameSessionLongLivedOrchestratorIntegrationTests.NullPromptTurn(),
             cts.Token);
 
-        // Assert via committed logs (source of truth).
-        factory.Chat.LastChildThreadId.Should().NotBeNull();
-        var childId = factory.Chat.LastChildThreadId!;
+        chat.LastChildThreadId.Should().NotBeNull();
+        var childId = chat.LastChildThreadId!;
 
         // Followup was enqueued to the child thread.
-        var childEvts = factory.ThreadStore!.LoadCommittedEvents("ses_child_idle_notify", childId);
+        var childEvts = threadStore.LoadCommittedEvents(sessionId, childId);
         var followup = childEvts
             .OfType<ThreadInboxMessageEnqueued>()
             .Single(e => e.Text.Contains("enqueue followup", StringComparison.Ordinal));
 
         // Idle notification was enqueued to the parent (main) via the parent thread committed log.
-        var parentEvts = factory.ThreadStore!.LoadCommittedEvents("ses_child_idle_notify", ThreadIds.Main);
+        var parentEvts = threadStore.LoadCommittedEvents(sessionId, ThreadIds.Main);
         var idle = parentEvts
             .OfType<ThreadInboxMessageEnqueued>()
             .Single(e => e.Text.Contains("became idle", StringComparison.Ordinal));
 
         DateTimeOffset.Parse(followup.EnqueuedAtIso).Should().BeBefore(DateTimeOffset.Parse(idle.EnqueuedAtIso));
-
-        cts.Cancel();
-        try { await serverTask; } catch { }
-    }
-
-    private sealed class Factory : IAcpAgentFactory
-    {
-        public ScriptedMeaiChatClient Chat { get; } = new();
-        public JsonlSessionStore? SessionStore { get; private set; }
-        public JsonlThreadStore? ThreadStore { get; private set; }
-
-        public Task<InitializeResponse> InitializeAsync(InitializeRequest request, CancellationToken cancellationToken)
-            => Task.FromResult(new InitializeResponse
-            {
-                ProtocolVersion = request.ProtocolVersion,
-                AgentInfo = new AgentInfo { AdditionalProperties = new Dictionary<string, object> { ["name"] = "harness-test-agent", ["version"] = "0" } },
-                AgentCapabilities = new AgentCapabilities { PromptCapabilities = new PromptCapabilities(), LoadSession = false },
-                AuthMethods = new List<AuthMethod>(),
-            });
-
-        public Task<NewSessionResponse> NewSessionAsync(NewSessionRequest request, CancellationToken cancellationToken)
-            => Task.FromResult(new NewSessionResponse { SessionId = "ses_child_idle_notify", Modes = null, ConfigOptions = new List<SessionConfigOption>() });
-
-        public IAcpSessionAgent CreateSessionAgent(string sessionId, IAcpClientCaller client, IAcpSessionEvents events)
-        {
-            var rootDir = Path.Combine(Path.GetTempPath(), "harness-acp-child-idle-notify-tests", Guid.NewGuid().ToString("N"));
-            var store = new JsonlSessionStore(rootDir);
-            SessionStore = store;
-            ThreadStore = new JsonlThreadStore(rootDir);
-            store.CreateNew(sessionId, new SessionMetadata(
-                SessionId: sessionId,
-                Cwd: "/tmp",
-                Title: "",
-                CreatedAtIso: "2026-04-12T00:00:00Z",
-                UpdatedAtIso: "2026-04-12T00:00:00Z"));
-
-            var coreOptions = new CoreOptions { CommitAssistantTextDeltas = true };
-            var publishOptions = new AcpPublishOptions(PublishReasoning: false);
-
-            var initialState = SessionState.Empty with
-            {
-                Tools = ImmutableArray.Create(
-                    ToolSchemas.ReportIntent,
-                    ToolSchemas.ThreadList,
-                    ToolSchemas.ThreadNew,
-                    ToolSchemas.ThreadFork,
-                    ToolSchemas.ThreadSend,
-                    ToolSchemas.ThreadRead),
-            };
-
-            return new HarnessAcpSessionAgent(sessionId, client, Chat, events, coreOptions, publishOptions, store, initialState);
-        }
     }
 
     private sealed class ScriptedMeaiChatClient : MeaiIChatClient
@@ -174,6 +120,7 @@ public sealed class AcpChildThreadIdleNotificationIntegrationTests
                         new MeaiFunctionCallContent("call_mhi_1", "thread_new", new Dictionary<string, object?> { ["message"] = "do work", ["delivery"] = "immediate" }),
                     }
                 };
+                await Task.CompletedTask;
             }
 
             async IAsyncEnumerable<MeaiChatResponseUpdate> MainHi_Tools_SendEnqueueFollowup()
@@ -195,6 +142,7 @@ public sealed class AcpChildThreadIdleNotificationIntegrationTests
                         new MeaiFunctionCallContent("call_mhi2_1", "thread_send", new Dictionary<string, object?> { ["threadId"] = childId, ["message"] = "enqueue followup", ["delivery"] = "enqueue" }),
                     }
                 };
+                await Task.CompletedTask;
             }
 
             async IAsyncEnumerable<MeaiChatResponseUpdate> MainHi_Text()
@@ -204,6 +152,7 @@ public sealed class AcpChildThreadIdleNotificationIntegrationTests
                 {
                     Contents = new List<MeaiAIContent> { new MeaiTextContent("Ok") },
                 };
+                await Task.CompletedTask;
             }
 
             async IAsyncEnumerable<MeaiChatResponseUpdate> Child_Text()
@@ -212,6 +161,7 @@ public sealed class AcpChildThreadIdleNotificationIntegrationTests
                 {
                     Contents = new List<MeaiAIContent> { new MeaiTextContent("ChildRun") },
                 };
+                await Task.CompletedTask;
             }
 
             if (isChild)
@@ -234,8 +184,5 @@ public sealed class AcpChildThreadIdleNotificationIntegrationTests
         public object? GetService(Type serviceType, object? serviceKey = null) => null;
 
         public void Dispose() { }
-
-        public Task<string> CompleteAsync(IReadOnlyList<MeaiChatMessage> renderedMessages, CancellationToken cancellationToken)
-            => Task.FromResult("");
     }
 }
