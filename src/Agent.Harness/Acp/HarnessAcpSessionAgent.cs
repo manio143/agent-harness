@@ -147,7 +147,17 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         var effects = new AcpEffectExecutor(_sessionId, _client, _chat, _mcp, _logLlmPrompts, sessionCwd: sessionCwd, store: _store, threads: threads, scheduler: scheduler, threadId: Agent.Harness.Threads.ThreadIds.Main);
         var runner = new SessionRunner(_coreOptions, titleGen, effects);
 
-        var persist = new Agent.Harness.Persistence.JsonlEventSink(_sessionId, _store, logObserved: _logObservedEvents);
+        // Main thread is just another thread: persist committed events into the thread store when available.
+        IEventSink persist;
+        if (threadStore is not null)
+        {
+            persist = new Agent.Harness.Threads.MainThreadEventSink(_sessionId, threadStore, _store, logObserved: _logObservedEvents);
+        }
+        else
+        {
+            persist = new Agent.Harness.Persistence.JsonlEventSink(_sessionId, _store, logObserved: _logObservedEvents);
+        }
+
         var sink = new AcpProjectingEventSink(
             persist,
             _coreOptions,
