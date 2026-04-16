@@ -23,170 +23,35 @@
 
 ---
 
-## 🚨 Critical: ThreadOrchestrator State Race Condition
+## ✅ Correctness: ThreadOrchestrator.Observe race (FIXED)
 
-### Location
-`src/Agent.Harness/Threads/ThreadOrchestrator.cs` lines 96-119
+### What was wrong
+`ThreadOrchestrator.Observe(...)` used to mutate the in-memory `_states[threadId]` cache without acquiring the per-thread execution gate. That allowed concurrent `Observe(...)` + `RunOneTurnIfNeededAsync(...)` to clobber cache state.
 
-### Problem
-```csharp
-public void Observe(string threadId, ObservedChatEvent observed)
-{
-    var initial = _states.GetOrAdd(threadId, _ => SessionState.Empty with { ... });
-    
-    var reduced = Core.Reduce(initial, observed);
-    
-    foreach (var evt in reduced.NewlyCommitted)
-        _threadStore.AppendCommittedEvent(_sessionId, threadId, evt);
-    
-    _states[threadId] = reduced.Next;  // ⚠️ RACE HERE!
-    
-    if (reduced.Effects.Any(e => e is CallModel))
-        ScheduleRun(threadId);
-}
-```
+### Current status
+**Fixed in code**: `Observe(...)` now acquires the same per-thread `SemaphoreSlim` gate before reading/updating `_states`.
 
-**Race scenario:**
-1. Thread A calls `Observe(thr_x, evt1)` → reads `_states[thr_x]` = S₀
-2. Thread B calls `RunOneTurnIfNeededAsync(thr_x)` → reads `_states[thr_x]` = S₀ (gate held)
-3. Thread A reduces evt1 → writes `_states[thr_x]` = S₁
-4. Thread B completes turn → writes `_states[thr_x]` = S₂ (derived from S₀, not S₁)
-5. **Result:** evt1's state update is lost!
+- File: `src/Agent.Harness/Threads/ThreadOrchestrator.cs`
+- Behavior: cache updates are now **linearizable per thread**
 
-### Impact
-- **Lost events** when Observe() is called concurrently with turn execution
-- Events still persisted to disk (AppendCommittedEvent), but in-memory state diverges
-- Subsequent turns may see stale state
+### Test coverage
+A dedicated concurrency regression test exists:
+- `tests/Agent.Harness.Tests/ThreadOrchestratorObserveConcurrencyTests.cs`
 
-### Fix Options
-
-#### Option A: Extend gate to Observe (recommended)
-```csharp
-public void Observe(string threadId, ObservedChatEvent observed)
-{
-    var gate = _gates.GetOrAdd(threadId, _ => new SemaphoreSlim(1, 1));
-    gate.Wait();  // or make Observe async with WaitAsync
-    try
-    {
-        var initial = _states.GetOrAdd(threadId, _ => SessionState.Empty with { ... });
-        var reduced = Core.Reduce(initial, observed);
-        
-        foreach (var evt in reduced.NewlyCommitted)
-            _threadStore.AppendCommittedEvent(_sessionId, threadId, evt);
-        
-        _states[threadId] = reduced.Next;
-        
-        if (reduced.Effects.Any(e => e is CallModel))
-            ScheduleRun(threadId);
-    }
-    finally
-    {
-        gate.Release();
-    }
-}
-```
-
-**Pros:**
-- Simple, consistent with existing pattern
-- Guarantees sequential state evolution per thread
-
-**Cons:**
-- Makes `Observe()` synchronous-wait on gate (blocking)
-- Better to make it async: `Task ObserveAsync(...)`
-
-#### Option B: Rebuild state from committed log (functional purity)
-```csharp
-public void Observe(string threadId, ObservedChatEvent observed)
-{
-    // Don't cache state at all; always rebuild from committed events.
-    var committed = _threadStore.LoadCommittedEvents(_sessionId, threadId);
-    var initial = ReplayCommittedEvents(committed);  // pure rebuild
-    
-    var reduced = Core.Reduce(initial, observed);
-    
-    var gate = _gates.GetOrAdd(threadId, _ => new SemaphoreSlim(1, 1));
-    gate.Wait();
-    try
-    {
-        foreach (var evt in reduced.NewlyCommitted)
-            _threadStore.AppendCommittedEvent(_sessionId, threadId, evt);
-    }
-    finally
-    {
-        gate.Release();
-    }
-    
-    // No in-memory state caching; read it back on-demand.
-    if (reduced.Effects.Any(e => e is CallModel))
-        ScheduleRun(threadId);
-}
-```
-
-**Pros:**
-- Functionally pure: state is always derived from log (single source of truth)
-- Eliminates state caching race entirely
-
-**Cons:**
-- Performance: replaying N events on every Observe call
-- For long threads (100s of turns), this could be expensive
-
-#### Option C: Hybrid - CoW (Copy-on-Write) state updates
-Use `ImmutableInterlocked.Update` pattern:
-```csharp
-ImmutableInterlocked.Update(ref _states, (dict, ctx) => 
-{
-    var (threadId, observed) = ctx;
-    var initial = dict.GetValueOrDefault(threadId, SessionState.Empty with { ... });
-    var reduced = Core.Reduce(initial, observed);
-    return dict.SetItem(threadId, reduced.Next);
-}, (threadId, observed));
-```
-
-**Pros:**
-- Lock-free, wait-free
-- Preserves in-memory cache performance
-
-**Cons:**
-- More complex
-- Still need to gate `AppendCommittedEvent` writes
-
-### Recommendation
-**Go with Option A (extend gate), but make Observe async.**
-
-Change signature:
-```csharp
-public async Task ObserveAsync(string threadId, ObservedChatEvent observed, CancellationToken ct = default)
-```
-
-Callers become:
-```csharp
-await orchestrator.ObserveAsync(threadId, evt, cancellationToken);
-```
-
-This is the **smallest change** with **clearest correctness guarantees**.
+### Follow-up (optional)
+If we ever need to eliminate synchronous blocking, we can introduce `ObserveAsync(...)` and use `WaitAsync`, but that’s not necessary for correctness right now.
 
 ---
 
-## 🧹 Dead Code Removal
+## ✅ Cleanup: Dead Code Removal (DONE)
 
-### 1. IEventLog + InMemoryEventLog
+### IEventLog + InMemoryEventLog
 
 **Location:** `src/Agent.Harness/IEventLog.cs`
 
-**Status:** ✅ Confirmed dead
-- Only referenced in its own file
-- No usages in `src/` or `tests/`
-- Comment says "Legacy mutable log interface (will likely be removed)"
+**Status:** ✅ Removed (no remaining usages).
 
-**Action:**
-```bash
-rm src/Agent.Harness/IEventLog.cs
-```
-
-**Test:** Run full test suite to confirm no hidden dependencies:
-```bash
-dotnet test MarianAgent.slnx -c Release
-```
+**Test:** `dotnet test Agent.slnx -c Release` is green.
 
 ---
 
@@ -284,53 +149,49 @@ public async Task MultipleParents_EnqueueToSameChild_AllMessagesDelivered()
 
 ---
 
-## 🔧 Concrete TODOs (Prioritized)
+## 🔧 Concrete Next Steps (Prioritized)
 
-### Priority 1: Correctness (Must-Have)
+### P0 — MVP ACP protocol contracts (non-negotiable)
 
-- [ ] **Fix ThreadOrchestrator.Observe race condition**
-  - Make `Observe` async: `Task ObserveAsync(...)`
-  - Acquire per-thread gate before state mutation
-  - Update all callers (AcpEffectExecutor, tests)
-  - **Estimated effort:** 2-3 hours
-  - **Risk:** Low (mechanical refactor)
+These are the next most valuable items because they lock the “wire contract” with ACP clients.
 
-- [ ] **Add concurrency test for Observe**
-  - `ThreadOrchestratorConcurrencyTests.cs`
-  - Concurrent Observe + turn execution
-  - Verify no lost state updates
-  - **Estimated effort:** 1-2 hours
+- [ ] **Initialize contract: exact meta.json fields + capability negotiation**
+  - Add/strengthen tests ensuring `initialize` response matches the schema/meta contract precisely.
+  - Validate protocol versioning + capability defaults (what is omitted vs present).
+  - (You already called this out as MVP-non-negotiable.)
 
-### Priority 2: Cleanup (Nice-to-Have)
+- [ ] **“Streaming-ish prompt” contract**
+  - Tests that a prompt turn can emit multiple interleaved `session/update` chunks,
+    then returns a final `PromptResponse` with `stopReason=end_turn`.
+  - Ensure ordering: updates first, final response last.
 
-- [ ] **Remove IEventLog dead code**
-  - Delete `src/Agent.Harness/IEventLog.cs`
-  - Run full test suite to verify
-  - **Estimated effort:** 5 minutes
-  - **Risk:** Near-zero
+### P1 — Concurrency hardening (optional but cheap insurance)
 
-- [ ] **Rename legacy test file**
-  - `AcpEffectExecutorThreadToolLegacyPathTests.cs` → still valid!
-  - Actually tests that legacy path is **removed** (throws instead of using old API)
-  - **Action:** No rename needed; update comment to clarify intent
-  - **Estimated effort:** 2 minutes
+- [ ] **Stress-ish test: many concurrent Observe() across multiple threads**
+  - Goal: ensure we never lose committed inbox enqueues and promotion remains deterministic.
+  - Focus on asserting committed logs rather than internal cache state.
 
-### Priority 3: Hardening (Optional)
+- [ ] **Make Observe async (optional)**
+  - Only if we want to avoid synchronous blocking on the gate.
+  - Not required for correctness (current gated Observe is correct).
 
-- [ ] **Add multi-threaded inbox stress test**
-  - Multiple threads enqueuing to same child
-  - Verify all messages delivered + processed
-  - **Estimated effort:** 1 hour
+### P2 — Tool-calling ergonomics / completeness
 
-- [ ] **Consider making ThreadManager methods async**
-  - `CreateChildThread`, `ForkChildThread`, `ReportIntent`
-  - Would allow async file I/O in JsonlThreadStore
-  - **Estimated effort:** 2-3 hours
-  - **Benefit:** Low (current sync I/O is fine for JSONL appends)
+- [ ] **Incremental tool-call parsing (multi-chunk FunctionCallContent)**
+  - Build a small assembler (toolId → {name?, argsBuffer}) at the MEAI adapter boundary.
+  - Keep the reducer contract unchanged (still emits ObservedToolCallDetected when complete).
+
+### P3 — Minor hygiene
+
+- [ ] **Fix nullable warnings in a few Acp MCP tests**
+  - `tests/Agent.Acp.Tests/AcpMcpRehydrate*Tests.cs` has CS8602 warnings.
+  - Not failing today, but worth cleaning to keep -warnaserror viable.
 
 ---
 
-## 📝 One TODO Comment Found
+## 📝 TODO Inventory (Still Relevant)
+
+### 1) Multi-chunk tool-call streaming
 
 **Location:** `src/Agent.Harness/Llm/MeaiToolCallParser.cs:21`
 
@@ -338,11 +199,21 @@ public async Task MultipleParents_EnqueueToSameChild_AllMessagesDelivered()
 // TODO(tool-calls): Handle multi-chunk / incremental FunctionCallContent updates.
 ```
 
-**Context:** Some LLM providers stream tool calls in multiple chunks (args arriving incrementally). Currently treats each `FunctionCallContent` as complete.
+**Context:** Some providers stream tool calls in multiple chunks (e.g. name appears once, args arrive as deltas).
 
-**Impact:** Low (works for current providers)  
-**Effort:** Medium (requires streaming tool-call state machine)  
-**Priority:** Defer until multi-chunk provider is added
+**Impact:** Medium (provider-dependent)  
+**Effort:** Medium (needs a small incremental assembler / state machine)  
+**Priority:** P2 unless/until we target a provider that requires it.
+
+### 2) Generated schema note (non-blocking)
+
+**Location:** `src/Agent.Acp/Generated/AcpSchema.g.cs` (generated)
+
+```csharp
+// TODO(system.text.json): Add string enum item converter
+```
+
+**Priority:** Ignore unless it becomes a real bug; treat as upstream generator noise.
 
 ---
 
