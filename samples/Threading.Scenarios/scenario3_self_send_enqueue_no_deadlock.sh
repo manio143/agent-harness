@@ -6,7 +6,7 @@ SESSION="scen3-$(date +%s)"
 
 echo "[scenario3] session=$SESSION"
 
-NEW_OUT="$(acpx --agent "$AGENT_CMD" --timeout 180 sessions new --name "$SESSION")"
+NEW_OUT="$(acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" sessions new --name "$SESSION")"
 SESSION_ID="$(echo "$NEW_OUT" | sed -n 's/.*(\([0-9a-f-]\{36\}\)).*/\1/p' | tail -n 1)"
 if [[ -z "$SESSION_ID" ]]; then
   SESSION_ID="$(echo "$NEW_OUT" | tr -d '[:space:]')"
@@ -20,15 +20,16 @@ fi
 echo "[scenario3] sessionId=$SESSION_ID"
 
 # Turn 1: self-send enqueue (historical deadlock class)
-acpx --agent "$AGENT_CMD" --timeout 180 prompt -s "$SESSION" \
-  'Call thread_send targeting threadId="main" with delivery="enqueue" and message="PING".
-Do NOT call any other tool in the same message.
+acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+  'Call tool report_intent with arguments: {"intent":"self enqueue"}.
+Then call tool thread_send with arguments: {"threadId":"main","delivery":"enqueue","message":"PING"}.
 After the tool completes, print exactly: AFTER_PING'
 
 echo "---"
 
 # Turn 2: ensure tools still work in same session (catalog stability)
-acpx --agent "$AGENT_CMD" --timeout 180 prompt -s "$SESSION" \
-  'Call thread_list.
+acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+  'Call tool report_intent with arguments: {"intent":"list threads"}.
+Then call tool thread_list with arguments: {}.
 Then tell me the intent for the main thread.
 Finally print exactly: DONE'

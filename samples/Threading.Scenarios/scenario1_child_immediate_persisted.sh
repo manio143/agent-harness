@@ -6,7 +6,7 @@ SESSION="scen1-$(date +%s)"
 
 echo "[scenario1] session=$SESSION"
 
-NEW_OUT="$(acpx --agent "$AGENT_CMD" --timeout 180 sessions new --name "$SESSION")"
+NEW_OUT="$(acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" sessions new --name "$SESSION")"
 SESSION_ID="$(echo "$NEW_OUT" | sed -n 's/.*(\([0-9a-f-]\{36\}\)).*/\1/p' | tail -n 1)"
 if [[ -z "$SESSION_ID" ]]; then
   # Some acpx builds print just the UUID.
@@ -21,8 +21,9 @@ fi
 echo "[scenario1] sessionId=$SESSION_ID"
 
 # Turn 1: create child.
-acpx --agent "$AGENT_CMD" --timeout 240 prompt -s "$SESSION" \
-  'Call thread_new with delivery="immediate" and message: "Explain how the tool catalog acts as the permission boundary in this harness".'
+acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+  'Call tool report_intent with arguments: {"intent":"create child"}.
+Then call tool thread_new with arguments: {"delivery":"immediate","message":"Explain how the tool catalog acts as the permission boundary in this harness"}.'
 
 # Grab the child thread id from the persisted thread store.
 THREADS_DIR=".agent/sessions/$SESSION_ID/threads"
@@ -50,5 +51,7 @@ echo "[scenario1] childThreadId=$CHILD_ID"
 echo "---"
 
 # Turn 2: read child explicitly.
-acpx --agent "$AGENT_CMD" --timeout 240 prompt -s "$SESSION" \
-  "Call thread_read with threadId=\"$CHILD_ID\" and then paste the child assistant message text verbatim."
+acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+  "Call tool report_intent with arguments: {\"intent\":\"read child\"}.
+Then call tool thread_read with arguments: {\"threadId\":\"$CHILD_ID\"}.
+Then paste the child assistant message text verbatim."

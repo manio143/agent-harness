@@ -6,7 +6,7 @@ SESSION="scen2-$(date +%s)"
 
 echo "[scenario2] session=$SESSION"
 
-NEW_OUT="$(acpx --agent "$AGENT_CMD" --timeout 180 sessions new --name "$SESSION")"
+NEW_OUT="$(acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" sessions new --name "$SESSION")"
 SESSION_ID="$(echo "$NEW_OUT" | sed -n 's/.*(\([0-9a-f-]\{36\}\)).*/\1/p' | tail -n 1)"
 if [[ -z "$SESSION_ID" ]]; then
   SESSION_ID="$(echo "$NEW_OUT" | tr -d '[:space:]')"
@@ -20,8 +20,9 @@ fi
 echo "[scenario2] sessionId=$SESSION_ID"
 
 # Turn 1: create child.
-acpx --agent "$AGENT_CMD" --timeout 240 prompt -s "$SESSION" \
-  'Call thread_new with delivery="immediate" and message: "Say READY".'
+acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+  'Call tool report_intent with arguments: {"intent":"create child"}.
+Then call tool thread_new with arguments: {"delivery":"immediate","message":"Say READY"}.'
 
 THREADS_DIR=".agent/sessions/$SESSION_ID/threads"
 
@@ -46,14 +47,17 @@ echo "[scenario2] childThreadId=$CHILD_ID"
 echo "---"
 
 # Turn 2: enqueue follow-up to the child.
-acpx --agent "$AGENT_CMD" --timeout 240 prompt -s "$SESSION" \
-  "Call thread_send with threadId=\"$CHILD_ID\" delivery=\"enqueue\" message=\"Now say CONSUMED\". Then say ENQUEUED_OK."
+acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+  "Call tool report_intent with arguments: {\"intent\":\"enqueue followup\"}.
+Then call tool thread_send with arguments: {\"threadId\":\"$CHILD_ID\",\"delivery\":\"enqueue\",\"message\":\"Now say CONSUMED\"}.
+Then say ENQUEUED_OK."
 
 echo "---"
 
 # Turn 3: wait for idle notification and summarize.
-acpx --agent "$AGENT_CMD" --timeout 240 prompt -s "$SESSION" \
-  'Wait until you receive the child idle notification in main. Then summarize what happened in 2 bullet points.'
+acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+  'Call tool report_intent with arguments: {"intent":"await idle"}.
+Wait until you receive the child idle notification in main. Then summarize what happened in 2 bullet points.'
 
 # Tip for manual inspection (not asserted here):
 # - committed logs live under src/Agent.Server/.agent/sessions (see appsettings.json)

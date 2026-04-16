@@ -14,6 +14,9 @@ dotnet build src/Agent.Server/Agent.Server.csproj -c Release | tee -a "$OUT_DIR/
 
 AGENT_CMD="dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll"
 
+# Default ACP timeouts (seconds) for acpx calls in scenarios.
+: "${ACP_TIMEOUT:=600}"
+
 # Make RPC logging opt-in (can be noisy). Set to true in environment to debug.
 : "${LOG_RPC:=false}"
 if [[ "$LOG_RPC" == "true" ]]; then
