@@ -176,12 +176,13 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         // Single processing loop: delegate all thread execution (main + children) to the thread orchestrator.
         // Main thread is just another thread; the only special-casing is projection/publishing to ACP.
 
-        // Seed orchestrator cache for main from our current session state.
-        // (Committed history is persisted in thread store; buffers should be empty at turn boundaries.)
+        // Seed orchestrator cache for main.
+        // Source of truth for committed history is the thread store; ACP layer state is a view/cache.
+        // We *do* seed the tool catalog, since it is the permission boundary for runnable tools.
         var mainCommitted = threadStore.LoadCommittedEvents(_sessionId, Agent.Harness.Threads.ThreadIds.Main);
         await orchestrator.SeedStateAsync(
             Agent.Harness.Threads.ThreadIds.Main,
-            _state with { Committed = mainCommitted, Buffer = TurnBuffer.Empty },
+            SessionState.Empty with { Committed = mainCommitted, Tools = _state.Tools, Buffer = TurnBuffer.Empty },
             cancellationToken).ConfigureAwait(false);
 
         // Express user prompt as universal inbox arrival.
