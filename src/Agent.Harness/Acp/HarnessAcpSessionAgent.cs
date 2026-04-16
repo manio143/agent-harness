@@ -183,7 +183,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                 // Thread status is derived from committed turn markers (TurnStarted/TurnEnded).
 
                 // Main enqueue wake: keep calling model while enqueue becomes deliverable.
-                if (threads.HasDeliverableEnqueueNow(Agent.Harness.Threads.ThreadIds.Main))
+                if (threads.HasImmediateOrDeliverableEnqueue(Agent.Harness.Threads.ThreadIds.Main))
                 {
                     async IAsyncEnumerable<ObservedChatEvent> WakeObserved()
                     {

@@ -175,9 +175,13 @@ public static class Core
             {
                 var (next, newly) = PromotePendingInbox(state, wake.ThreadId);
 
-                // Only call the model if the wake actually produced a message that requires a model response.
-                // ThreadIdleNotification is informational and should not trigger a model call.
-                var shouldCallModel = newly.Any(e => e is UserMessage or InterThreadMessage);
+                // Only call the model if the wake actually produced a prompt-visible message that
+                // may require continuation.
+                //
+                // Design grounding: child thread completion is signaled to the parent via a
+                // ThreadIdleNotification. The parent often needs to continue without waiting
+                // for user interaction.
+                var shouldCallModel = newly.Any(e => e is UserMessage or InterThreadMessage or ThreadIdleNotification);
                 var effects = shouldCallModel ? ImmutableArray.Create<Effect>(new CallModel()) : ImmutableArray<Effect>.Empty;
 
                 return new ReduceResult(next, newly, effects);
