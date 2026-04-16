@@ -50,7 +50,7 @@ public sealed class ThreadOrchestratorIdleNotificationTests
             threadStore: threadStore,
             threads: threads);
 
-        await orchestrator.SetToolCatalogAsync(ImmutableArray.Create(
+        orchestrator.InitializeToolCatalog(ImmutableArray.Create(
             ToolSchemas.ReportIntent,
             ToolSchemas.ThreadList,
             ToolSchemas.ThreadNew,

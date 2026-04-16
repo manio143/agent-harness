@@ -44,7 +44,7 @@ public sealed class ThreadOrchestratorObserveConcurrencyTests
             threadStore: threadStore,
             threads: threads);
 
-        await orch.SetToolCatalogAsync(ImmutableArray.Create(
+        orch.InitializeToolCatalog(ImmutableArray.Create(
             ToolSchemas.ReportIntent,
             ToolSchemas.ThreadList,
             ToolSchemas.ThreadNew,

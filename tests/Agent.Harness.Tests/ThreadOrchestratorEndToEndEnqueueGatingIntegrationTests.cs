@@ -50,7 +50,7 @@ public sealed class ThreadOrchestratorEndToEndEnqueueGatingIntegrationTests
             threadStore: threadStore,
             threads: threads);
 
-        await orchestrator.SetToolCatalogAsync(ImmutableArray.Create(
+        orchestrator.InitializeToolCatalog(ImmutableArray.Create(
             ToolSchemas.ReportIntent,
             ToolSchemas.ThreadList,
             ToolSchemas.ThreadNew,

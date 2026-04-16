@@ -176,9 +176,9 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         // Single processing loop: delegate all thread execution (main + children) to the thread orchestrator.
         // Main thread is just another thread; the only special-casing is projection/publishing to ACP.
 
-        // Tool catalog is ephemeral by design; refresh it into the orchestrator each prompt.
+        // Tools are loaded once per session. Initialize the tool catalog for this orchestrator instance.
         // Catalog == runnable/permission surface, and must be consistent across all threads.
-        await orchestrator.SetToolCatalogAsync(_state.Tools, cancellationToken).ConfigureAwait(false);
+        orchestrator.InitializeToolCatalog(_state.Tools);
 
         // Express user prompt as universal inbox arrival.
         await orchestrator.ObserveAsync(

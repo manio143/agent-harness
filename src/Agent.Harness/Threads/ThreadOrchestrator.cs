@@ -40,7 +40,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
     private readonly bool _logLlmPrompts;
     private readonly ISessionStore _sessionStore;
 
-    private readonly SemaphoreSlim _toolsGate = new(1, 1);
+    private bool _toolsInitialized;
     private ImmutableArray<ToolDefinition> _toolCatalog;
     private readonly IThreadStore _threadStore;
     private readonly ThreadManager _threads;
@@ -67,6 +67,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         _logLlmPrompts = logLlmPrompts;
         _sessionStore = sessionStore;
 
+        _toolsInitialized = false;
         _toolCatalog = ImmutableArray<ToolDefinition>.Empty;
         _threadStore = threadStore;
         _threads = threads;
@@ -104,21 +105,21 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         throw new InvalidOperationException("thread_orchestrator_quiescence_loop_limit_exceeded");
     }
 
-    public async Task SetToolCatalogAsync(ImmutableArray<ToolDefinition> tools, CancellationToken cancellationToken = default)
+    public void InitializeToolCatalog(ImmutableArray<ToolDefinition> tools)
     {
-        await _toolsGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            _toolCatalog = tools;
-        }
-        finally
-        {
-            _toolsGate.Release();
-        }
+        if (_toolsInitialized)
+            throw new InvalidOperationException("tool_catalog_already_initialized");
+
+        _toolCatalog = tools;
+        _toolsInitialized = true;
     }
 
     private ImmutableArray<ToolDefinition> GetToolCatalogSnapshot()
-        => _toolCatalog;
+    {
+        if (!_toolsInitialized)
+            throw new InvalidOperationException("tool_catalog_not_initialized");
+        return _toolCatalog;
+    }
 
     public async Task ObserveAsync(string threadId, ObservedChatEvent observed, CancellationToken cancellationToken = default)
     {
