@@ -126,20 +126,11 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
 
         async IAsyncEnumerable<ObservedChatEvent> ObservedUserInput(string text)
         {
-            var now = DateTimeOffset.UtcNow.ToString("O");
-            var envId = Agent.Harness.Threads.ThreadEnvelopes.NewEnvelopeId();
-
             // Universal intake: user prompt enters the main thread inbox as an observed event.
-            yield return new ObservedInboxMessageArrived(
-                ThreadId: Agent.Harness.Threads.ThreadIds.Main,
-                Kind: Agent.Harness.Threads.ThreadInboxMessageKind.UserPrompt,
-                Delivery: Agent.Harness.Threads.InboxDelivery.Immediate,
-                EnvelopeId: envId,
-                EnqueuedAtIso: now,
-                Source: "user",
-                SourceThreadId: null,
-                Text: text,
-                Meta: null);
+            yield return Agent.Harness.Threads.ThreadInboxArrivals.UserPrompt(
+                threadId: Agent.Harness.Threads.ThreadIds.Main,
+                text: text,
+                source: "user");
 
             // Turn boundary wake: gives the reducer a chance to dequeue+promote inbox items
             // into first-class prompt events before the next CallModel.
