@@ -38,6 +38,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
     private readonly IMcpToolInvoker _mcp;
     private readonly CoreOptions _coreOptions;
     private readonly bool _logLlmPrompts;
+    private readonly ImmutableArray<ToolDefinition> _defaultTools;
     private readonly ISessionStore _sessionStore;
     private readonly IThreadStore _threadStore;
     private readonly ThreadManager _threads;
@@ -52,6 +53,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         IMcpToolInvoker mcp,
         CoreOptions coreOptions,
         bool logLlmPrompts,
+        ImmutableArray<ToolDefinition> defaultTools,
         ISessionStore sessionStore,
         IThreadStore threadStore,
         ThreadManager threads)
@@ -62,6 +64,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         _mcp = mcp;
         _coreOptions = coreOptions;
         _logLlmPrompts = logLlmPrompts;
+        _defaultTools = defaultTools;
         _sessionStore = sessionStore;
         _threadStore = threadStore;
         _threads = threads;
@@ -124,13 +127,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         {
             var initial = _states.GetOrAdd(threadId, _ => SessionState.Empty with
             {
-                Tools = ImmutableArray.Create(
-                    ToolSchemas.ReportIntent,
-                    ToolSchemas.ThreadList,
-                    ToolSchemas.ThreadNew,
-                    ToolSchemas.ThreadFork,
-                    ToolSchemas.ThreadSend,
-                    ToolSchemas.ThreadRead),
+                Tools = _defaultTools,
             });
 
             var reduced = Core.Reduce(initial, observed);
@@ -166,13 +163,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
 
             var initial = _states.GetOrAdd(threadId, _ => SessionState.Empty with
             {
-                Tools = ImmutableArray.Create(
-                    ToolSchemas.ReportIntent,
-                    ToolSchemas.ThreadList,
-                    ToolSchemas.ThreadNew,
-                    ToolSchemas.ThreadFork,
-                    ToolSchemas.ThreadSend,
-                    ToolSchemas.ThreadRead),
+                Tools = _defaultTools,
             });
 
             // Always refresh committed history from the store before executing a wake.

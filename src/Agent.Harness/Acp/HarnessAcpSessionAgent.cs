@@ -138,6 +138,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                 _mcp,
                 _coreOptions,
                 logLlmPrompts: _logLlmPrompts,
+                defaultTools: _state.Tools,
                 _store,
                 threadStore,
                 threads);
