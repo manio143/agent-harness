@@ -93,12 +93,12 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         throw new InvalidOperationException("thread_orchestrator_quiescence_loop_limit_exceeded");
     }
 
-    public void Observe(string threadId, ObservedChatEvent observed)
+    public async Task ObserveAsync(string threadId, ObservedChatEvent observed, CancellationToken cancellationToken = default)
     {
         // Observe can be called concurrently with RunOneTurnIfNeededAsync. Protect the in-memory
         // state cache with the same per-thread gate used for execution.
         var gate = _gates.GetOrAdd(threadId, _ => new SemaphoreSlim(1, 1));
-        gate.Wait();
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var initial = _states.GetOrAdd(threadId, _ => SessionState.Empty with
@@ -189,7 +189,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             }
 
             // Fully idle: notify parent (immediate).
-            NotifyParentIfChildFullyIdle(threadId);
+            await NotifyParentIfChildFullyIdleAsync(threadId, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -197,7 +197,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         }
     }
 
-    private void NotifyParentIfChildFullyIdle(string threadId)
+    private async Task NotifyParentIfChildFullyIdleAsync(string threadId, CancellationToken cancellationToken)
     {
         var meta = _threadStore.TryLoadThreadMetadata(_sessionId, threadId);
         if (meta?.ParentThreadId is null) return;
@@ -214,7 +214,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             ["lastIntent"] = intent,
         });
 
-        Observe(meta.ParentThreadId, new ObservedInboxMessageArrived(
+        await ObserveAsync(meta.ParentThreadId, new ObservedInboxMessageArrived(
             ThreadId: meta.ParentThreadId,
             Kind: ThreadInboxMessageKind.ThreadIdleNotification,
             Delivery: InboxDelivery.Immediate,
@@ -223,7 +223,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             Source: "thread",
             SourceThreadId: threadId,
             Text: $"Child thread became idle. Last intent: {intent}",
-            Meta: metaDict));
+            Meta: metaDict), cancellationToken).ConfigureAwait(false);
 
     }
 }

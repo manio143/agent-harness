@@ -50,7 +50,7 @@ public sealed class ThreadOrchestratorEndToEndEnqueueGatingIntegrationTests
             threads: threads);
 
         // User prompt enters main inbox (immediate). Then schedule main.
-        orchestrator.Observe(ThreadIds.Main, new ObservedInboxMessageArrived(
+        await orchestrator.ObserveAsync(ThreadIds.Main, new ObservedInboxMessageArrived(
             ThreadId: ThreadIds.Main,
             Kind: ThreadInboxMessageKind.UserPrompt,
             Delivery: InboxDelivery.Immediate,
@@ -59,7 +59,7 @@ public sealed class ThreadOrchestratorEndToEndEnqueueGatingIntegrationTests
             Source: "user",
             SourceThreadId: null,
             Text: "Hi",
-            Meta: null));
+            Meta: null), CancellationToken.None);
 
         orchestrator.ScheduleRun(ThreadIds.Main);
         await orchestrator.RunUntilQuiescentAsync(CancellationToken.None);

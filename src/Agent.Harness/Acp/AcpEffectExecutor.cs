@@ -81,16 +81,13 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
 
     private ImmutableArray<ObservedChatEvent> CheckPermission(SessionState state, CheckPermission p)
     {
-        // MVP: deterministic capability-only gating.
-        // Harness-internal tools are always allowed.
-        if (p.ToolName is "report_intent" or "thread_list" or "thread_new" or "thread_fork" or "thread_send" or "thread_read")
-            return ImmutableArray.Create<ObservedChatEvent>(new ObservedPermissionApproved(p.ToolId, "internal_tool"));
-
+        // Tool catalog is the source of truth. If it's present, it is runnable.
+        // Capability checks must happen before tools enter the catalog.
         var known = state.Tools.Any(t => t.Name == p.ToolName);
         if (!known)
             return ImmutableArray.Create<ObservedChatEvent>(new ObservedPermissionDenied(p.ToolId, "unknown_tool"));
 
-        return ImmutableArray.Create<ObservedChatEvent>(new ObservedPermissionApproved(p.ToolId, "capability_present"));
+        return ImmutableArray.Create<ObservedChatEvent>(new ObservedPermissionApproved(p.ToolId, "tool_in_catalog"));
     }
 
     private async IAsyncEnumerable<ObservedChatEvent> CallModelStreamingAsync(SessionState state, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
@@ -217,7 +214,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     if (!string.IsNullOrWhiteSpace(id) && _scheduler is Agent.Harness.Threads.ThreadOrchestrator orchestrator)
                     {
                         var now = DateTimeOffset.UtcNow.ToString("O");
-                        orchestrator.Observe(id, new ObservedInboxMessageArrived(
+                        await orchestrator.ObserveAsync(id, new ObservedInboxMessageArrived(
                             ThreadId: id,
                             Kind: Agent.Harness.Threads.ThreadInboxMessageKind.InterThreadMessage,
                             Delivery: delivery,
@@ -226,7 +223,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                             Source: "thread",
                             SourceThreadId: _threadId,
                             Text: message,
-                            Meta: null));
+                            Meta: null), cancellationToken).ConfigureAwait(false);
 
                         if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
                         {
@@ -253,7 +250,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     if (!string.IsNullOrWhiteSpace(id) && _scheduler is Agent.Harness.Threads.ThreadOrchestrator orchestrator)
                     {
                         var now = DateTimeOffset.UtcNow.ToString("O");
-                        orchestrator.Observe(id, new ObservedInboxMessageArrived(
+                        await orchestrator.ObserveAsync(id, new ObservedInboxMessageArrived(
                             ThreadId: id,
                             Kind: Agent.Harness.Threads.ThreadInboxMessageKind.InterThreadMessage,
                             Delivery: delivery,
@@ -262,7 +259,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                             Source: "thread",
                             SourceThreadId: _threadId,
                             Text: message,
-                            Meta: null));
+                            Meta: null), cancellationToken).ConfigureAwait(false);
 
                         if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
                         {
@@ -291,7 +288,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                         var now = DateTimeOffset.UtcNow.ToString("O");
                         var envId = Agent.Harness.Threads.ThreadEnvelopes.NewEnvelopeId();
 
-                        orchestrator.Observe(threadId, new ObservedInboxMessageArrived(
+                        await orchestrator.ObserveAsync(threadId, new ObservedInboxMessageArrived(
                             ThreadId: threadId,
                             Kind: Agent.Harness.Threads.ThreadInboxMessageKind.InterThreadMessage,
                             Delivery: delivery,
@@ -300,7 +297,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                             Source: "thread",
                             SourceThreadId: _threadId,
                             Text: message,
-                            Meta: null));
+                            Meta: null), cancellationToken).ConfigureAwait(false);
 
                         if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
                         {

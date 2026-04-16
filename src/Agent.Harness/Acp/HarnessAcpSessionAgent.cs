@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text.Json;
 using Agent.Acp.Acp;
 using Agent.Acp.Schema;
@@ -68,10 +69,29 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             _toolCalls.Clear();
         }
 
-        // Capability-gated tool catalog: built-in tools are derived from negotiated client capabilities.
-        // Merge into any pre-existing tools (e.g. MCP-discovered tools).
+        // Tool catalog is the source of truth for what the LLM may call.
+        // Per DECISIONS-tool-calling-mvp: populate it using negotiated client capabilities only.
+        // Anything present in the catalog must be runnable.
+
+        // Always-available harness-internal tools.
+        var internalTools = ImmutableArray.Create<ToolDefinition>(ToolSchemas.ReportIntent);
+
+        // Thread tools are runnable only when backed by a thread store (JsonlSessionStore).
+        if (_store is JsonlSessionStore)
+        {
+            internalTools = ClientToolCatalog.Merge(internalTools, ImmutableArray.Create(
+                ToolSchemas.ThreadList,
+                ToolSchemas.ThreadNew,
+                ToolSchemas.ThreadFork,
+                ToolSchemas.ThreadSend,
+                ToolSchemas.ThreadRead));
+        }
+
+        // Capability-gated built-ins derived from negotiated client capabilities.
         var builtins = ClientToolCatalog.BuildBuiltins(_client.ClientCapabilities);
-        _state = _state with { Tools = ClientToolCatalog.Merge(_state.Tools, builtins) };
+
+        // Merge: (pre-existing tools e.g. MCP) + internal + builtins
+        _state = _state with { Tools = ClientToolCatalog.Merge(_state.Tools, ClientToolCatalog.Merge(internalTools, builtins)) };
 
         async IAsyncEnumerable<ObservedChatEvent> ObservedUserInput()
         {
@@ -248,8 +268,48 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
 
     private static string ExtractUserText(PromptRequest request)
     {
-        var first = request.Prompt.FirstOrDefault();
-        if (first is Agent.Acp.Schema.TextContent t) return t.Text;
-        return "";
+        // Per ACP contract, prompt is an ordered list of content blocks.
+        // Harness core currently expects a single textual user input, so we project supported
+        // baseline blocks into a stable string form.
+        //
+        // Design grounding:
+        // - Baseline prompt support includes Text + ResourceLink (validated in AcpAgentServer).
+        // - We must not silently drop user input due to block ordering.
+
+        var parts = new List<string>();
+
+        foreach (var block in request.Prompt)
+        {
+            switch (block)
+            {
+                case Agent.Acp.Schema.TextContent t when !string.IsNullOrWhiteSpace(t.Text):
+                    parts.Add(t.Text);
+                    break;
+
+                case Agent.Acp.Schema.ResourceLink r:
+                {
+                    var name = string.IsNullOrWhiteSpace(r.Name) ? "resource" : r.Name;
+                    var title = string.IsNullOrWhiteSpace(r.Title) ? null : r.Title;
+                    var desc = string.IsNullOrWhiteSpace(r.Description) ? null : r.Description;
+
+                    // Keep the projection intentionally simple + stable for the LLM.
+                    var line = title is not null
+                        ? $"[resource_link name=\"{name}\" title=\"{title}\" uri=\"{r.Uri}\"]"
+                        : $"[resource_link name=\"{name}\" uri=\"{r.Uri}\"]";
+
+                    parts.Add(line);
+                    if (desc is not null)
+                        parts.Add($"[resource_description] {desc}");
+                    break;
+                }
+
+                // UnknownContentBlock is allowed by schema for forward-compat.
+                // For now: ignore (do not inject unreadable junk into the user prompt).
+                default:
+                    break;
+            }
+        }
+
+        return string.Join("\n", parts);
     }
 }

@@ -44,7 +44,7 @@ public sealed class ThreadOrchestratorObserveConcurrencyTests
             threads: threads);
 
         // Seed: a message that will cause a model call.
-        orch.Observe(ThreadIds.Main, new ObservedInboxMessageArrived(
+        await orch.ObserveAsync(ThreadIds.Main, new ObservedInboxMessageArrived(
             ThreadId: ThreadIds.Main,
             Kind: ThreadInboxMessageKind.UserPrompt,
             Delivery: InboxDelivery.Immediate,
@@ -59,7 +59,7 @@ public sealed class ThreadOrchestratorObserveConcurrencyTests
 
         // Concurrently enqueue another inbox item while the run is in-flight.
         var runTask = orch.RunUntilQuiescentAsync(CancellationToken.None);
-        var observeTask = Task.Run(() => orch.Observe(ThreadIds.Main, new ObservedInboxMessageArrived(
+        var observeTask = Task.Run(() => orch.ObserveAsync(ThreadIds.Main, new ObservedInboxMessageArrived(
             ThreadId: ThreadIds.Main,
             Kind: ThreadInboxMessageKind.InterThreadMessage,
             Delivery: InboxDelivery.Immediate,
@@ -68,7 +68,7 @@ public sealed class ThreadOrchestratorObserveConcurrencyTests
             Source: "thread",
             SourceThreadId: "thr_x",
             Text: "concurrent",
-            Meta: null)));
+            Meta: null), CancellationToken.None));
 
         await Task.WhenAll(runTask, observeTask);
 
