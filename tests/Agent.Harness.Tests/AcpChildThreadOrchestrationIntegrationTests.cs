@@ -22,7 +22,7 @@ namespace Agent.Harness.Tests;
 
 public sealed class AcpChildThreadOrchestrationIntegrationTests
 {
-    [Fact]
+    [Fact(Skip = "Migrated to EngineChildThreadOrchestrationIntegrationTests (engine seam, no JSON-RPC transport)")]
     public async Task ThreadNew_Immediate_RunsChild_AndThreadReadReturnsChildAssistantMessages()
     {
         var (clientTransport, serverTransport) = InMemoryTransport.CreatePair();
