@@ -40,16 +40,17 @@ public sealed class ThreadOrchestratorObserveConcurrencyTests
             mcp: NullMcpToolInvoker.Instance,
             coreOptions: coreOptions,
             logLlmPrompts: false,
-            defaultTools: ImmutableArray.Create(
-                ToolSchemas.ReportIntent,
-                ToolSchemas.ThreadList,
-                ToolSchemas.ThreadNew,
-                ToolSchemas.ThreadFork,
-                ToolSchemas.ThreadSend,
-                ToolSchemas.ThreadRead),
             sessionStore: sessionStore,
             threadStore: threadStore,
             threads: threads);
+
+        await orch.SetToolCatalogAsync(ImmutableArray.Create(
+            ToolSchemas.ReportIntent,
+            ToolSchemas.ThreadList,
+            ToolSchemas.ThreadNew,
+            ToolSchemas.ThreadFork,
+            ToolSchemas.ThreadSend,
+            ToolSchemas.ThreadRead));
 
         // Seed: a message that will cause a model call.
         await orch.ObserveAsync(ThreadIds.Main, new ObservedInboxMessageArrived(

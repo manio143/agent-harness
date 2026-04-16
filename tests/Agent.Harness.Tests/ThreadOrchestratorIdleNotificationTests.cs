@@ -46,16 +46,17 @@ public sealed class ThreadOrchestratorIdleNotificationTests
             mcp: NullMcpToolInvoker.Instance,
             coreOptions: new CoreOptions(),
             logLlmPrompts: false,
-            defaultTools: ImmutableArray.Create(
-                ToolSchemas.ReportIntent,
-                ToolSchemas.ThreadList,
-                ToolSchemas.ThreadNew,
-                ToolSchemas.ThreadFork,
-                ToolSchemas.ThreadSend,
-                ToolSchemas.ThreadRead),
             sessionStore: sessionStore,
             threadStore: threadStore,
             threads: threads);
+
+        await orchestrator.SetToolCatalogAsync(ImmutableArray.Create(
+            ToolSchemas.ReportIntent,
+            ToolSchemas.ThreadList,
+            ToolSchemas.ThreadNew,
+            ToolSchemas.ThreadFork,
+            ToolSchemas.ThreadSend,
+            ToolSchemas.ThreadRead));
 
         orchestrator.ScheduleRun(childId);
         await orchestrator.RunUntilQuiescentAsync(CancellationToken.None);

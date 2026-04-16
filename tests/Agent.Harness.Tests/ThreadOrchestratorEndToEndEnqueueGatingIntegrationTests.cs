@@ -46,16 +46,17 @@ public sealed class ThreadOrchestratorEndToEndEnqueueGatingIntegrationTests
             mcp: NullMcpToolInvoker.Instance,
             coreOptions: coreOptions,
             logLlmPrompts: false,
-            defaultTools: ImmutableArray.Create(
-                ToolSchemas.ReportIntent,
-                ToolSchemas.ThreadList,
-                ToolSchemas.ThreadNew,
-                ToolSchemas.ThreadFork,
-                ToolSchemas.ThreadSend,
-                ToolSchemas.ThreadRead),
             sessionStore: sessionStore,
             threadStore: threadStore,
             threads: threads);
+
+        await orchestrator.SetToolCatalogAsync(ImmutableArray.Create(
+            ToolSchemas.ReportIntent,
+            ToolSchemas.ThreadList,
+            ToolSchemas.ThreadNew,
+            ToolSchemas.ThreadFork,
+            ToolSchemas.ThreadSend,
+            ToolSchemas.ThreadRead));
 
         // User prompt enters main inbox (immediate). Then schedule main.
         await orchestrator.ObserveAsync(ThreadIds.Main, new ObservedInboxMessageArrived(

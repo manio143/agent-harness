@@ -38,8 +38,10 @@ public sealed class ThreadOrchestrator : IThreadScheduler
     private readonly IMcpToolInvoker _mcp;
     private readonly CoreOptions _coreOptions;
     private readonly bool _logLlmPrompts;
-    private readonly ImmutableArray<ToolDefinition> _defaultTools;
     private readonly ISessionStore _sessionStore;
+
+    private readonly SemaphoreSlim _toolsGate = new(1, 1);
+    private ImmutableArray<ToolDefinition> _toolCatalog;
     private readonly IThreadStore _threadStore;
     private readonly ThreadManager _threads;
 
@@ -53,7 +55,6 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         IMcpToolInvoker mcp,
         CoreOptions coreOptions,
         bool logLlmPrompts,
-        ImmutableArray<ToolDefinition> defaultTools,
         ISessionStore sessionStore,
         IThreadStore threadStore,
         ThreadManager threads)
@@ -64,8 +65,9 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         _mcp = mcp;
         _coreOptions = coreOptions;
         _logLlmPrompts = logLlmPrompts;
-        _defaultTools = defaultTools;
         _sessionStore = sessionStore;
+
+        _toolCatalog = ImmutableArray<ToolDefinition>.Empty;
         _threadStore = threadStore;
         _threads = threads;
     }
@@ -102,20 +104,21 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         throw new InvalidOperationException("thread_orchestrator_quiescence_loop_limit_exceeded");
     }
 
-    public async Task SeedToolsAsync(string threadId, ImmutableArray<ToolDefinition> tools, CancellationToken cancellationToken = default)
+    public async Task SetToolCatalogAsync(ImmutableArray<ToolDefinition> tools, CancellationToken cancellationToken = default)
     {
-        var gate = _gates.GetOrAdd(threadId, _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await _toolsGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var existing = _states.TryGetValue(threadId, out var s) ? s : SessionState.Empty;
-            _states[threadId] = existing with { Tools = tools };
+            _toolCatalog = tools;
         }
         finally
         {
-            gate.Release();
+            _toolsGate.Release();
         }
     }
+
+    private ImmutableArray<ToolDefinition> GetToolCatalogSnapshot()
+        => _toolCatalog;
 
     public async Task ObserveAsync(string threadId, ObservedChatEvent observed, CancellationToken cancellationToken = default)
     {
@@ -125,10 +128,9 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var initial = _states.GetOrAdd(threadId, _ => SessionState.Empty with
-            {
-                Tools = _defaultTools,
-            });
+            var tools = GetToolCatalogSnapshot();
+            var initial = _states.GetOrAdd(threadId, _ => SessionState.Empty with { Tools = tools });
+            initial = initial with { Tools = tools };
 
             var reduced = Core.Reduce(initial, observed);
 
@@ -161,10 +163,9 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             var meta = _threadStore.TryLoadThreadMetadata(_sessionId, threadId);
             var parentId = meta?.ParentThreadId;
 
-            var initial = _states.GetOrAdd(threadId, _ => SessionState.Empty with
-            {
-                Tools = _defaultTools,
-            });
+            var tools = GetToolCatalogSnapshot();
+            var initial = _states.GetOrAdd(threadId, _ => SessionState.Empty with { Tools = tools });
+            initial = initial with { Tools = tools };
 
             // Always refresh committed history from the store before executing a wake.
             // Other threads may have appended inbox enqueues (e.g. idle notifications / enqueue delivery)

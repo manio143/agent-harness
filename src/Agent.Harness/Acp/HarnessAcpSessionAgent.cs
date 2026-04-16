@@ -138,7 +138,6 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                 _mcp,
                 _coreOptions,
                 logLlmPrompts: _logLlmPrompts,
-                defaultTools: _state.Tools,
                 _store,
                 threadStore,
                 threads);
@@ -177,12 +176,9 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         // Single processing loop: delegate all thread execution (main + children) to the thread orchestrator.
         // Main thread is just another thread; the only special-casing is projection/publishing to ACP.
 
-        // Seed tool catalog for main: permission boundary (catalog == runnable tools).
-        // Committed history is always loaded from the thread store by the orchestrator per wake.
-        await orchestrator.SeedToolsAsync(
-            Agent.Harness.Threads.ThreadIds.Main,
-            _state.Tools,
-            cancellationToken).ConfigureAwait(false);
+        // Tool catalog is ephemeral by design; refresh it into the orchestrator each prompt.
+        // Catalog == runnable/permission surface, and must be consistent across all threads.
+        await orchestrator.SetToolCatalogAsync(_state.Tools, cancellationToken).ConfigureAwait(false);
 
         // Express user prompt as universal inbox arrival.
         await orchestrator.ObserveAsync(
