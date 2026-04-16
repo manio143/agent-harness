@@ -203,23 +203,28 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             return;
 
         var intent = meta.Intent ?? string.Empty;
-        // Enqueue parent notification via ThreadManager so it is recorded consistently.
+        // Main thread is just another thread in the thread store, but only the ACP layer should
+        // project/publish main-thread committed events.
+        // So: persist the parent inbox enqueue directly to the thread store, without running the
+        // main thread inside the child-thread orchestrator.
         var metaDict = ImmutableDictionary.CreateRange(new Dictionary<string, string>
         {
             ["childThreadId"] = threadId,
             ["lastIntent"] = intent,
         });
 
-        await ObserveAsync(meta.ParentThreadId, new ObservedInboxMessageArrived(
+        var enq = new ThreadInboxMessageEnqueued(
             ThreadId: meta.ParentThreadId,
-            Kind: ThreadInboxMessageKind.ThreadIdleNotification,
-            Delivery: InboxDelivery.Immediate,
             EnvelopeId: ThreadEnvelopes.NewEnvelopeId(),
-            EnqueuedAtIso: DateTimeOffset.UtcNow.ToString("O"),
+            Kind: ThreadInboxMessageKind.ThreadIdleNotification,
+            Meta: metaDict,
             Source: "thread",
             SourceThreadId: threadId,
-            Text: $"Child thread became idle. Last intent: {intent}",
-            Meta: metaDict), cancellationToken).ConfigureAwait(false);
+            Delivery: "immediate",
+            EnqueuedAtIso: DateTimeOffset.UtcNow.ToString("O"),
+            Text: $"Child thread became idle. Last intent: {intent}");
+
+        _threadStore.AppendCommittedEvent(_sessionId, meta.ParentThreadId, enq);
 
     }
 }

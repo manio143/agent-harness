@@ -156,11 +156,17 @@ public static class Core
                 var committed = state.Committed.Add(enq);
                 var next = state with { Committed = committed };
 
-                // Immediate delivery: schedule a wake for this thread. The wake will deterministically
-                // promote/dequeue based on idle-at-wake-boundary rules.
+                // Event-driven waking:
+                // - Immediate delivery always schedules a wake.
+                // - Enqueue delivery schedules a wake only if the thread is currently idle at a wake boundary.
+                //   (This replaces imperative polling loops that used to check deliverability.)
+                var isIdle = Agent.Harness.Threads.ThreadStatusProjector.IsIdleAtWakeBoundary(committed);
+
                 var effects = arrived.Delivery == Agent.Harness.Threads.InboxDelivery.Immediate
                     ? ImmutableArray.Create<Effect>(new ScheduleWake(arrived.ThreadId))
-                    : ImmutableArray<Effect>.Empty;
+                    : arrived.Delivery == Agent.Harness.Threads.InboxDelivery.Enqueue && isIdle
+                        ? ImmutableArray.Create<Effect>(new ScheduleWake(arrived.ThreadId))
+                        : ImmutableArray<Effect>.Empty;
 
                 return new ReduceResult(next, ImmutableArray.Create<SessionEvent>(enq), effects);
             }

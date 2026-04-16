@@ -172,6 +172,14 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         {
             for (var i = 0; i < 250; i++)
             {
+                // Refresh main committed state from the thread store.
+                // Main is persisted as a thread; child execution may append inbox enqueues to main.
+                if (threadStore is not null)
+                {
+                    var committed = threadStore.LoadCommittedEvents(_sessionId, Agent.Harness.Threads.ThreadIds.Main);
+                    _state = _state with { Committed = committed };
+                }
+
                 // Thread status is derived from committed turn markers (TurnStarted/TurnEnded).
 
                 // Main enqueue wake: keep calling model while enqueue becomes deliverable.
