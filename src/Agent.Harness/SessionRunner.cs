@@ -28,6 +28,7 @@ public sealed class SessionRunner
     }
 
     public async Task<SessionRunnerResult> RunTurnAsync(
+        string threadId,
         SessionState initial,
         IAsyncEnumerable<ObservedChatEvent> observed,
         CancellationToken cancellationToken,
@@ -38,10 +39,14 @@ public sealed class SessionRunner
 
         async IAsyncEnumerable<ObservedChatEvent> WithTurnMarkers()
         {
-            yield return new ObservedTurnStarted();
+            yield return new ObservedTurnStarted(threadId);
 
             await foreach (var o in observed.WithCancellation(cancellationToken))
                 yield return o;
+
+            // Turn stabilization is an observed marker so the reducer can drive follow-up wakes
+            // via effects (ScheduleWake) rather than outer polling loops.
+            yield return new ObservedTurnStabilized(threadId);
         }
 
         // Run the turn as a reducer/effects loop:
@@ -61,11 +66,6 @@ public sealed class SessionRunner
         {
             newly.Add(committed);
         }
-
-        // Once the runner has drained all observations + effects, the turn is stable.
-        var end = Core.Reduce(state, new ObservedTurnStabilized(), _coreOptions);
-        state = end.Next;
-        newly.AddRange(end.NewlyCommitted);
 
 
         // Post-turn policy: generate a title once (after first assistant message exists).

@@ -119,8 +119,8 @@ public sealed class ThreadOrchestrator : IThreadScheduler
 
             _states[threadId] = reduced.Next;
 
-            // If reducer requested a model call, schedule the thread.
-            if (reduced.Effects.Any(e => e is CallModel))
+            // If reducer requested a wake/model call, schedule the thread.
+            if (reduced.Effects.Any(e => e is CallModel or ScheduleWake))
                 ScheduleRun(threadId);
         }
         finally
@@ -178,15 +178,11 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             var runner = new SessionRunner(_coreOptions, titleGen, effects);
             var sink = new ThreadEventSink(_sessionId, threadId, _threadStore);
 
-            var result = await runner.RunTurnAsync(initial, WakeObserved(), cancellationToken, sink: sink).ConfigureAwait(false);
+            var result = await runner.RunTurnAsync(threadId, initial, WakeObserved(), cancellationToken, sink: sink).ConfigureAwait(false);
             _states[threadId] = result.Next;
 
-            // Turn ended: if more deliverable work exists, reschedule.
-            if (_threads.HasImmediateOrDeliverableEnqueue(threadId))
-            {
-                ScheduleRun(threadId);
-                return;
-            }
+            // Event-driven waking: reducer emits ScheduleWake effects when a wake is needed.
+            // No imperative polling/rescheduling here.
 
             // Fully idle: notify parent (immediate).
             await NotifyParentIfChildFullyIdleAsync(threadId, cancellationToken).ConfigureAwait(false);

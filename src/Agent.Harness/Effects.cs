@@ -36,4 +36,14 @@ public sealed record ExecuteToolCall(
 public sealed record CallModel() : Effect;
 
 /// <summary>
+/// Request that a given thread be woken (i.e., reduced with <see cref="ObservedWakeModel"/>)
+/// to promote/dequeue inbox items at a deterministic wake boundary.
+///
+/// Design grounding:
+/// - Waking must be event-driven (no outer polling loops).
+/// - The reducer is the single authority for when a wake is needed.
+/// </summary>
+public sealed record ScheduleWake(string ThreadId) : Effect;
+
+/// <summary>
 

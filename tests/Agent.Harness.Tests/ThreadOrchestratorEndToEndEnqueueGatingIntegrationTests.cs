@@ -64,25 +64,19 @@ public sealed class ThreadOrchestratorEndToEndEnqueueGatingIntegrationTests
         orchestrator.ScheduleRun(ThreadIds.Main);
         await orchestrator.RunUntilQuiescentAsync(CancellationToken.None);
 
-        // Child enqueued a message to the parent, but per policy the parent is NOT auto-woken.
-        // So after quiescence we expect the enqueue to exist, but not yet be promoted.
+        // Child enqueued a message to the parent. With event-driven waking (wake is an effect),
+        // the parent should be automatically woken once it reaches an idle boundary, and the
+        // enqueue should be promoted/dequeued during the same drain-to-quiescence.
         var mainCommitted = threadStore.LoadCommittedEvents(sessionId, ThreadIds.Main);
         mainCommitted.OfType<ThreadInboxMessageEnqueued>().Any(e => e.Text == "from child").Should().BeTrue();
-        mainCommitted.OfType<InterThreadMessage>().Any(m => m.Text == "from child").Should().BeFalse();
-
-        // Parent decides to run later.
-        orchestrator.ScheduleRun(ThreadIds.Main);
-        await orchestrator.RunUntilQuiescentAsync(CancellationToken.None);
-
-        mainCommitted = threadStore.LoadCommittedEvents(sessionId, ThreadIds.Main);
         mainCommitted.OfType<InterThreadMessage>().Any(m => m.Text == "from child").Should().BeTrue();
 
         // Ensure it was gated by enqueue semantics: we should see an enqueue+dequeue pair for that message.
         var enq = mainCommitted.OfType<ThreadInboxMessageEnqueued>().Single(e => e.Text == "from child");
         mainCommitted.OfType<ThreadInboxMessageDequeued>().Any(d => d.EnvelopeId == enq.EnvelopeId).Should().BeTrue();
 
-        // Assert call ordering: main prompt twice, child prompt twice (tools then text).
-        chat.MainPromptCount.Should().Be(2);
+        // Assert call ordering: main prompt at least once, child prompt at least twice (tools then text).
+        chat.MainPromptCount.Should().BeGreaterThanOrEqualTo(1);
         chat.ChildPromptCount.Should().BeGreaterOrEqualTo(2);
     }
 

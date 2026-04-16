@@ -64,6 +64,10 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     yield return o;
                 yield break;
 
+            case ScheduleWake w:
+                yield return new ObservedWakeModel(w.ThreadId);
+                yield break;
+
             case CheckPermission p:
                 foreach (var o in CheckPermission(state, p))
                     yield return o;

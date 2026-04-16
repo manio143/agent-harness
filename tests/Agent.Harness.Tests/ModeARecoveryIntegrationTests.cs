@@ -22,7 +22,7 @@ public sealed class ModeARecoveryIntegrationTests
             yield return new ObservedUserMessage("Read /tmp/a.txt");
         }
 
-        var result = await runner.RunTurnAsync(state, Observed(), CancellationToken.None);
+        var result = await runner.RunTurnAsync(Agent.Harness.Threads.ThreadIds.Main, state, Observed(), CancellationToken.None);
 
         Assert.Contains(result.NewlyCommitted, e => e is ToolCallRejected { ToolId: "call_1", Reason: "invalid_args" });
         Assert.Contains(result.NewlyCommitted, e => e is AssistantMessage { Text: "Ok." });

@@ -32,7 +32,7 @@ public sealed class ModeATurnIntegrationTests
             yield return new ObservedUserMessage("Read /tmp/a.txt");
         }
 
-        var result = await runner.RunTurnAsync(state, Observed(), CancellationToken.None);
+        var result = await runner.RunTurnAsync(Agent.Harness.Threads.ThreadIds.Main, state, Observed(), CancellationToken.None);
 
         // We should start and end the turn via core-committed events.
         Assert.Contains(result.NewlyCommitted, e => e is TurnStarted);

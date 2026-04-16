@@ -14,9 +14,9 @@ public abstract record ObservedChatEvent
     public object? RawUpdate { get; init; }
 }
 
-public sealed record ObservedTurnStarted() : ObservedChatEvent;
+public sealed record ObservedTurnStarted(string ThreadId) : ObservedChatEvent;
 
-public sealed record ObservedTurnStabilized() : ObservedChatEvent;
+public sealed record ObservedTurnStabilized(string ThreadId) : ObservedChatEvent;
 
 /// <summary>
 /// Synthetic harness event used to explicitly trigger a model call at a turn boundary.

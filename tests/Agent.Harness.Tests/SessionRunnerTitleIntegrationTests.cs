@@ -22,7 +22,7 @@ public sealed class SessionRunnerTitleIntegrationTests
             await Task.Yield();
         }
 
-        var result = await runner.RunTurnAsync(SessionState.Empty, Observed(), CancellationToken.None);
+        var result = await runner.RunTurnAsync(Agent.Harness.Threads.ThreadIds.Main, SessionState.Empty, Observed(), CancellationToken.None);
 
         result.NewlyCommitted.Should().ContainInOrder(
             new UserMessage("Hi"),
@@ -56,7 +56,7 @@ public sealed class SessionRunnerTitleIntegrationTests
             await Task.Yield();
         }
 
-        var result = await runner.RunTurnAsync(initial, Observed(), CancellationToken.None);
+        var result = await runner.RunTurnAsync(Agent.Harness.Threads.ThreadIds.Main, initial, Observed(), CancellationToken.None);
 
         result.NewlyCommitted.OfType<SessionTitleSet>().Should().NotContain(st => st.Title == "SHOULD_NOT_BE_USED");
         chat.Calls.Should().BeEmpty();

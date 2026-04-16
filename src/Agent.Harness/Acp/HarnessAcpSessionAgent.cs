@@ -164,7 +164,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             _publishOptions,
             execute: (e, ct) => ExecuteEmissionAsync(e, turn, ct));
 
-        var result = await runner.RunTurnAsync(_state, ObservedUserInput(), cancellationToken, sink: sink).ConfigureAwait(false);
+        var result = await runner.RunTurnAsync(Agent.Harness.Threads.ThreadIds.Main, _state, ObservedUserInput(), cancellationToken, sink: sink).ConfigureAwait(false);
         _state = result.Next;
 
         // Global quiescence: do not end the ACP turn until the main thread AND all child threads are idle.
@@ -182,7 +182,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                         yield return new ObservedWakeModel(Agent.Harness.Threads.ThreadIds.Main);
                     }
 
-                    var wake = await runner.RunTurnAsync(_state, WakeObserved(), cancellationToken, sink: sink).ConfigureAwait(false);
+                    var wake = await runner.RunTurnAsync(Agent.Harness.Threads.ThreadIds.Main, _state, WakeObserved(), cancellationToken, sink: sink).ConfigureAwait(false);
                     _state = wake.Next;
                     continue;
                 }

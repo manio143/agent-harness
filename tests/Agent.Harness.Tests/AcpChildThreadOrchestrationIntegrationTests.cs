@@ -225,7 +225,12 @@ public sealed class AcpChildThreadOrchestrationIntegrationTests
 
             bool isMainPrompt2 = msgText.Contains("Check child=", StringComparison.Ordinal);
             bool isChildPrompt = msgText.Contains("<inter_thread", StringComparison.Ordinal) && msgText.Contains("do work", StringComparison.Ordinal);
-            bool isMainPrompt1 = !isMainPrompt2 && msgText.Contains("\nHi", StringComparison.Ordinal);
+
+            // After child becomes idle, the parent may receive a <thread_idle .../> system message and
+            // be woken automatically (wake is an effect). Treat this as a follow-up main prompt.
+            bool isMainPromptIdle = msgText.Contains("<thread_idle", StringComparison.Ordinal);
+
+            bool isMainPrompt1 = !isMainPrompt2 && !isMainPromptIdle && msgText.Contains("\nHi", StringComparison.Ordinal);
 
             async IAsyncEnumerable<MeaiChatResponseUpdate> Main1_Tools_CreateChild()
             {
@@ -305,6 +310,9 @@ public sealed class AcpChildThreadOrchestrationIntegrationTests
 
             if (isMainPrompt1)
                 return !_main1ToolsDone ? Main1_Tools_CreateChild() : Main1_Text_Done();
+
+            if (isMainPromptIdle)
+                return Main1_Text_Done();
 
             throw new InvalidOperationException($"Unexpected prompt messages: {msgText}");
         }

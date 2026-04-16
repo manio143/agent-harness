@@ -18,6 +18,7 @@ public static partial class TurnRunner
                 CheckPermission p => $"check_permission:{p.ToolId}",
                 ExecuteToolCall t => $"execute_tool:{t.ToolId}",
                 CallModel => "call_model",
+                ScheduleWake w => $"schedule_wake:{w.ThreadId}",
                 _ => e.GetType().FullName ?? e.GetType().Name,
             };
 

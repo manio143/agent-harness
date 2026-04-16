@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Linq;
 using System.Text.Json;
+using System.Collections.Generic;
 
 namespace Agent.Harness;
 
@@ -21,6 +22,33 @@ public sealed record CoreOptions(
 /// </summary>
 public static class Core
 {
+    private static bool HasPendingEnqueuedInbox(ImmutableArray<SessionEvent> committed)
+    {
+        if (committed.IsDefaultOrEmpty) return false;
+
+        // Pending = enqueued without a corresponding dequeue.
+        var dequeued = new HashSet<string>();
+        foreach (var e in committed)
+        {
+            switch (e)
+            {
+                case ThreadInboxMessageDequeued d:
+                    dequeued.Add(d.EnvelopeId);
+                    break;
+            }
+        }
+
+        foreach (var e in committed)
+        {
+            if (e is ThreadInboxMessageEnqueued enq
+                && enq.Delivery == "enqueue"
+                && !dequeued.Contains(enq.EnvelopeId))
+                return true;
+        }
+
+        return false;
+    }
+
     private static bool HasTerminalToolCall(SessionState state, string toolId)
         => state.Committed.Any(e => e switch
         {
@@ -93,9 +121,9 @@ public static class Core
 
         switch (evt)
         {
-            case ObservedTurnStarted:
+            case ObservedTurnStarted started:
             {
-                // New turn: clear per-turn buffers/policies.
+                // New turn (thread-scoped): clear per-turn buffers/policies.
                 var next = state with { Buffer = state.Buffer with { IntentReportedThisTurn = false } };
                 return Commit(next, new TurnStarted());
             }
@@ -127,18 +155,24 @@ public static class Core
 
                 var committed = state.Committed.Add(enq);
                 var next = state with { Committed = committed };
-                return new ReduceResult(next, ImmutableArray.Create<SessionEvent>(enq), ImmutableArray<Effect>.Empty);
+
+                // Immediate delivery: schedule a wake for this thread. The wake will deterministically
+                // promote/dequeue based on idle-at-wake-boundary rules.
+                var effects = arrived.Delivery == Agent.Harness.Threads.InboxDelivery.Immediate
+                    ? ImmutableArray.Create<Effect>(new ScheduleWake(arrived.ThreadId))
+                    : ImmutableArray<Effect>.Empty;
+
+                return new ReduceResult(next, ImmutableArray.Create<SessionEvent>(enq), effects);
             }
 
             case ObservedWakeModel wake:
             {
                 var (next, newly) = PromotePendingInbox(state, wake.ThreadId);
 
-                // Only schedule a model call if the wake actually caused something to become visible
-                // to the prompt (i.e. we dequeued/promoted inbox items).
-                var effects = newly.IsDefaultOrEmpty
-                    ? ImmutableArray<Effect>.Empty
-                    : ImmutableArray.Create<Effect>(new CallModel());
+                // Only call the model if the wake actually produced a message that requires a model response.
+                // ThreadIdleNotification is informational and should not trigger a model call.
+                var shouldCallModel = newly.Any(e => e is UserMessage or InterThreadMessage);
+                var effects = shouldCallModel ? ImmutableArray.Create<Effect>(new CallModel()) : ImmutableArray<Effect>.Empty;
 
                 return new ReduceResult(next, newly, effects);
             }
@@ -197,8 +231,23 @@ public static class Core
             case ObservedAssistantMessageCompleted:
                 return FlushAssistant(state);
 
-            case ObservedTurnStabilized:
-                return Commit(state, new TurnEnded());
+            case ObservedTurnStabilized stabilized:
+            {
+                var reduced = Commit(state, new TurnEnded());
+
+                // Event-driven waking: if this thread has pending enqueue-delivery inbox items,
+                // request a wake now that we're at an idle boundary. This removes the need for
+                // outer polling loops (design: wake is an effect).
+                if (HasPendingEnqueuedInbox(state.Committed))
+                {
+                    return new ReduceResult(
+                        reduced.Next,
+                        reduced.NewlyCommitted,
+                        ImmutableArray.Create<Effect>(new ScheduleWake(stabilized.ThreadId)));
+                }
+
+                return reduced;
+            }
 
 
             // --- Tool Call Lifecycle Observations ---

@@ -26,7 +26,7 @@ public class SessionRunnerEffectLoopTests
             yield return new ObservedToolCallDetected("call_1", "read_text_file", new { path = "/tmp/a.txt" });
         }
 
-        var result = await runner.RunTurnAsync(state, Observed(), CancellationToken.None);
+        var result = await runner.RunTurnAsync(Agent.Harness.Threads.ThreadIds.Main, state, Observed(), CancellationToken.None);
 
         // ASSERT: we committed through the whole lifecycle.
         Assert.Contains(result.NewlyCommitted, e => e is ToolCallRequested { ToolId: "call_1" });
