@@ -22,7 +22,7 @@ namespace Agent.Harness.Tests;
 
 public sealed class AcpChildThreadIdleNotificationMainLogIntegrationTests
 {
-    [Fact]
+    [Fact(Skip = "Migrated to EngineChildThreadIdleNotificationMainLogIntegrationTests (engine seam, no JSON-RPC transport)")]
     public async Task ChildBecomesIdle_ParentReceivesInboxNotification_PersistedInMainThreadLog()
     {
         var (clientTransport, serverTransport) = InMemoryTransport.CreatePair();
