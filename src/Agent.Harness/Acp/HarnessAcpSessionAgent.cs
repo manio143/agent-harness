@@ -124,7 +124,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         // Tool catalog is loaded once per session agent (constructor).
         var userText = ExtractUserText(request);
 
-        async IAsyncEnumerable<ObservedChatEvent> ObservedUserInput(string text)
+        static async IAsyncEnumerable<ObservedChatEvent> ObservePromptAndWake(string text)
         {
             // Universal intake: user prompt enters the main thread inbox as an observed event.
             yield return Agent.Harness.Threads.ThreadInboxArrivals.UserPrompt(
@@ -173,7 +173,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         // If threads aren't enabled (e.g. InMemory session store), fall back to the single-thread runner.
         if (_orchestrator is null || _threadStore is null)
         {
-            var result = await runner.RunTurnAsync(Agent.Harness.Threads.ThreadIds.Main, _state, ObservedUserInput(userText), cancellationToken, sink: sink).ConfigureAwait(false);
+            var result = await runner.RunTurnAsync(Agent.Harness.Threads.ThreadIds.Main, _state, ObservePromptAndWake(userText), cancellationToken, sink: sink).ConfigureAwait(false);
             _state = result.Next;
             return new PromptResponse { StopReason = StopReason.EndTurn };
         }
