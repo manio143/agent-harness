@@ -194,16 +194,10 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         // Express user prompt as universal inbox arrival.
         await _orchestrator.ObserveAsync(
             Agent.Harness.Threads.ThreadIds.Main,
-            new ObservedInboxMessageArrived(
-                ThreadId: Agent.Harness.Threads.ThreadIds.Main,
-                Kind: Agent.Harness.Threads.ThreadInboxMessageKind.UserPrompt,
-                Delivery: Agent.Harness.Threads.InboxDelivery.Immediate,
-                EnvelopeId: Agent.Harness.Threads.ThreadEnvelopes.NewEnvelopeId(),
-                EnqueuedAtIso: DateTimeOffset.UtcNow.ToString("O"),
-                Source: "acp",
-                SourceThreadId: null,
-                Text: userText,
-                Meta: null),
+            Agent.Harness.Threads.ThreadInboxArrivals.UserPrompt(
+                threadId: Agent.Harness.Threads.ThreadIds.Main,
+                text: userText,
+                source: "acp"),
             cancellationToken).ConfigureAwait(false);
 
         // Drain to quiescence in ONE orchestrator loop.

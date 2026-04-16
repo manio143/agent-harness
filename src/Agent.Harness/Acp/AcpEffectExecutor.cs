@@ -217,17 +217,15 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     // Universal intake: express initial message as observed inbox arrival to the child thread.
                     if (!string.IsNullOrWhiteSpace(id) && _scheduler is Agent.Harness.Threads.ThreadOrchestrator orchestrator)
                     {
-                        var now = DateTimeOffset.UtcNow.ToString("O");
-                        await orchestrator.ObserveAsync(id, new ObservedInboxMessageArrived(
-                            ThreadId: id,
-                            Kind: Agent.Harness.Threads.ThreadInboxMessageKind.InterThreadMessage,
-                            Delivery: delivery,
-                            EnvelopeId: Agent.Harness.Threads.ThreadEnvelopes.NewEnvelopeId(),
-                            EnqueuedAtIso: now,
-                            Source: "thread",
-                            SourceThreadId: _threadId,
-                            Text: message,
-                            Meta: null), cancellationToken).ConfigureAwait(false);
+                        await orchestrator.ObserveAsync(
+                            id,
+                            Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
+                                threadId: id,
+                                text: message,
+                                sourceThreadId: _threadId,
+                                source: "thread",
+                                delivery: delivery),
+                            cancellationToken).ConfigureAwait(false);
 
                         if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
                         {
@@ -253,17 +251,15 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
 
                     if (!string.IsNullOrWhiteSpace(id) && _scheduler is Agent.Harness.Threads.ThreadOrchestrator orchestrator)
                     {
-                        var now = DateTimeOffset.UtcNow.ToString("O");
-                        await orchestrator.ObserveAsync(id, new ObservedInboxMessageArrived(
-                            ThreadId: id,
-                            Kind: Agent.Harness.Threads.ThreadInboxMessageKind.InterThreadMessage,
-                            Delivery: delivery,
-                            EnvelopeId: Agent.Harness.Threads.ThreadEnvelopes.NewEnvelopeId(),
-                            EnqueuedAtIso: now,
-                            Source: "thread",
-                            SourceThreadId: _threadId,
-                            Text: message,
-                            Meta: null), cancellationToken).ConfigureAwait(false);
+                        await orchestrator.ObserveAsync(
+                            id,
+                            Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
+                                threadId: id,
+                                text: message,
+                                sourceThreadId: _threadId,
+                                source: "thread",
+                                delivery: delivery),
+                            cancellationToken).ConfigureAwait(false);
 
                         if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
                         {
@@ -289,18 +285,12 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     // Universal intake: express as an observed inbox arrival for the target thread.
                     // IMPORTANT: if the target is the current thread, do NOT go through ThreadOrchestrator.ObserveAsync
                     // (it is thread-gated and would deadlock inside an in-flight turn).
-                    var now = DateTimeOffset.UtcNow.ToString("O");
-                    var envId = Agent.Harness.Threads.ThreadEnvelopes.NewEnvelopeId();
-                    var inboxArrived = new ObservedInboxMessageArrived(
-                        ThreadId: threadId,
-                        Kind: Agent.Harness.Threads.ThreadInboxMessageKind.InterThreadMessage,
-                        Delivery: delivery,
-                        EnvelopeId: envId,
-                        EnqueuedAtIso: now,
-                        Source: "thread",
-                        SourceThreadId: _threadId,
-                        Text: message,
-                        Meta: null);
+                    var inboxArrived = Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
+                        threadId: threadId,
+                        text: message,
+                        sourceThreadId: _threadId,
+                        source: "thread",
+                        delivery: delivery);
 
                     if (threadId == _threadId)
                     {
