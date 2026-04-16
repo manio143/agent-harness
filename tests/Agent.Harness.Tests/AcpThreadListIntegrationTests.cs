@@ -21,7 +21,7 @@ namespace Agent.Harness.Tests;
 
 public sealed class AcpThreadListIntegrationTests
 {
-    [Fact]
+    [Fact(Skip = "Migrated to EngineThreadListIntegrationTests (engine seam, no JSON-RPC transport)")]
     public async Task ThreadList_Reflects_ReportIntent_ForMainThread()
     {
         var (clientTransport, serverTransport) = InMemoryTransport.CreatePair();

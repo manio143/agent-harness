@@ -119,7 +119,7 @@ public sealed class EngineChildThreadOrchestrationIntegrationTests
         return null;
     }
 
-    private sealed class RecordingPromptTurn : IAcpPromptTurn
+    internal sealed class RecordingPromptTurn : IAcpPromptTurn
     {
         public IAcpToolCalls ToolCalls { get; }
 
