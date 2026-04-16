@@ -51,9 +51,10 @@ public class AcpSessionUpdateStreamingContractTests
 
         var resp = await responseTask;
 
-        // Contract: a prompt turn can emit multiple session/update notifications.
-        // We don't require strict ordering w.r.t. the final response at the transport level.
-        await gotThreeUpdates.Task;
+        // Contract: a prompt turn can emit multiple session/update notifications,
+        // and those notifications must be delivered *before* the final prompt response.
+        // (With the in-memory channel transport, message order is preserved.)
+        Assert.True(gotThreeUpdates.Task.IsCompletedSuccessfully, "Expected session/update notifications before the prompt response completed");
         Assert.Equal(StopReason.EndTurn, resp.StopReason.Value);
 
         cts.Cancel();
