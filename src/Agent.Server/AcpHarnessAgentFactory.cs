@@ -170,7 +170,9 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         {
             try
             {
-                var discovered = await _mcpDiscovery.DiscoverAsync(request, cancellationToken).ConfigureAwait(false);
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeout.CancelAfter(TimeSpan.FromSeconds(10));
+                var discovered = await _mcpDiscovery.DiscoverAsync(request, timeout.Token).ConfigureAwait(false);
                 lock (_mcp)
                 {
                     _mcp[sessionId] = discovered;
@@ -201,18 +203,71 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         return resp;
     }
 
-    public Task<LoadSessionResponse>? LoadSessionAsync(LoadSessionRequest request, CancellationToken cancellationToken)
+    public async Task<LoadSessionResponse>? LoadSessionAsync(LoadSessionRequest request, CancellationToken cancellationToken)
     {
         var store = GetOrCreateSessionStore(request.SessionId, request.Cwd);
 
         if (!store.Exists(request.SessionId))
             throw new Agent.Acp.Acp.AcpJsonRpcException(-32602, $"Session not found: {request.SessionId}");
 
-        return Task.FromResult(new LoadSessionResponse
+        // Rehydrate MCP config eagerly during session/load (async). This avoids any blocking
+        // .GetResult() during CreateSessionAgent and keeps harness execution fully async.
+        object? mcpErrors = null;
+
+        try
+        {
+            await EnsureMcpDiscoveredOnLoadAsync(store, request.SessionId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            mcpErrors = new[] { new { message = ex.Message } };
+            TryAppendMcpError(store, request.SessionId, phase: "session_load", ex);
+        }
+
+        var resp = new LoadSessionResponse
         {
             Modes = null,
             ConfigOptions = new List<SessionConfigOption>(),
-        });
+        };
+
+        if (mcpErrors is not null)
+            resp.AdditionalProperties["mcpErrors"] = mcpErrors;
+
+        return resp;
+    }
+
+    private async Task EnsureMcpDiscoveredOnLoadAsync(ISessionStore store, string sessionId, CancellationToken cancellationToken)
+    {
+        // If already discovered (cached), nothing to do.
+        lock (_mcp)
+        {
+            if (_mcp.ContainsKey(sessionId))
+                return;
+        }
+
+        if (store is not JsonlSessionStore js)
+            return;
+
+        var mcpConfigPath = Path.Combine(js.RootDir, sessionId, "mcpServers.json");
+        if (!File.Exists(mcpConfigPath))
+            return;
+
+        var json = await File.ReadAllTextAsync(mcpConfigPath, cancellationToken).ConfigureAwait(false);
+        var servers = JsonSerializer.Deserialize<List<McpServer>>(json, AcpJson.Options) ?? new List<McpServer>();
+        if (servers.Count == 0)
+            return;
+
+        var metaCwd = store.TryLoadMetadata(sessionId)?.Cwd ?? "/";
+        var req = new NewSessionRequest { Cwd = metaCwd, McpServers = servers };
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(10));
+        var discovered = await _mcpDiscovery.DiscoverAsync(req, timeout.Token).ConfigureAwait(false);
+
+        lock (_mcp)
+        {
+            _mcp[sessionId] = discovered;
+        }
     }
 
     public Task<ListSessionsResponse>? ListSessionsAsync(ListSessionsRequest request, CancellationToken cancellationToken)
@@ -269,41 +324,6 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
                 : (ImmutableArray<ToolDefinition>.Empty, NullMcpToolInvoker.Instance);
         }
 
-        // If this is a fresh process and we only have session replay, attempt to rehydrate MCP config.
-        if (mcp.Tools.IsDefaultOrEmpty)
-        {
-            var rootDir = (store as JsonlSessionStore)?.RootDir;
-            if (rootDir is not null)
-            {
-                var mcpConfigPath = Path.Combine(rootDir, sessionId, "mcpServers.json");
-                if (File.Exists(mcpConfigPath))
-                {
-                    try
-                    {
-                        var json = File.ReadAllText(mcpConfigPath);
-                        var servers = JsonSerializer.Deserialize<List<McpServer>>(json, AcpJson.Options) ?? new List<McpServer>();
-                        if (servers.Count > 0)
-                        {
-                            var metaCwd = store.TryLoadMetadata(sessionId)?.Cwd ?? "/";
-                            var req = new NewSessionRequest { Cwd = metaCwd, McpServers = servers };
-                            mcp = _mcpDiscovery.DiscoverAsync(req, CancellationToken.None).GetAwaiter().GetResult();
-
-                            // Cache rehydrated result so subsequent agent instances don't rediscover.
-                            lock (_mcp)
-                            {
-                                _mcp[sessionId] = mcp;
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        // Best-effort: if MCP rehydrate fails, proceed without MCP.
-                        // But surface it as a session artifact so acpx/manual debugging isn't blind.
-                        TryAppendMcpError(store, sessionId, phase: "rehydrate", ex);
-                    }
-                }
-            }
-        }
 
         // Merge MCP tools into the session state tool catalog (built-ins are merged later per client capabilities).
         initial = initial with { Tools = ClientToolCatalog.Merge(initial.Tools, mcp.Tools) };

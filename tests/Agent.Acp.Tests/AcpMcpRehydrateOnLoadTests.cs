@@ -51,8 +51,11 @@ public sealed class AcpMcpRehydrateOnLoadTests
             McpServers = new List<McpServer>(),
         }, CancellationToken.None);
 
-        // Create agent and force a model call (prompt). This should rehydrate MCP config from disk
-        // and advertise the MCP tool in the MEAI tool declarations.
+        // Rehydrate now occurs during session/load (async).
+        Assert.Single(discovery2.Calls);
+
+        // Create agent and force a model call (prompt). This should advertise the MCP tool
+        // in the MEAI tool declarations without rediscovering.
         var agent = factory2.CreateSessionAgent(newSession.SessionId, new NullClientCaller(), new NullSessionEvents());
 
         await agent.PromptAsync(

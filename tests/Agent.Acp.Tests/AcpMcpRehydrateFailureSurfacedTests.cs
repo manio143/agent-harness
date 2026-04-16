@@ -30,7 +30,8 @@ public sealed class AcpMcpRehydrateFailureSurfacedTests
             },
         }, CancellationToken.None);
 
-        // New factory simulates a new process. Rehydrate will occur in CreateSessionAgent.
+        // New factory simulates a new process. Rehydrate occurs during session/load (async),
+        // so CreateSessionAgent remains non-blocking.
         var factory2 = new AcpHarnessAgentFactory(new EmptyStreamingChatClient(), opts, new ThrowingMcpDiscovery());
         await factory2.LoadSessionAsync(new LoadSessionRequest { SessionId = ses.SessionId, Cwd = cwd, McpServers = new List<McpServer>() }, CancellationToken.None);
 
@@ -41,7 +42,7 @@ public sealed class AcpMcpRehydrateFailureSurfacedTests
         Assert.True(File.Exists(errPath));
 
         var last = File.ReadLines(errPath).Last();
-        Assert.Contains("rehydrate", last);
+        Assert.Contains("session_load", last);
         Assert.Contains("boom", last);
     }
 

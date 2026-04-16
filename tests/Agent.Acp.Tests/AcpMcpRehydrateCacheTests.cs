@@ -39,12 +39,14 @@ public sealed class AcpMcpRehydrateCacheTests
 
         await factory2.LoadSessionAsync(new LoadSessionRequest { SessionId = ses.SessionId, Cwd = cwd, McpServers = new List<McpServer>() }, CancellationToken.None);
 
-        // First agent creation should trigger rehydrate (discovery called once).
-        var agent1 = factory2.CreateSessionAgent(ses.SessionId, new NullClientCaller(), new NullSessionEvents());
-        await agent1.PromptAsync(new PromptRequest { SessionId = ses.SessionId, Prompt = new List<ContentBlock> { new TextContent { Text = "hi" } } }, new NullPromptTurn(), CancellationToken.None);
+        // Rehydrate now occurs during session/load (async).
         Assert.Single(discovery.Calls);
 
-        // Second agent creation should NOT rediscover.
+        // Agent creation + prompt should NOT rediscover.
+        var agent1 = factory2.CreateSessionAgent(ses.SessionId, new NullClientCaller(), new NullSessionEvents());
+        await agent1.PromptAsync(new PromptRequest { SessionId = ses.SessionId, Prompt = new List<ContentBlock> { new TextContent { Text = "hi" } } }, new NullPromptTurn(), CancellationToken.None);
+
+        // Second agent creation should also NOT rediscover.
         var agent2 = factory2.CreateSessionAgent(ses.SessionId, new NullClientCaller(), new NullSessionEvents());
         await agent2.PromptAsync(new PromptRequest { SessionId = ses.SessionId, Prompt = new List<ContentBlock> { new TextContent { Text = "hi" } } }, new NullPromptTurn(), CancellationToken.None);
 
