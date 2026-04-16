@@ -37,7 +37,6 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     private readonly Agent.Harness.Threads.IThreadStore? _threadStore;
     private readonly Agent.Harness.Threads.ThreadManager? _threads;
     private readonly Agent.Harness.Threads.ThreadOrchestrator? _orchestrator;
-    private bool _toolCatalogInitialized;
 
     private readonly Dictionary<string, IAcpToolCall> _toolCalls = new();
 
@@ -65,36 +64,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         _mcp = mcp ?? NullMcpToolInvoker.Instance;
         _logLlmPrompts = logLlmPrompts;
         _logObservedEvents = logObservedEvents;
-        _toolCatalogInitialized = false;
 
-        // Initialize thread engine once per session agent.
-        if (_store is JsonlSessionStore jsonl)
-        {
-            _threadStore = new Agent.Harness.Threads.JsonlThreadStore(jsonl.RootDir);
-            _threads = new Agent.Harness.Threads.ThreadManager(_sessionId, _threadStore);
-
-            _orchestrator = new Agent.Harness.Threads.ThreadOrchestrator(
-                _sessionId,
-                _client,
-                _chat,
-                _mcp,
-                _coreOptions,
-                logLlmPrompts: _logLlmPrompts,
-                _store,
-                _threadStore,
-                _threads);
-        }
-    }
-
-    public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken)
-    {
-        // Ensure no dangling tool calls from a previous turn.
-        if (turn.ToolCalls.ActiveToolCallIds.Count > 0)
-        {
-            await turn.ToolCalls.CancelAllAsync(cancellationToken).ConfigureAwait(false);
-            _toolCalls.Clear();
-        }
-
+        // Tools are loaded once per session.
         // Tool catalog is the source of truth for what the LLM may call.
         // Per DECISIONS-tool-calling-mvp: populate it using negotiated client capabilities only.
         // Anything present in the catalog must be runnable.
@@ -119,6 +90,38 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         // Merge: (pre-existing tools e.g. MCP) + internal + builtins
         _state = _state with { Tools = ClientToolCatalog.Merge(_state.Tools, ClientToolCatalog.Merge(internalTools, builtins)) };
 
+        // Initialize thread engine once per session agent.
+        if (_store is JsonlSessionStore jsonl)
+        {
+            _threadStore = new Agent.Harness.Threads.JsonlThreadStore(jsonl.RootDir);
+            _threads = new Agent.Harness.Threads.ThreadManager(_sessionId, _threadStore);
+
+            _orchestrator = new Agent.Harness.Threads.ThreadOrchestrator(
+                _sessionId,
+                _client,
+                _chat,
+                _mcp,
+                _coreOptions,
+                logLlmPrompts: _logLlmPrompts,
+                _store,
+                _threadStore,
+                _threads);
+
+            // Catalog == runnable/permission surface, and must be consistent across all threads.
+            _orchestrator.InitializeToolCatalog(_state.Tools);
+        }
+    }
+
+    public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken)
+    {
+        // Ensure no dangling tool calls from a previous turn.
+        if (turn.ToolCalls.ActiveToolCallIds.Count > 0)
+        {
+            await turn.ToolCalls.CancelAllAsync(cancellationToken).ConfigureAwait(false);
+            _toolCalls.Clear();
+        }
+
+        // Tool catalog is loaded once per session agent (constructor).
         var userText = ExtractUserText(request);
 
         async IAsyncEnumerable<ObservedChatEvent> ObservedUserInput(string text)
@@ -187,14 +190,6 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         // Single processing loop: delegate all thread execution (main + children) to the thread orchestrator.
         // Main thread is just another thread; the only special-casing is projection/publishing to ACP.
 
-        // Tools are loaded once per session. Initialize tool catalog on first prompt only.
-        // Catalog == runnable/permission surface, and must be consistent across all threads.
-        // Safe: orchestrator is long-lived per session agent.
-        if (!_toolCatalogInitialized)
-        {
-            _orchestrator.InitializeToolCatalog(_state.Tools);
-            _toolCatalogInitialized = true;
-        }
 
         // Express user prompt as universal inbox arrival.
         await _orchestrator.ObserveAsync(
