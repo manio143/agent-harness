@@ -9,5 +9,9 @@ TestResults/
 schema/*.unstable.json
 .acpx/
 .agent/
+
+# Samples: generated logs
+samples/**/out/
+
 core
 core.*
