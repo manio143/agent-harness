@@ -20,7 +20,7 @@ namespace Agent.Harness.Tests;
 
 public sealed class AcpEnqueueWakeRegressionIntegrationTests
 {
-    [Fact]
+    [Fact(Skip = "Migrated to EngineEnqueueWakeRegressionIntegrationTests (engine seam, no JSON-RPC transport)")]
     public async Task EnqueueDelivery_SchedulesFollowupModelCall_WithoutSecondPrompt()
     {
         var (clientTransport, serverTransport) = InMemoryTransport.CreatePair();
