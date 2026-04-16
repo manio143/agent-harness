@@ -205,8 +205,13 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             sinkFactory: tid => tid == Agent.Harness.Threads.ThreadIds.Main ? sink : null,
             cancellationToken).ConfigureAwait(false);
 
-        // Sync our main session state from orchestrator cache (and ensure buffer is cleared).
-        _state = orchestrator.GetStateOrEmpty(Agent.Harness.Threads.ThreadIds.Main) with { Buffer = TurnBuffer.Empty };
+        // ACP layer state is a view/cache.
+        // Source of truth for committed history is the thread store; tool catalog remains our permission boundary.
+        _state = _state with
+        {
+            Committed = threadStore.LoadCommittedEvents(_sessionId, Agent.Harness.Threads.ThreadIds.Main),
+            Buffer = TurnBuffer.Empty,
+        };
         return new PromptResponse { StopReason = StopReason.EndTurn };
     }
 
