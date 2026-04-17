@@ -97,6 +97,13 @@ public static class Core
 
         }
 
+        // Patch requires BOTH read + write.
+        if (capabilities.Fs?.ReadTextFile == true && capabilities.Fs?.WriteTextFile == true)
+        {
+            builder.Add(ToolSchemas.PatchTextFile);
+
+        }
+
         // Terminal tools
         if (capabilities.Terminal == true)
         {

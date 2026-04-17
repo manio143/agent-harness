@@ -50,6 +50,72 @@ public static class ToolSchemas
         }
         """));
 
+    public static ToolDefinition PatchTextFile { get; } = new(
+        Name: "patch_text_file",
+        Description: "Patch a UTF-8 text file by applying structured edits. The tool reads the file, applies edits sequentially, then writes it back.\n\nSupported edits (applied in order):\n- replace_exact: replace oldText with newText (requires unique match unless occurrence is provided)\n- insert_before: insert text immediately before anchorText\n- insert_after: insert text immediately after anchorText\n- delete_exact: delete text (requires unique match unless occurrence is provided)\n\nExamples:\n- {\"path\":\"README.md\",\"edits\":[{\"op\":\"replace_exact\",\"oldText\":\"old\",\"newText\":\"new\"}]}\n- {\"path\":\"a.txt\",\"expectedSha256\":\"...\",\"edits\":[{\"op\":\"insert_after\",\"anchorText\":\"class Foo\",\"text\":\"\\n// note\\n\"}]} ",
+        InputSchema: ParseSchema("""
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": { "type": "string", "description": "Path to the file to patch" },
+            "expectedSha256": { "type": "string", "description": "Optional SHA-256 of the current file; if provided it must match before applying edits" },
+            "edits": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "op": { "const": "replace_exact" },
+                      "oldText": { "type": "string" },
+                      "newText": { "type": "string" },
+                      "occurrence": { "type": "integer", "minimum": 0 }
+                    },
+                    "required": ["op", "oldText", "newText"]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "op": { "const": "insert_before" },
+                      "anchorText": { "type": "string" },
+                      "text": { "type": "string" },
+                      "occurrence": { "type": "integer", "minimum": 0 }
+                    },
+                    "required": ["op", "anchorText", "text"]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "op": { "const": "insert_after" },
+                      "anchorText": { "type": "string" },
+                      "text": { "type": "string" },
+                      "occurrence": { "type": "integer", "minimum": 0 }
+                    },
+                    "required": ["op", "anchorText", "text"]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "op": { "const": "delete_exact" },
+                      "text": { "type": "string" },
+                      "occurrence": { "type": "integer", "minimum": 0 }
+                    },
+                    "required": ["op", "text"]
+                  }
+                ]
+              }
+            }
+          },
+          "required": ["path", "edits"]
+        }
+        """));
+
     // --- Harness internal coordination tools ---
 
     public static ToolDefinition ReportIntent { get; } = new(
