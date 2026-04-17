@@ -20,5 +20,8 @@ npx -y acpx@latest --cwd . prompt --session demo \
 
 Now do the work:
 Call tool report_intent with arguments: {"intent":"mcp demo"}.
-Then create /tmp/demo.txt with "hello". Read it back. Run "uname -a".
-Then call an MCP tool from the everything server and summarize.'
+Then call tool write_text_file with arguments: {"path":"/tmp/demo.txt","content":"hello"}.
+Then call tool read_text_file with arguments: {"path":"/tmp/demo.txt"}.
+Then call tool execute_command with arguments: {"command":"uname -a"}.
+Then call tool everything__echo with arguments: {"message":"hello from mcp"}.
+Then briefly summarize what happened.'
