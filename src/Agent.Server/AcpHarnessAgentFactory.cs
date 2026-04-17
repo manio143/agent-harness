@@ -212,13 +212,14 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             }
         }
 
+        var allowlist = "all";
         var resp = new NewSessionResponse
         {
             SessionId = sessionId,
             Modes = null,
             ConfigOptions = new List<SessionConfigOption>
             {
-                ToolAllowlistConfigOption(current: "all"),
+                ToolAllowlistConfigOption(current: allowlist),
             },
         };
 
@@ -249,12 +250,18 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             TryAppendMcpError(store, request.SessionId, phase: "session_load", ex);
         }
 
+        var allowlist = store.LoadCommitted(request.SessionId)
+            .OfType<Agent.Harness.SessionConfigOptionSet>()
+            .Where(e => e.ConfigId == "tool_allowlist")
+            .Select(e => e.Value)
+            .LastOrDefault() ?? "all";
+
         var resp = new LoadSessionResponse
         {
             Modes = null,
             ConfigOptions = new List<SessionConfigOption>
             {
-                ToolAllowlistConfigOption(current: "all"),
+                ToolAllowlistConfigOption(current: allowlist),
             },
         };
 

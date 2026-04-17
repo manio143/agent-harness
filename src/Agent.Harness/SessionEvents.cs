@@ -9,6 +9,8 @@ namespace Agent.Harness;
 /// </summary>
 public abstract record SessionEvent;
 
+public sealed record SessionConfigOptionSet(string ConfigId, string Value) : SessionEvent;
+
 public sealed record UserMessage(string Text) : SessionEvent;
 public sealed record AssistantMessage(string Text) : SessionEvent;
 

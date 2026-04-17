@@ -67,6 +67,16 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     private SessionState _state;
     private string _toolAllowlist = "all";
 
+    private string LoadToolAllowlistFromStoreOrDefault()
+    {
+        var committed = _store.LoadCommitted(_sessionId);
+        var last = committed.OfType<SessionConfigOptionSet>()
+            .Where(e => e.ConfigId == "tool_allowlist")
+            .Select(e => e.Value)
+            .LastOrDefault();
+        return string.IsNullOrWhiteSpace(last) ? "all" : last;
+    }
+
     // Threading engine (long-lived per HarnessAcpSessionAgent instance when backing store supports threads).
     private readonly Agent.Harness.Threads.IThreadStore? _threadStore;
     private readonly Agent.Harness.Threads.ThreadManager? _threads;
@@ -121,10 +131,13 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         // Capability-gated built-ins derived from negotiated client capabilities.
         var builtins = ClientToolCatalog.BuildBuiltins(_client.ClientCapabilities);
 
+        // Restore session config (survives reconnect via committed events).
+        _toolAllowlist = LoadToolAllowlistFromStoreOrDefault();
+
         // Merge: (pre-existing tools e.g. MCP) + internal + builtins
         _state = _state with { Tools = ClientToolCatalog.Merge(_state.Tools, ClientToolCatalog.Merge(internalTools, builtins)) };
 
-        // Apply any session config-based tool restrictions (defaults to "all").
+        // Apply any session config-based tool restrictions.
         _state = _state with { Tools = ApplyToolAllowlist(_state.Tools, _toolAllowlist) };
 
         // Initialize thread engine once per session agent.
@@ -154,6 +167,9 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         if (request.ConfigId == "tool_allowlist")
         {
             _toolAllowlist = request.Value;
+
+            // Persist config so reconnect/load sees it.
+            _store.AppendCommitted(_sessionId, new SessionConfigOptionSet("tool_allowlist", _toolAllowlist));
 
             // Update tool catalog immediately: permission boundary == declared tools.
             _state = _state with { Tools = ApplyToolAllowlist(_state.Tools, _toolAllowlist) };
