@@ -404,8 +404,14 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     var content = before.Content;
                     var beforeSha = Sha256Hex(content);
 
-                    if (!string.IsNullOrWhiteSpace(expectedSha) && !string.Equals(expectedSha, beforeSha, StringComparison.OrdinalIgnoreCase))
-                        throw new InvalidOperationException($"sha256_mismatch expected={expectedSha} actual={beforeSha}");
+                    if (!string.IsNullOrWhiteSpace(expectedSha))
+                    {
+                        if (!IsSha256Hex(expectedSha))
+                            throw new InvalidOperationException($"invalid_args:expectedSha256_not_sha256:{expectedSha}");
+
+                        if (!string.Equals(expectedSha, beforeSha, StringComparison.OrdinalIgnoreCase))
+                            throw new InvalidOperationException($"sha256_mismatch expected={expectedSha} actual={beforeSha}");
+                    }
 
                     foreach (var edit in editsEl.EnumerateArray())
                     {
@@ -490,6 +496,25 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         };
     }
 
+    private static bool IsSha256Hex(string s)
+    {
+        if (s.Length != 64)
+            return false;
+
+        foreach (var ch in s)
+        {
+            var isHex =
+                (ch >= '0' && ch <= '9') ||
+                (ch >= 'a' && ch <= 'f') ||
+                (ch >= 'A' && ch <= 'F');
+
+            if (!isHex)
+                return false;
+        }
+
+        return true;
+    }
+
     private static string Sha256Hex(string content)
     {
         var bytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(content ?? string.Empty));
@@ -517,9 +542,8 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                 GetRequiredString(edit, "newText"),
                 occurrence),
 
-            "delete_exact" => ApplyReplaceExact(content,
+            "delete_exact" => ApplyDeleteExact(content,
                 GetRequiredString(edit, "text"),
-                string.Empty,
                 occurrence),
 
             "insert_before" => ApplyInsert(content,
@@ -545,6 +569,14 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         return el.GetString() ?? string.Empty;
     }
 
+    private static string ApplyDeleteExact(string content, string text, int? occurrence)
+    {
+        if (string.IsNullOrEmpty(text))
+            throw new InvalidOperationException("invalid_args:text_empty");
+
+        return ApplyReplaceExact(content, text, string.Empty, occurrence);
+    }
+
     private static string ApplyReplaceExact(string content, string oldText, string newText, int? occurrence)
     {
         if (string.IsNullOrEmpty(oldText))
@@ -560,6 +592,9 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
     {
         if (string.IsNullOrEmpty(anchor))
             throw new InvalidOperationException("invalid_args:anchorText_empty");
+
+        if (string.IsNullOrEmpty(text))
+            throw new InvalidOperationException("invalid_args:text_empty");
 
         var idxs = AllIndexesOf(content, anchor);
         var idx = SelectIndex(idxs, anchor, occurrence);

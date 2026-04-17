@@ -16,6 +16,10 @@ public static class ClientToolCatalog
         if (caps.Fs?.WriteTextFile == true)
             b.Add(ToolSchemas.WriteTextFile);
 
+        // fs patch (requires both read + write)
+        if (caps.Fs?.ReadTextFile == true && caps.Fs?.WriteTextFile == true)
+            b.Add(ToolSchemas.PatchTextFile);
+
         // terminal
         if (caps.Terminal)
             b.Add(ToolSchemas.ExecuteCommand);
