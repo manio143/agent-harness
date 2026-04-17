@@ -1,81 +1,99 @@
-# agent-harness (ACP + Harness in C#)
+# Agent Harness (ACP) — C# reference implementation
 
-A **test-first** C# implementation of the **Agent Client Protocol (ACP)** plus a small, reusable **agent harness**.
+A **test-first** C# implementation of the **Agent Client Protocol (ACP)** plus a small, reusable **agent harness** you can run locally.
 
-This repo has three layers:
+If you want:
+- a runnable ACP stdio server (`dotnet`)
+- strong validation and predictable JSON-RPC errors
+- tool calling (built-in tools + MCP tools)
+- durable, event-sourced sessions (Observed → Committed)
+- threading scenarios (parent/child threads + inbox delivery)
 
-- **`Agent.Acp`**: ACP transport + JSON-RPC + strict validation + server dispatch.
-- **`Agent.Harness`**: functional-core / imperative-shell harness for streaming chat providers (Observed → Committed event model).
-- **`Agent.Server`**: runnable stdio ACP host wiring the harness to a provider (Ollama via OpenAI-compatible endpoint).
+…this repo is that.
 
-## Repo layout
+## What you can do with it
 
-- `src/Agent.Acp/` — ACP implementation (schema DTOs, server/client, transports)
-- `src/Agent.Harness/` — provider-agnostic harness (Observed/Committed events, reducer, session runner)
-- `src/Agent.Server/` — runnable stdio agent host (`dotnet run …`)
-- `tests/Agent.Acp.Tests/` — ACP integration-style tests
-- `tests/Agent.Harness.Tests/` — harness unit/integration tests
-- `schema/` — ACP schema assets + codegen outputs
-- `scripts/` — schema fetch + codegen helpers
-- `tools/` — codegen helpers
+### Run an ACP agent locally
+- Start the stdio server (`Agent.Server`)
+- Connect with an ACP client (e.g. `acpx`)
+- Prompt it against an OpenAI-compatible endpoint (Ollama supported)
 
-## Key design points
+### Use tools
+The harness exposes a tool catalog to the model:
+- **Built-in (capability-gated):**
+  - `read_text_file`
+  - `write_text_file`
+  - `execute_command` (ACP terminal) with args: `{ "command": "<exe>", "args": ["..."] }`
+- **Harness internal:** threading tools (`thread_*`), `report_intent`
+- **MCP:** tools discovered from configured MCP servers are merged into the catalog (e.g. `everything__echo`).
 
-### Strict ACP validation + consistent JSON-RPC error mapping
+### Persist sessions
+Committed history is append-only JSONL with a small `session.json` projection. ACP publication is **committed-only**.
 
-- Spec/parameter violations ⇒ **`-32602`**
-- Unsupported optional methods ⇒ **`-32601`**
-- Not initialized ⇒ **`-32000`** with: `"Connection not initialized. Call initialize first."`
+---
 
-### Harness: Observed vs Committed
+## Quickstart (manual E2E)
 
-Providers stream **Observed** updates (lossless, may contain raw provider payload). The harness reducer turns those into **Committed** events (stable history). ACP publishes **committed only**.
-
-### Session persistence
-
-Committed events can be stored as append-only **JSONL** and metadata (`session.json`) is a **projection of committed events** (e.g. `SessionTitleSet`).
-
-## Running the stdio server (manual E2E)
-
-The server uses MEAI + OpenAI-compatible endpoint (works with Ollama).
+### 1) Build
 
 ```bash
 cd /home/node/.openclaw/workspace/marian-agent
+dotnet build Agent.slnx -c Release
+```
 
-dotnet build src/Agent.Server/Agent.Server.csproj -c Release
+### 2) Run via acpx
 
-# Run with acpx (https://github.com/openclaw/acpx)
+```bash
+# acpx: https://github.com/openclaw/acpx
 acpx --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll" --timeout 60 exec "Hello"
 ```
 
-Configuration is in `src/Agent.Server/appsettings.json`.
+### 3) Configure provider (Ollama)
+Edit:
+- `src/Agent.Server/appsettings.json`
 
-To debug raw JSON-RPC traffic (stderr):
+Typical values:
+- `AgentServer:OpenAI:BaseUrl = http://ollama-api:11434/v1`
+- `AgentServer:OpenAI:Model = qwen2.5:3b`
+
+### Debugging
+To see raw JSON-RPC traffic and prompt/observed logs:
 
 ```bash
 AGENTSERVER_AgentServer__Logging__LogRpc=true \
-  acpx --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll" --timeout 60 exec "Hello"
+AGENTSERVER_AgentServer__Logging__LogObservedEvents=true \
+AGENTSERVER_AgentServer__Logging__LogLlmPrompts=true \
+  acpx --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll" --timeout 300 exec "Hello"
 ```
+
+---
+
+## Samples
+
+### Threading scenarios
+- `samples/Threading.Scenarios/run_all.sh`
+
+These scenarios validate parent/child thread behavior and determinism under tool-calling models.
+
+### MCP demo
+- `samples/Acp.EverythingMcpDemo/run.sh`
+
+Runs a full tool chain including an MCP tool (`everything__echo`) and finishes with `DONE`.
+
+---
+
+## Repo layout
+
+- `src/Agent.Acp/` — ACP transport + JSON-RPC + validation + server dispatch
+- `src/Agent.Harness/` — harness (Observed → Committed reducer, session runner, tool lifecycle)
+- `src/Agent.Server/` — runnable stdio ACP host wiring harness ↔ provider ↔ MCP
+- `tests/` — unit + integration tests
+- `docs/` — design + decision docs
+- `schema/` — ACP schema assets + codegen outputs
+- `scripts/` / `tools/` — schema/codegen helpers
 
 ## Tests
 
 ```bash
 dotnet test Agent.slnx -c Release
 ```
-
-## Schema update workflow
-
-Fetch the latest ACP release assets (`schema.json`, `meta.json`, plus unstable variants if present):
-
-```bash
-python3 scripts/fetch_latest_acp_assets.py --out schema
-```
-
-Build a codegen-friendly schema (`schema/schema.codegen.json`) and generate C# DTOs:
-
-```bash
-python3 scripts/build_codegen_schema.py
-./scripts/generate_acp_types.sh
-```
-
-> We use NJsonSchema via `tools/Agent.Acp.TypeGen` and keep generated DTO edits regen-safe via schema normalization + post-processing.
