@@ -20,8 +20,9 @@ npx -y acpx@latest --cwd . prompt --session demo \
 
 Now do the work:
 Call tool report_intent with arguments: {"intent":"mcp demo"}.
-Then call tool write_text_file with arguments: {"path":"/tmp/demo.txt","content":"hello"}.
-Then call tool read_text_file with arguments: {"path":"/tmp/demo.txt"}.
-Then call tool execute_command with arguments: {"command":"uname -a"}.
+Then call tool write_text_file with arguments: {"path":"demo.txt","content":"hello"}.
+Then call tool read_text_file with arguments: {"path":"demo.txt"}.
+Then call tool execute_command with arguments: {"command":"uname -a"} (use this exact JSON args object).
 Then call tool everything__echo with arguments: {"message":"hello from mcp"}.
-Then briefly summarize what happened.'
+Then briefly summarize what happened.
+Finally output EXACTLY: DONE'
