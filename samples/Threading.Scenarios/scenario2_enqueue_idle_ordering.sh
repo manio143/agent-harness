@@ -22,7 +22,8 @@ echo "[scenario2] sessionId=$SESSION_ID"
 # Turn 1: create child.
 acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
   'Call tool report_intent with arguments: {"intent":"create child"}.
-Then call tool thread_new with arguments: {"delivery":"immediate","message":"Say READY"}.'
+Then call tool thread_new with arguments: {"delivery":"immediate","message":"Say READY"}.
+Then reply with exactly: OK'
 
 THREADS_DIR=".agent/sessions/$SESSION_ID/threads"
 
@@ -50,14 +51,16 @@ echo "---"
 acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
   "Call tool report_intent with arguments: {\"intent\":\"enqueue followup\"}.
 Then call tool thread_send with arguments: {\"threadId\":\"$CHILD_ID\",\"delivery\":\"enqueue\",\"message\":\"Now say CONSUMED\"}.
-Then say ENQUEUED_OK."
+Then say ENQUEUED_OK.
+Then reply with exactly: DONE."
 
 echo "---"
 
 # Turn 3: wait for idle notification and summarize.
 acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
   'Call tool report_intent with arguments: {"intent":"await idle"}.
-Wait until you receive the child idle notification in main. Then summarize what happened in 2 bullet points.'
+Wait until you receive the child idle notification in main. Then summarize what happened in 2 bullet points.
+Then reply with exactly: DONE'
 
 # Tip for manual inspection (not asserted here):
 # - committed logs live under src/Agent.Server/.agent/sessions (see appsettings.json)

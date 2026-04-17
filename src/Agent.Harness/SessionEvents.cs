@@ -145,6 +145,12 @@ public enum ChatRole
     System,
     User,
     Assistant,
+
+    /// <summary>
+    /// Tool result message (OpenAI/MEAI-style). This should be used to feed tool outputs back to the model
+    /// so it can continue and produce final assistant text without re-invoking the same tools.
+    /// </summary>
+    Tool,
 }
 
 public sealed record ChatMessage(ChatRole Role, string Text);

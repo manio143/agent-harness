@@ -23,7 +23,8 @@ echo "[scenario1] sessionId=$SESSION_ID"
 # Turn 1: create child.
 acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
   'Call tool report_intent with arguments: {"intent":"create child"}.
-Then call tool thread_new with arguments: {"delivery":"immediate","message":"Explain how the tool catalog acts as the permission boundary in this harness"}.'
+Then call tool thread_new with arguments: {"delivery":"immediate","message":"Explain how the tool catalog acts as the permission boundary in this harness"}.
+Then reply with exactly: OK'
 
 # Grab the child thread id from the persisted thread store.
 THREADS_DIR=".agent/sessions/$SESSION_ID/threads"
@@ -54,4 +55,5 @@ echo "---"
 acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
   "Call tool report_intent with arguments: {\"intent\":\"read child\"}.
 Then call tool thread_read with arguments: {\"threadId\":\"$CHILD_ID\"}.
-Then paste the child assistant message text verbatim."
+Then paste the child assistant message text verbatim.
+Then reply with exactly: DONE"

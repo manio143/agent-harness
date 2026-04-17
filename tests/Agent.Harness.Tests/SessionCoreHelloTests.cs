@@ -52,7 +52,7 @@ public sealed class CoreReducerHelloTests
     }
 
     [Fact]
-    public void RenderPrompt_IncludesToolCallsAndOutcomes_AsSystemMessages()
+    public void RenderPrompt_IncludesToolCallsAndOutcomes_AsToolMessages()
     {
         var args = System.Text.Json.JsonSerializer.SerializeToElement(new { path = "/x", content = "hi" });
         var result = System.Text.Json.JsonSerializer.SerializeToElement(new { ok = true });
@@ -74,8 +74,7 @@ public sealed class CoreReducerHelloTests
         rendered[1].Text.Should().Contain("\"toolId\":\"call_1\"");
         rendered[1].Text.Should().Contain("\"toolName\":\"write_text_file\"");
 
-        rendered[2].Role.Should().Be(ChatRole.System);
-        rendered[2].Text.Should().Contain("<tool_result>");
+        rendered[2].Role.Should().Be(ChatRole.Tool);
         rendered[2].Text.Should().Contain("\"outcome\":\"completed\"");
 
         rendered[3].Should().Be(new ChatMessage(ChatRole.Assistant, "done"));

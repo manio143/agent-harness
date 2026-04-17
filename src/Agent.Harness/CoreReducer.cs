@@ -511,29 +511,31 @@ public static class Core
 
                 case ToolCallCompleted c:
                 {
+                    // Feed tool results back to the model in a tool-role message (MEAI/OpenAI style).
+                    // This is more reliable than embedding results inside system XML-ish tags.
                     var payload = JsonSerializer.Serialize(new { toolId = c.ToolId, outcome = "completed", result = c.Result }, json);
-                    builder.Add(new ChatMessage(ChatRole.System, $"<tool_result>{payload}</tool_result>"));
+                    builder.Add(new ChatMessage(ChatRole.Tool, payload));
                     break;
                 }
 
                 case ToolCallFailed f:
                 {
                     var payload = JsonSerializer.Serialize(new { toolId = f.ToolId, outcome = "failed", error = f.Error }, json);
-                    builder.Add(new ChatMessage(ChatRole.System, $"<tool_result>{payload}</tool_result>"));
+                    builder.Add(new ChatMessage(ChatRole.Tool, payload));
                     break;
                 }
 
                 case ToolCallRejected r:
                 {
                     var payload = JsonSerializer.Serialize(new { toolId = r.ToolId, outcome = "rejected", reason = r.Reason, details = r.Details }, json);
-                    builder.Add(new ChatMessage(ChatRole.System, $"<tool_result>{payload}</tool_result>"));
+                    builder.Add(new ChatMessage(ChatRole.Tool, payload));
                     break;
                 }
 
                 case ToolCallCancelled c:
                 {
                     var payload = JsonSerializer.Serialize(new { toolId = c.ToolId, outcome = "cancelled" }, json);
-                    builder.Add(new ChatMessage(ChatRole.System, $"<tool_result>{payload}</tool_result>"));
+                    builder.Add(new ChatMessage(ChatRole.Tool, payload));
                     break;
                 }
 

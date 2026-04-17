@@ -106,6 +106,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                 {
                     ChatRole.User => MeaiChatRole.User,
                     ChatRole.Assistant => MeaiChatRole.Assistant,
+                    ChatRole.Tool => MeaiChatRole.Tool,
                     _ => MeaiChatRole.System,
                 }, m.Text))
                 .ToList();
