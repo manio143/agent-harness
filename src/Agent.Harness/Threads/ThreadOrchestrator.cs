@@ -180,7 +180,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
                 yield return new ObservedWakeModel(threadId);
             }
 
-            var titleGen = new SessionTitleGenerator(new Llm.MeaiTitleChatClientAdapter(_chat));
+            var titleGen = new SessionTitleGenerator(_chat);
             var acpClient = threadId == ThreadIds.Main ? _client : NullAcpClientCaller.Instance;
 
             var effects = new AcpEffectExecutor(

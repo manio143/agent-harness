@@ -72,9 +72,22 @@ public class SessionRunnerEffectLoopTests
         }
     }
 
-    private sealed class ThrowingChatClient : IChatClient
+    private sealed class ThrowingChatClient : Microsoft.Extensions.AI.IChatClient
     {
-        public Task<string> CompleteAsync(IReadOnlyList<ChatMessage> renderedMessages, CancellationToken cancellationToken)
+        public void Dispose() { }
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public Task<Microsoft.Extensions.AI.ChatResponse> GetResponseAsync(
+            IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages,
+            Microsoft.Extensions.AI.ChatOptions? options = null,
+            CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("Title generation should not run in this test.");
+
+        public IAsyncEnumerable<Microsoft.Extensions.AI.ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages,
+            Microsoft.Extensions.AI.ChatOptions? options = null,
+            CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("Streaming model should not run in this test.");
     }
 }

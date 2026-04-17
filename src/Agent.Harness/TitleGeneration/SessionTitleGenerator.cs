@@ -1,3 +1,5 @@
+using Microsoft.Extensions.AI;
+
 namespace Agent.Harness.TitleGeneration;
 
 /// <summary>
@@ -32,14 +34,15 @@ public sealed class SessionTitleGenerator
 
         var user = "<conversation>\n" + string.Join("\n", conversation) + "\n</conversation>";
 
-        var titleRaw = await _chat.CompleteAsync(
+        var resp = await _chat.GetResponseAsync(
             new[]
             {
-                new ChatMessage(ChatRole.System, SystemPrompt),
-                new ChatMessage(ChatRole.User, user),
+                new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.System, SystemPrompt),
+                new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.User, user),
             },
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
 
+        var titleRaw = resp.Text;
         if (string.IsNullOrWhiteSpace(titleRaw))
             return null;
 

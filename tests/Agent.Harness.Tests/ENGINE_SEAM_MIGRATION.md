@@ -4,7 +4,7 @@ These tests were originally written as ACP JSON-RPC transport integrations (InMe
 
 As the architecture converged on **ACP as projection-only** and the **ThreadOrchestrator as the single drain-to-quiescence engine**, most of these became *engine behavior* tests, not ACP contract tests.
 
-They were migrated to the "engine seam": drive `HarnessAcpSessionAgent` directly with a scripted `IChatClient`, capture tool `rawOutput` via a custom `IAcpPromptTurn`, and assert against tool outputs + committed thread logs (`JsonlThreadStore`).
+They were migrated to the "engine seam": drive `HarnessAcpSessionAgent` directly with a scripted `Microsoft.Extensions.AI.IChatClient`, capture tool `rawOutput` via a custom `IAcpPromptTurn`, and assert against tool outputs + committed thread logs (`JsonlThreadStore`).
 
 ## Mappings
 

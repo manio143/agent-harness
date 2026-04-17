@@ -74,9 +74,28 @@ public sealed class ModeAToolFailureRecoveryIntegrationTests
         }
     }
 
-    private sealed class NullChatClient : IChatClient
+    private sealed class NullChatClient : Microsoft.Extensions.AI.IChatClient
     {
-        public Task<string> CompleteAsync(IReadOnlyList<ChatMessage> renderedMessages, CancellationToken cancellationToken)
-            => Task.FromResult("");
+        public void Dispose() { }
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public Task<Microsoft.Extensions.AI.ChatResponse> GetResponseAsync(
+            IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages,
+            Microsoft.Extensions.AI.ChatOptions? options = null,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new Microsoft.Extensions.AI.ChatResponse(new[]
+            {
+                new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.Assistant, "")
+            }));
+
+        public async IAsyncEnumerable<Microsoft.Extensions.AI.ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages,
+            Microsoft.Extensions.AI.ChatOptions? options = null,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            await Task.CompletedTask;
+            yield break;
+        }
     }
 }

@@ -137,7 +137,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             yield return new ObservedWakeModel(Agent.Harness.Threads.ThreadIds.Main);
         }
 
-        var titleGen = new SessionTitleGenerator(new Llm.MeaiTitleChatClientAdapter(_chat));
+        var titleGen = new SessionTitleGenerator(_chat);
         var sessionCwd = _store.TryLoadMetadata(_sessionId)?.Cwd;
 
         var effects = new AcpEffectExecutor(
