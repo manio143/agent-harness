@@ -19,14 +19,18 @@ fi
 
 echo "[scenario2] sessionId=$SESSION_ID"
 
-# Restrict tool catalog to keep the sample deterministic (permission boundary via tool declarations).
-acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" set -s "$SESSION" tool_allowlist threading_no_fork >/dev/null
-
 # Turn 1: create child.
 acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
-  'Call tool report_intent with arguments: {"intent":"create child"}.
-Then call tool thread_new with arguments: {"delivery":"immediate","message":"Say READY"}.
-Then reply with exactly: OK'
+  'You MUST follow these rules exactly:
+1) You may call at most 2 tools in this turn.
+2) You may ONLY call: report_intent, thread_new.
+3) You MUST NOT call any other tools (especially thread_fork, thread_send, thread_read, thread_list).
+4) After the 2 tool calls complete, output EXACTLY: OK (nothing else).
+
+Now do the work:
+Call tool report_intent with arguments: {"intent":"create child"}.
+Then call tool thread_new with arguments: {"delivery":"immediate","message":"Say READY. Do NOT call any tools."}.
+Then output EXACTLY: OK'
 
 THREADS_DIR=".agent/sessions/$SESSION_ID/threads"
 
@@ -52,18 +56,31 @@ echo "---"
 
 # Turn 2: enqueue follow-up to the child.
 acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
-  "Call tool report_intent with arguments: {\"intent\":\"enqueue followup\"}.
-Then call tool thread_send with arguments: {\"threadId\":\"$CHILD_ID\",\"delivery\":\"enqueue\",\"message\":\"Now say CONSUMED\"}.
-Then say ENQUEUED_OK.
-Then reply with exactly: DONE."
+  "You MUST follow these rules exactly:
+1) You may call at most 2 tools in this turn.
+2) You may ONLY call: report_intent, thread_send.
+3) You MUST NOT call any other tools (especially thread_new, thread_fork, thread_read, thread_list).
+4) After the 2 tool calls complete, output EXACTLY: DONE (nothing else).
+
+Now do the work:
+Call tool report_intent with arguments: {\"intent\":\"enqueue followup\"}.
+Then call tool thread_send with arguments: {\"threadId\":\"$CHILD_ID\",\"delivery\":\"enqueue\",\"message\":\"Now say CONSUMED. Do NOT call any tools.\"}.
+Then output EXACTLY: DONE."
 
 echo "---"
 
 # Turn 3: wait for idle notification and summarize.
 acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
-  'Call tool report_intent with arguments: {"intent":"await idle"}.
+  'You MUST follow these rules exactly:
+1) You may call at most 1 tool in this turn.
+2) You may ONLY call: report_intent.
+3) You MUST NOT call any other tools.
+4) After you receive the child idle notification in main, output EXACTLY: DONE (nothing else).
+
+Now do the work:
+Call tool report_intent with arguments: {"intent":"await idle"}.
 Wait until you receive the child idle notification in main. Then summarize what happened in 2 bullet points.
-Then reply with exactly: DONE'
+Then output EXACTLY: DONE'
 
 # Tip for manual inspection (not asserted here):
 # - committed logs live under src/Agent.Server/.agent/sessions (see appsettings.json)

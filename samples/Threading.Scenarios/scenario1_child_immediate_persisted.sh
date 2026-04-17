@@ -20,14 +20,18 @@ fi
 
 echo "[scenario1] sessionId=$SESSION_ID"
 
-# Restrict tool catalog to keep the sample deterministic (permission boundary via tool declarations).
-acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" set -s "$SESSION" tool_allowlist threading_no_fork >/dev/null
-
 # Turn 1: create child.
 acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
-  'Call tool report_intent with arguments: {"intent":"create child"}.
-Then call tool thread_new with arguments: {"delivery":"immediate","message":"Explain how the tool catalog acts as the permission boundary in this harness"}.
-Then reply with exactly: OK'
+  'You MUST follow these rules exactly:
+1) You may call at most 2 tools in this turn.
+2) You may ONLY call: report_intent, thread_new.
+3) You MUST NOT call any other tools (especially thread_fork, thread_send, thread_read, thread_list).
+4) After the 2 tool calls complete, output EXACTLY: OK (nothing else).
+
+Now do the work:
+Call tool report_intent with arguments: {"intent":"create child"}.
+Then call tool thread_new with arguments: {"delivery":"immediate","message":"In 1 paragraph, explain how the tool catalog acts as the permission boundary in this harness. Do NOT call any tools. Do NOT ask questions."}.
+Then output EXACTLY: OK'
 
 # Grab the child thread id from the persisted thread store.
 THREADS_DIR=".agent/sessions/$SESSION_ID/threads"
@@ -65,7 +69,14 @@ echo "---"
 
 # Turn 2: read child explicitly.
 acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
-  "Call tool report_intent with arguments: {\"intent\":\"read child\"}.
+  "You MUST follow these rules exactly:
+1) You may call at most 2 tools in this turn.
+2) You may ONLY call: report_intent, thread_read.
+3) You MUST NOT call any other tools (especially thread_new, thread_fork, thread_send, thread_list).
+4) After the 2 tool calls complete, output EXACTLY: DONE (nothing else).
+
+Now do the work:
+Call tool report_intent with arguments: {\"intent\":\"read child\"}.
 Then call tool thread_read with arguments: {\"threadId\":\"$CHILD_ID\"}.
 Then paste the child assistant message text verbatim.
-Then reply with exactly: DONE"
+Then output EXACTLY: DONE"

@@ -19,20 +19,31 @@ fi
 
 echo "[scenario3] sessionId=$SESSION_ID"
 
-# Restrict tool catalog to keep the sample deterministic (permission boundary via tool declarations).
-acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" set -s "$SESSION" tool_allowlist threading_no_fork >/dev/null
-
 # Turn 1: self-send enqueue (historical deadlock class)
 acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
-  'Call tool report_intent with arguments: {"intent":"self enqueue"}.
+  'You MUST follow these rules exactly:
+1) You may call at most 2 tools in this turn.
+2) You may ONLY call: report_intent, thread_send.
+3) You MUST NOT call any other tools (especially thread_new, thread_fork, thread_read, thread_list).
+4) After the 2 tool calls complete, output EXACTLY: AFTER_PING (nothing else).
+
+Now do the work:
+Call tool report_intent with arguments: {"intent":"self enqueue"}.
 Then call tool thread_send with arguments: {"threadId":"main","delivery":"enqueue","message":"PING"}.
-After the tool completes, print exactly: AFTER_PING'
+Then output EXACTLY: AFTER_PING'
 
 echo "---"
 
 # Turn 2: ensure tools still work in same session (catalog stability)
 acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
-  'Call tool report_intent with arguments: {"intent":"list threads"}.
+  'You MUST follow these rules exactly:
+1) You may call at most 2 tools in this turn.
+2) You may ONLY call: report_intent, thread_list.
+3) You MUST NOT call any other tools (especially thread_new, thread_fork, thread_send, thread_read).
+4) After the 2 tool calls complete, output EXACTLY: DONE (nothing else).
+
+Now do the work:
+Call tool report_intent with arguments: {"intent":"list threads"}.
 Then call tool thread_list with arguments: {}.
 Then tell me the intent for the main thread.
-Finally print exactly: DONE'
+Then output EXACTLY: DONE'
