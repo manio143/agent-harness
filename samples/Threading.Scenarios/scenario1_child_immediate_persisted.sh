@@ -52,6 +52,15 @@ fi
 
 echo "[scenario1] childThreadId=$CHILD_ID"
 
+# Wait for the child to actually produce an assistant message (Ollama latency can be significant).
+CHILD_EVENTS="$THREADS_DIR/$CHILD_ID/events.jsonl"
+for _ in $(seq 1 120); do
+  if [[ -f "$CHILD_EVENTS" ]] && grep -q '"type":"assistant_message"' "$CHILD_EVENTS"; then
+    break
+  fi
+  sleep 0.5
+done
+
 echo "---"
 
 # Turn 2: read child explicitly.
