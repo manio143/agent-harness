@@ -16,6 +16,10 @@ public static class MeaiObservedEventSource
         var assistantMessageOpen = false;
         var reasoningMessageOpen = false;
 
+        // Some providers repeat previously-seen tool calls in later streaming updates ("cumulative" deltas).
+        // If we forward these duplicates to the reducer, we'll execute the same tool multiple times.
+        var seenToolCallIds = new HashSet<string>(StringComparer.Ordinal);
+
         await foreach (var u in updates.WithCancellation(cancellationToken).ConfigureAwait(false))
         {
             // Prefer structured contents when present.
@@ -77,7 +81,15 @@ public static class MeaiObservedEventSource
                             }
 
                             foreach (var evt in MeaiToolCallParser.Parse(u))
+                            {
+                                if (evt is Agent.Harness.ObservedToolCallDetected d)
+                                {
+                                    if (!seenToolCallIds.Add(d.ToolId))
+                                        continue;
+                                }
+
                                 yield return evt;
+                            }
                             break;
                         }
                     }
