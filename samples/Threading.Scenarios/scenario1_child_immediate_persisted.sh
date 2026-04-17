@@ -77,6 +77,7 @@ acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
 
 Now do the work:
 Call tool report_intent with arguments: {\"intent\":\"read child\"}.
-Then call tool thread_read with arguments: {\"threadId\":\"$CHILD_ID\"}.
+The child threadId is: $CHILD_ID.
+Then call tool thread_read with arguments: {\"threadId\":\"${CHILD_ID}\"}.
 Then paste the child assistant message text verbatim.
 Then output EXACTLY: DONE"
