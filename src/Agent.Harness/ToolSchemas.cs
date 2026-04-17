@@ -38,9 +38,15 @@ public static class ToolSchemas
         {
           "type": "object",
           "properties": {
-            "command": { "type": "string", "description": "Command to execute" }
+            "command": { "type": "string", "description": "Executable name (argv[0])" },
+            "args": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Argument vector (argv[1..])"
+            }
           },
-          "required": ["command"]
+          "required": ["command"],
+          "additionalProperties": false
         }
         """));
 

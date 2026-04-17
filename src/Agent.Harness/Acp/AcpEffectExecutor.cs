@@ -383,18 +383,19 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
 
                 case "execute_command":
                 {
-                    if (!args.TryGetValue("command", out var cmdEl) || cmdEl.ValueKind != JsonValueKind.Array)
-                        throw new InvalidOperationException("missing_required:command");
+                    var command = GetRequiredString(args, "command");
 
-                    var command = cmdEl.Deserialize<string[]>() ?? Array.Empty<string>();
-                    if (command.Length == 0)
-                        throw new InvalidOperationException("missing_required:command");
+                    var argv = Array.Empty<string>();
+                    if (args.TryGetValue("args", out var argsEl) && argsEl.ValueKind == JsonValueKind.Array)
+                    {
+                        argv = argsEl.Deserialize<string[]>() ?? Array.Empty<string>();
+                    }
 
                     var created = await _client.CreateTerminalAsync(new Agent.Acp.Schema.CreateTerminalRequest
                     {
                         SessionId = _sessionId,
-                        Command = command[0],
-                        Args = command.Skip(1).ToList(),
+                        Command = command,
+                        Args = argv.ToList(),
                     }, cancellationToken).ConfigureAwait(false);
 
                     // MVP: wait for exit then pull output.
