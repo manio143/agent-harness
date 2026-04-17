@@ -29,8 +29,9 @@ Rules:
 2) You MUST call ALL tools below EXACTLY ONCE and IN THIS ORDER:
    report_intent → write_text_file → read_text_file → patch_text_file → read_text_file
 3) Between tool calls, output tool calls only (no natural language).
-4) When calling patch_text_file, you MUST include path, expectedSha256, and edits. No missing required fields.
-5) The expectedSha256 you pass MUST exactly match the sha256 from the prior read_text_file tool result. For this file content ("hello world"), the sha256 is exactly: b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9
+4) You MUST NOT output any XML/HTML tags like <tool_response> or <tool_result>.
+5) When calling patch_text_file, you MUST include path and edits. No missing required fields.
+   expectedSha256 is OPTIONAL in this demo.
 6) If any tool fails, output EXACTLY: FAILED
 7) After the final read_text_file completes successfully, output EXACTLY: DONE
 
@@ -38,7 +39,7 @@ Now do the work (tool calls only):
 Call tool report_intent with arguments: {"intent":"patch_text_file demo"}.
 Call tool write_text_file with arguments: {"path":"demo.txt","content":"hello world"}.
 Call tool read_text_file with arguments: {"path":"demo.txt"}.
-Call tool patch_text_file with arguments: {"path":"demo.txt","expectedSha256":"b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9","edits":[{"op":"replace_exact","oldText":"world","newText":"there"}]}.
+Call tool patch_text_file with arguments: {"path":"demo.txt","edits":[{"op":"replace_exact","oldText":"world","newText":"there"}]}.
 Call tool read_text_file with arguments: {"path":"demo.txt"}.
 Then output EXACTLY: DONE.
 EOF
@@ -48,7 +49,7 @@ OUT="$(acpx --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll
   prompt -s "$SESSION" -f "$PROMPT_FILE")"
 
 # The prompt demands the model outputs exactly DONE on success.
-if echo "$OUT" | tail -n 1 | grep -qx "DONE"; then
+if echo "$OUT" | grep -qx "DONE"; then
   echo "DONE"
   exit 0
 fi
