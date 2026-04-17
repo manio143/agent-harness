@@ -69,11 +69,21 @@ public sealed class SessionRunner
 
 
         // Post-turn policy: generate a title once (after first assistant message exists).
-        var titleEvt = await _titleGenerator.MaybeGenerateAfterTurnAsync(state, cancellationToken).ConfigureAwait(false);
-        if (titleEvt is not null)
+        // Only the MAIN thread is allowed to set the session title.
+        if (threadId == Agent.Harness.Threads.ThreadIds.Main)
         {
-            state = state with { Committed = state.Committed.Add(titleEvt) };
-            newly.Add(titleEvt);
+            var titleEvt = await _titleGenerator.MaybeGenerateAfterTurnAsync(state, cancellationToken).ConfigureAwait(false);
+            if (titleEvt is not null)
+            {
+                // IMPORTANT: title generation happens outside the reducer/effects loop, so we must
+                // still run it through the event sink so persistence + projections (session.json title)
+                // stay consistent in the threaded model.
+                if (sink is not null)
+                    await sink.OnCommittedAsync(titleEvt, cancellationToken).ConfigureAwait(false);
+
+                state = state with { Committed = state.Committed.Add(titleEvt) };
+                newly.Add(titleEvt);
+            }
         }
 
         return new SessionRunnerResult(state, newly.ToImmutable());
