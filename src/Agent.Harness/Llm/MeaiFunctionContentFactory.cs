@@ -47,13 +47,25 @@ public static class MeaiFunctionContentFactory
 
     public static FunctionResultContent CreateFunctionResult(string callId, object result)
     {
+        // Many providers (and especially smaller local models) behave more consistently when tool
+        // results are delivered as a single JSON string instead of an opaque object graph.
+        //
+        // Rationale: some OpenAI-compatible servers treat non-string tool results inconsistently.
+        // By standardizing on JSON text we maximize cross-provider determinism.
+        object normalized = result switch
+        {
+            JsonElement el => el.GetRawText(),
+            string s => s,
+            _ => JsonSerializer.Serialize(result, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+        };
+
         foreach (var c in typeof(FunctionResultContent).GetConstructors())
         {
             var ps = c.GetParameters();
 
             // MEAI 10.4.1: (string callId, object result)
             if (ps.Length == 2 && ps[0].ParameterType == typeof(string) && ps[1].ParameterType == typeof(object))
-                return (FunctionResultContent)c.Invoke(new object[] { callId, result });
+                return (FunctionResultContent)c.Invoke(new object[] { callId, normalized });
         }
 
         throw new InvalidOperationException("No compatible FunctionResultContent ctor found");
