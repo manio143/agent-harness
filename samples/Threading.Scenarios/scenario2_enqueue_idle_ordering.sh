@@ -19,6 +19,9 @@ fi
 
 echo "[scenario2] sessionId=$SESSION_ID"
 
+# Restrict tool catalog to keep the sample deterministic (permission boundary via tool declarations).
+acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" set -s "$SESSION" tool_allowlist threading_no_fork >/dev/null
+
 # Turn 1: create child.
 acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
   'Call tool report_intent with arguments: {"intent":"create child"}.

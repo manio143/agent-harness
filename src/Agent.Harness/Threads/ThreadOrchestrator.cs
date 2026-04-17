@@ -107,9 +107,17 @@ public sealed class ThreadOrchestrator : IThreadScheduler
 
     public void InitializeToolCatalog(ImmutableArray<ToolDefinition> tools)
     {
+        // Back-compat: callers historically initialized once.
+        // Some scenarios (e.g. session config option updates) need to adjust the tool catalog.
         if (_toolsInitialized)
-            throw new InvalidOperationException("tool_catalog_already_initialized");
+            return;
 
+        _toolCatalog = tools;
+        _toolsInitialized = true;
+    }
+
+    public void SetToolCatalog(ImmutableArray<ToolDefinition> tools)
+    {
         _toolCatalog = tools;
         _toolsInitialized = true;
     }

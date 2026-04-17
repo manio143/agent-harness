@@ -20,6 +20,39 @@ namespace Agent.Harness.Acp;
 /// </summary>
 public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
 {
+    private static ImmutableArray<ToolDefinition> ApplyToolAllowlist(ImmutableArray<ToolDefinition> tools, string allowlist)
+    {
+        return allowlist switch
+        {
+            "threading_no_fork" => tools.Where(t => t.Name != ToolSchemas.ThreadFork.Name).ToImmutableArray(),
+            _ => tools,
+        };
+    }
+
+    private static List<SessionConfigOption> BuildConfigOptions(string allowlist)
+    {
+        var category = new Category();
+        category.AdditionalProperties["name"] = "_tools";
+
+        return new List<SessionConfigOption>
+        {
+            new()
+            {
+                Id = "tool_allowlist",
+                Name = "Tool allowlist",
+                Description = "Restrict which tools are declared to the model (permission boundary).",
+                Category = category,
+                Type = SessionConfigOptionType.Select,
+                CurrentValue = allowlist,
+                Options = new SessionConfigSelectOptions
+                {
+                    new() { Value = "all", Name = "All tools" },
+                    new() { Value = "threading_no_fork", Name = "Threading (no fork tool)" },
+                },
+            },
+        };
+    }
+
     private readonly string _sessionId;
     private readonly IAcpClientCaller _client;
     private readonly MeaiIChatClient _chat;
@@ -32,6 +65,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     private readonly bool _logObservedEvents;
 
     private SessionState _state;
+    private string _toolAllowlist = "all";
 
     // Threading engine (long-lived per HarnessAcpSessionAgent instance when backing store supports threads).
     private readonly Agent.Harness.Threads.IThreadStore? _threadStore;
@@ -90,6 +124,9 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         // Merge: (pre-existing tools e.g. MCP) + internal + builtins
         _state = _state with { Tools = ClientToolCatalog.Merge(_state.Tools, ClientToolCatalog.Merge(internalTools, builtins)) };
 
+        // Apply any session config-based tool restrictions (defaults to "all").
+        _state = _state with { Tools = ApplyToolAllowlist(_state.Tools, _toolAllowlist) };
+
         // Initialize thread engine once per session agent.
         if (_store is JsonlSessionStore jsonl)
         {
@@ -110,6 +147,26 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             // Catalog == runnable/permission surface, and must be consistent across all threads.
             _orchestrator.InitializeToolCatalog(_state.Tools);
         }
+    }
+
+    public Task<SetSessionConfigOptionResponse>? SetSessionConfigOptionAsync(SetSessionConfigOptionRequest request, CancellationToken cancellationToken)
+    {
+        if (request.ConfigId == "tool_allowlist")
+        {
+            _toolAllowlist = request.Value;
+
+            // Update tool catalog immediately: permission boundary == declared tools.
+            _state = _state with { Tools = ApplyToolAllowlist(_state.Tools, _toolAllowlist) };
+            _orchestrator?.SetToolCatalog(_state.Tools);
+
+            return Task.FromResult(new SetSessionConfigOptionResponse
+            {
+                ConfigOptions = BuildConfigOptions(_toolAllowlist),
+            });
+        }
+
+        // Unsupported option.
+        throw new Agent.Acp.Acp.AcpJsonRpcException(-32602, $"Unknown session config option: {request.ConfigId}");
     }
 
     public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken)

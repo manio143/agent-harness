@@ -14,6 +14,28 @@ namespace Agent.Server;
 
 public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAcpSessionReplayProvider
 {
+    private static SessionConfigOption ToolAllowlistConfigOption(string current)
+    {
+        // ACP Category is extension-data shaped.
+        var category = new Category();
+        category.AdditionalProperties["name"] = "_tools";
+
+        return new SessionConfigOption
+        {
+            Id = "tool_allowlist",
+            Name = "Tool allowlist",
+            Description = "Restrict which tools are declared to the model (permission boundary).",
+            Category = category,
+            Type = SessionConfigOptionType.Select,
+            CurrentValue = current,
+            Options = new SessionConfigSelectOptions
+            {
+                new() { Value = "all", Name = "All tools" },
+                new() { Value = "threading_no_fork", Name = "Threading (no fork tool)" },
+            },
+        };
+    }
+
     private readonly Microsoft.Extensions.AI.IChatClient _chat;
     private readonly AgentServerOptions _options;
     private readonly IMcpDiscovery _mcpDiscovery;
@@ -194,7 +216,10 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         {
             SessionId = sessionId,
             Modes = null,
-            ConfigOptions = new List<SessionConfigOption>(),
+            ConfigOptions = new List<SessionConfigOption>
+            {
+                ToolAllowlistConfigOption(current: "all"),
+            },
         };
 
         if (mcpErrors is not null)
@@ -227,7 +252,10 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         var resp = new LoadSessionResponse
         {
             Modes = null,
-            ConfigOptions = new List<SessionConfigOption>(),
+            ConfigOptions = new List<SessionConfigOption>
+            {
+                ToolAllowlistConfigOption(current: "all"),
+            },
         };
 
         if (mcpErrors is not null)
