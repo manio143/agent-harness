@@ -79,11 +79,17 @@ public sealed class ThreadManager
 
 
 
-    public ImmutableArray<ThreadMessage> ReadAssistantMessages(string threadId)
+    public ImmutableArray<ThreadMessage> ReadThreadMessages(string threadId)
     {
         var evts = _store.LoadCommittedEvents(_sessionId, threadId);
-        return evts.OfType<AssistantMessage>()
-            .Select(a => new ThreadMessage("assistant", a.Text))
+
+        return evts.SelectMany(e => e switch
+            {
+                UserMessage u => new[] { new ThreadMessage("user", u.Text) },
+                InterThreadMessage it => new[] { new ThreadMessage("inter_thread", it.Text) },
+                AssistantMessage a => new[] { new ThreadMessage("assistant", a.Text) },
+                _ => Array.Empty<ThreadMessage>(),
+            })
             .ToImmutableArray();
     }
 

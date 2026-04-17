@@ -232,7 +232,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                 case "thread_read":
                 {
                     var threadId = GetRequiredString(args, "threadId");
-                    var messages = _threads?.ReadAssistantMessages(threadId) ?? ImmutableArray<Agent.Harness.Threads.ThreadMessage>.Empty;
+                    var messages = _threads?.ReadThreadMessages(threadId) ?? ImmutableArray<Agent.Harness.Threads.ThreadMessage>.Empty;
                     return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
                         t.ToolId,
                         JsonSerializer.SerializeToElement(new { messages })));
