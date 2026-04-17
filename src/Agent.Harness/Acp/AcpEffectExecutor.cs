@@ -99,17 +99,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         try
         {
 
-            var rendered = Core.RenderPrompt(state);
-
-            var meaiMessages = rendered
-                .Select(m => new MeaiChatMessage(m.Role switch
-                {
-                    ChatRole.User => MeaiChatRole.User,
-                    ChatRole.Assistant => MeaiChatRole.Assistant,
-                    ChatRole.Tool => MeaiChatRole.Tool,
-                    _ => MeaiChatRole.System,
-                }, m.Text))
-                .ToList();
+            var meaiMessages = Agent.Harness.Llm.MeaiPromptRenderer.Render(state);
 
             // Session metadata system prompt (client-/protocol-agnostic).
             var meta = _store?.TryLoadMetadata(_sessionId);
@@ -143,9 +133,50 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
 
         if (_logLlmPrompts)
         {
+            static object SerializeMessage(Microsoft.Extensions.AI.ChatMessage m)
+            {
+                // Prefer lossless-ish logging: include text plus a best-effort summary of structured contents.
+                var contents = m.Contents is null
+                    ? Array.Empty<object>()
+                    : m.Contents
+                        .Select(c => (object)(c switch
+                        {
+                            Microsoft.Extensions.AI.TextContent tc => new Dictionary<string, object?>
+                            {
+                                ["type"] = "text",
+                                ["text"] = tc.Text,
+                            },
+                            Microsoft.Extensions.AI.FunctionCallContent fc => new Dictionary<string, object?>
+                            {
+                                ["type"] = "function_call",
+                                ["callId"] = fc.CallId,
+                                ["name"] = fc.Name,
+                                ["arguments"] = fc.Arguments,
+                            },
+                            Microsoft.Extensions.AI.FunctionResultContent fr => new Dictionary<string, object?>
+                            {
+                                ["type"] = "function_result",
+                                ["callId"] = fr.CallId,
+                                ["result"] = fr.Result,
+                            },
+                            _ => new Dictionary<string, object?>
+                            {
+                                ["type"] = c.GetType().Name,
+                            },
+                        }))
+                        .ToArray();
+
+                return new
+                {
+                    role = m.Role.ToString(),
+                    text = m.Text,
+                    contents,
+                };
+            }
+
             var promptPayload = new
             {
-                messages = meaiMessages.Select(m => new { role = m.Role.ToString(), content = m.Text }),
+                messages = meaiMessages.Select(m => SerializeMessage(m)),
                 tools = options.Tools
                     .OfType<Microsoft.Extensions.AI.AIFunctionDeclaration>()
                     .Select(d => new { d.Name, d.Description, jsonSchema = d.JsonSchema }),

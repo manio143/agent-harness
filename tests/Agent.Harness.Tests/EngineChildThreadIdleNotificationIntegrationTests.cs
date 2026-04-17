@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Agent.Acp.Acp;
 using Agent.Acp.Schema;
@@ -13,6 +14,7 @@ using MeaiChatResponse = Microsoft.Extensions.AI.ChatResponse;
 using MeaiChatOptions = Microsoft.Extensions.AI.ChatOptions;
 using MeaiAIContent = Microsoft.Extensions.AI.AIContent;
 using MeaiFunctionCallContent = Microsoft.Extensions.AI.FunctionCallContent;
+using MeaiFunctionResultContent = Microsoft.Extensions.AI.FunctionResultContent;
 using MeaiTextContent = Microsoft.Extensions.AI.TextContent;
 
 namespace Agent.Harness.Tests;
@@ -101,6 +103,7 @@ public sealed class EngineChildThreadIdleNotificationIntegrationTests
                 {
                     MeaiTextContent t => t.Text ?? string.Empty,
                     MeaiFunctionCallContent fc => $"<tool_call name=\"{fc.Name}\"/>",
+                    MeaiFunctionResultContent fr => JsonSerializer.Serialize(fr.Result, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
                     _ => c.ToString() ?? string.Empty,
                 }));
             }

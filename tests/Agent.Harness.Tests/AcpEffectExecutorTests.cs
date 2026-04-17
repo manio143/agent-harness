@@ -12,7 +12,7 @@ namespace Agent.Harness.Tests;
 public sealed class AcpEffectExecutorTests
 {
     [Fact]
-    public async Task CallModel_RendersPromptViaCore_AndCallsChatClientWithRenderedMessages()
+    public async Task CallModel_RendersPromptViaMeaiPromptRenderer_AndCallsChatClientWithRenderedMessages()
     {
         var state = SessionState.Empty with
         {
@@ -36,17 +36,15 @@ public sealed class AcpEffectExecutorTests
         var observed = await exec.ExecuteAsync(state, new CallModel(), CancellationToken.None);
         observed.Should().NotBeNull();
 
-        var expected = Core.RenderPrompt(state)
-            .Select(m => (m.Role, m.Text))
+        var expected = Agent.Harness.Llm.MeaiPromptRenderer.Render(state)
+            .Select(m => m.Role)
             .ToArray();
 
         chat.Calls.Should().HaveCount(1);
-        var actual = chat.Calls[0]
-            .Select(m => (Role: m.Role.ToString()!.ToLowerInvariant(), m.Text))
-            .ToArray();
+        var actual = chat.Calls[0].ToArray();
 
         // First message is the session metadata system prompt.
-        actual[0].Role.Should().Be("system");
+        actual[0].Role.Should().Be(Microsoft.Extensions.AI.ChatRole.System);
         actual[0].Text.Should().Contain("<session>");
         actual[0].Text.Should().Contain("\"sessionId\":\"sess1\"");
         actual[0].Text.Should().Contain("\"cwd\":\"/cwd\"");
@@ -58,15 +56,7 @@ public sealed class AcpEffectExecutorTests
         actual.Length.Should().Be(expected.Length + 1);
         for (var i = 0; i < expected.Length; i++)
         {
-            var expRole = expected[i].Role switch
-            {
-                ChatRole.User => "user",
-                ChatRole.Assistant => "assistant",
-                _ => "system",
-            };
-
-            actual[i + 1].Role.Should().Be(expRole);
-            actual[i + 1].Text.Should().Be(expected[i].Text);
+            actual[i + 1].Role.Should().Be(expected[i]);
         }
     }
 
