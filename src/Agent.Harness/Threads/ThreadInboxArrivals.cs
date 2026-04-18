@@ -54,7 +54,7 @@ public static class ThreadInboxArrivals
             EnqueuedAtIso: DateTimeOffset.UtcNow.ToString("O"),
             Source: "thread",
             SourceThreadId: childThreadId,
-            Text: "",
+            Text: $"Child thread became idle. Last intent: {lastIntent}",
             Meta: ImmutableDictionary.CreateRange(new[]
             {
                 new KeyValuePair<string, string>("childThreadId", childThreadId),

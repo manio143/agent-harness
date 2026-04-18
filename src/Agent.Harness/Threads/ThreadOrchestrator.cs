@@ -48,6 +48,10 @@ public sealed class ThreadOrchestrator : IThreadScheduler
     private readonly ConcurrentDictionary<string, SessionState> _states = new();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _gates = new();
 
+    // Observed events that have arrived for a thread but have not yet been processed
+    // by the reducer in a wake-driven turn.
+    private readonly ConcurrentDictionary<string, ConcurrentQueue<ObservedChatEvent>> _observedQueues = new();
+
     public ThreadOrchestrator(
         string sessionId,
         IAcpClientCaller client,
@@ -131,26 +135,17 @@ public sealed class ThreadOrchestrator : IThreadScheduler
 
     public async Task ObserveAsync(string threadId, ObservedChatEvent observed, CancellationToken cancellationToken = default)
     {
-        // Observe can be called concurrently with RunOneTurnIfNeededAsync. Protect the in-memory
-        // state cache with the same per-thread gate used for execution.
+        // In the unified model, ObserveAsync never persists committed events directly.
+        // It simply enqueues observed events for the target thread and schedules a wake-driven turn.
         var gate = _gates.GetOrAdd(threadId, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var tools = GetToolCatalogSnapshot();
-            var initial = _states.GetOrAdd(threadId, _ => SessionState.Empty with { Tools = tools });
-            initial = initial with { Tools = tools };
+            var q = _observedQueues.GetOrAdd(threadId, _ => new ConcurrentQueue<ObservedChatEvent>());
+            q.Enqueue(observed);
 
-            var reduced = Core.Reduce(initial, observed);
-
-            foreach (var evt in reduced.NewlyCommitted)
-                _threadStore.AppendCommittedEvent(_sessionId, threadId, evt);
-
-            _states[threadId] = reduced.Next;
-
-            // If reducer requested a wake/model call, schedule the thread.
-            if (reduced.Effects.Any(e => e is CallModel or ScheduleWake))
-                ScheduleRun(threadId);
+            // Ensure the thread will run soon to reduce+commit the observation.
+            ScheduleRun(threadId);
         }
         finally
         {
@@ -185,6 +180,14 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             // Run a single turn kicked off by wake.
             async IAsyncEnumerable<ObservedChatEvent> WakeObserved()
             {
+                // Drain any queued observations first.
+                if (_observedQueues.TryGetValue(threadId, out var q))
+                {
+                    while (q.TryDequeue(out var obs))
+                        yield return obs;
+                }
+
+                // Always include a wake marker to allow inbox promotion + turn boundary processing.
                 yield return new ObservedWakeModel(threadId);
             }
 
@@ -231,31 +234,17 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             return;
 
         var intent = meta.Intent ?? string.Empty;
-        // Main thread is just another thread in the thread store, but only the ACP layer should
-        // project/publish main-thread committed events.
-        // So: persist the parent inbox enqueue directly to the thread store, without running the
-        // main thread inside the child-thread orchestrator.
-        var metaDict = ImmutableDictionary.CreateRange(new Dictionary<string, string>
-        {
-            ["childThreadId"] = threadId,
-            ["lastIntent"] = intent,
-        });
 
-        var enq = new ThreadInboxMessageEnqueued(
-            ThreadId: meta.ParentThreadId,
-            EnvelopeId: ThreadEnvelopes.NewEnvelopeId(),
-            Kind: ThreadInboxMessageKind.ThreadIdleNotification,
-            Meta: metaDict,
-            Source: "thread",
-            SourceThreadId: threadId,
-            Delivery: "immediate",
-            EnqueuedAtIso: DateTimeOffset.UtcNow.ToString("O"),
-            Text: $"Child thread became idle. Last intent: {intent}");
-
-        _threadStore.AppendCommittedEvent(_sessionId, meta.ParentThreadId, enq);
-
-        // Ensure parent gets a chance to process the notification without user interaction.
-        ScheduleRun(meta.ParentThreadId);
+        // Route idle notifications through the same unified ObserveAsync -> reducer -> sink pipeline.
+        // This preserves the sink-only persistence invariant (no direct store appends from orchestrator logic).
+        await ObserveAsync(
+            meta.ParentThreadId,
+            ThreadInboxArrivals.ThreadIdleNotification(
+                parentThreadId: meta.ParentThreadId,
+                childThreadId: threadId,
+                lastIntent: intent,
+                delivery: InboxDelivery.Immediate),
+            cancellationToken).ConfigureAwait(false);
 
     }
 }
