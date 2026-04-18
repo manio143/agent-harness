@@ -49,36 +49,8 @@ public sealed class ThreadManager
             .ToImmutableArray();
     }
 
-    public string CreateChildThread(string parentThreadId)
-    {
-        var id = "thr_" + Guid.NewGuid().ToString("N")[..12];
-        var now = DateTimeOffset.UtcNow.ToString("O");
-        _store.CreateThread(_sessionId, new ThreadMetadata(
-            ThreadId: id,
-            ParentThreadId: parentThreadId,
-            Intent: null,
-            CreatedAtIso: now,
-            UpdatedAtIso: now));
-        return id;
-    }
-
-
-    public string ForkChildThread(string parentThreadId, SessionState parentState)
-    {
-        Debug.Assert(parentState.Buffer == TurnBuffer.Empty, "Fork requires empty buffer (no in-flight streaming deltas)");
-
-        var childId = CreateChildThread(parentThreadId);
-
-        // For now we do not persist cloned state; we will when we promote ThreadState to a first-class
-        // persisted snapshot. At minimum, copy the committed events for readback.
-        // Route through the sink pipeline to preserve the "commits flow via IEventSink" invariant.
-        var sink = new ThreadEventSink(_sessionId, childId, _store);
-        foreach (var evt in parentState.Committed)
-            sink.OnCommittedAsync(evt, CancellationToken.None).GetAwaiter().GetResult();
-
-        return childId;
-    }
-
+    // Thread lifecycle (create/fork) is owned by ThreadOrchestrator in the unified model.
+    // ThreadManager remains as a projector/utility facade over the thread store (list/read/inbox status).
 
 
     public ImmutableArray<ThreadMessage> ReadThreadMessages(string threadId)
