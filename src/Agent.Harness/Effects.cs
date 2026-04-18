@@ -33,7 +33,7 @@ public sealed record ExecuteToolCall(
 /// The SessionRunner should render the prompt via <see cref="Core.RenderPrompt"/> using the latest state,
 /// then call the MEAI <c>IChatClient</c> and translate streamed updates into observed events.
 /// </summary>
-public sealed record CallModel() : Effect;
+public sealed record CallModel(string Model) : Effect;
 
 /// <summary>
 /// Request that a given thread be woken (i.e., reduced with <see cref="ObservedWakeModel"/>)

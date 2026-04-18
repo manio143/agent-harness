@@ -33,7 +33,7 @@ public sealed class AcpEffectExecutorTests
 
         var exec = new AcpEffectExecutor("sess1", new FakeClientCaller(), chat, store: store);
 
-        var observed = await exec.ExecuteAsync(state, new CallModel(), CancellationToken.None);
+        var observed = await exec.ExecuteAsync(state, new CallModel("default"), CancellationToken.None);
         observed.Should().NotBeNull();
 
         var expected = Agent.Harness.Llm.MeaiPromptRenderer.Render(state)

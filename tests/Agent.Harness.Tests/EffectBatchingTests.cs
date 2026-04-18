@@ -10,10 +10,10 @@ public sealed class EffectBatchingTests
     public void DeduplicateEffects_Dedupes_CallModel_WithinBatch()
     {
         var effects = ImmutableArray.Create<Effect>(
-            new CallModel(),
-            new CallModel(),
+            new CallModel("default"),
+            new CallModel("default"),
             new CheckPermission("call_1", "read_text_file", new { path = "/tmp/a.txt" }),
-            new CallModel());
+            new CallModel("default"));
 
         var deduped = TurnRunner.DeduplicateEffects(effects);
 

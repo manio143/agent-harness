@@ -106,3 +106,9 @@ public sealed record ObservedToolCallCancelled(string ToolId) : ObservedChatEven
 /// </summary>
 public sealed record ObservedMcpConnectionFailed(string ServerId, string Error) : ObservedChatEvent;
 
+/// <summary>
+/// Request to change the inference model for a thread.
+/// The reducer commits a <see cref="SetModel"/> event. Last SetModel wins.
+/// </summary>
+public sealed record ObservedSetModel(string ThreadId, string Model) : ObservedChatEvent;
+
