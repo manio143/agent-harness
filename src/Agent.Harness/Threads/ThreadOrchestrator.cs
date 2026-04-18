@@ -110,13 +110,9 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
 
     public void InitializeToolCatalog(ImmutableArray<ToolDefinition> tools)
     {
-        // Back-compat: callers historically initialized once.
-        // Some scenarios (e.g. session config option updates) need to adjust the tool catalog.
-        if (_toolsInitialized)
-            return;
-
-        _toolCatalog = tools;
-        _toolsInitialized = true;
+        // Back-compat: older call sites used "Initialize" even though the catalog may legitimately change
+        // over the lifetime of a session (e.g. config option updates / allowlists).
+        SetToolCatalog(tools);
     }
 
     public void SetToolCatalog(ImmutableArray<ToolDefinition> tools)
