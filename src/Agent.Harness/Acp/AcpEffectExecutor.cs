@@ -19,6 +19,8 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
     private readonly string? _sessionCwd;
     private readonly Agent.Harness.Persistence.ISessionStore? _store;
     private readonly Agent.Harness.Threads.ThreadManager? _threads;
+    private readonly Agent.Harness.Threads.IThreadObserver? _observer;
+    private readonly Agent.Harness.Threads.IThreadLifecycle? _lifecycle;
     private readonly Agent.Harness.Threads.IThreadScheduler? _scheduler;
     private readonly string _threadId;
 
@@ -31,6 +33,8 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         string? sessionCwd = null,
         Agent.Harness.Persistence.ISessionStore? store = null,
         Agent.Harness.Threads.ThreadManager? threads = null,
+        Agent.Harness.Threads.IThreadObserver? observer = null,
+        Agent.Harness.Threads.IThreadLifecycle? lifecycle = null,
         Agent.Harness.Threads.IThreadScheduler? scheduler = null,
         string threadId = Agent.Harness.Threads.ThreadIds.Main)
     {
@@ -42,6 +46,8 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         _sessionCwd = sessionCwd;
         _store = store;
         _threads = threads;
+        _observer = observer;
+        _lifecycle = lifecycle;
         _scheduler = scheduler;
         _threadId = threadId;
     }
@@ -245,21 +251,21 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     var message = GetRequiredString(args, "message");
                     var delivery = ParseDelivery(args);
 
-                    if (_scheduler is not Agent.Harness.Threads.ThreadOrchestrator orchestrator)
+                    if (_lifecycle is null || _observer is null || _scheduler is null)
                         throw new InvalidOperationException("thread_tools_require_orchestrator");
 
                     // Unified model: thread lifecycle is owned by the orchestrator.
                     // We must return a threadId synchronously, so we preallocate it.
                     var id = "thr_" + Guid.NewGuid().ToString("N")[..12];
 
-                    await orchestrator.RequestForkChildThreadAsync(
+                    await _lifecycle.RequestForkChildThreadAsync(
                         _threadId,
                         id,
                         state.Committed,
                         cancellationToken).ConfigureAwait(false);
 
                     // Universal intake: express initial message as observed inbox arrival to the child thread.
-                    await orchestrator.ObserveAsync(
+                    await _observer.ObserveAsync(
                         id,
                         Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
                             threadId: id,
@@ -284,19 +290,19 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     var message = GetRequiredString(args, "message");
                     var delivery = ParseDelivery(args);
 
-                    if (_scheduler is not Agent.Harness.Threads.ThreadOrchestrator orchestrator)
+                    if (_lifecycle is null || _observer is null || _scheduler is null)
                         throw new InvalidOperationException("thread_tools_require_orchestrator");
 
                     // Unified model: thread lifecycle is owned by the orchestrator.
                     var id = "thr_" + Guid.NewGuid().ToString("N")[..12];
 
-                    await orchestrator.RequestForkChildThreadAsync(
+                    await _lifecycle.RequestForkChildThreadAsync(
                         _threadId,
                         id,
                         state.Committed,
                         cancellationToken).ConfigureAwait(false);
 
-                    await orchestrator.ObserveAsync(
+                    await _observer.ObserveAsync(
                         id,
                         Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
                             threadId: id,
@@ -339,21 +345,20 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                             new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { ok = true })));
                     }
 
-                    if (_scheduler is Agent.Harness.Threads.ThreadOrchestrator orchestrator)
+                    if (_observer is null || _scheduler is null)
+                        throw new InvalidOperationException("thread_tools_require_orchestrator");
+
+                    await _observer.ObserveAsync(threadId, inboxArrived, cancellationToken).ConfigureAwait(false);
+
+                    if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
                     {
-                        await orchestrator.ObserveAsync(threadId, inboxArrived, cancellationToken).ConfigureAwait(false);
-
-                        if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
-                        {
-                            _scheduler.ScheduleRun(threadId);
-                        }
-
-                        return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
-                            t.ToolId,
-                            JsonSerializer.SerializeToElement(new { ok = true })));
+                        _scheduler.ScheduleRun(threadId);
                     }
 
-                    throw new InvalidOperationException("thread_tools_require_orchestrator");
+                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
+                        t.ToolId,
+                        JsonSerializer.SerializeToElement(new { ok = true })));
+
                 }
 
                 case "read_text_file":

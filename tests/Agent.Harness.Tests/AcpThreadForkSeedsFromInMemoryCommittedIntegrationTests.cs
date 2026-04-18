@@ -59,6 +59,8 @@ public sealed class AcpThreadForkSeedsFromInMemoryCommittedIntegrationTests
             sessionCwd: "/tmp",
             store: sessionStore,
             threads: threads,
+            observer: orchestrator,
+            lifecycle: orchestrator,
             scheduler: orchestrator,
             threadId: ThreadIds.Main);
 

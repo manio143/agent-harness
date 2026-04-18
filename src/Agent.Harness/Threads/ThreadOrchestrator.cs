@@ -17,7 +17,7 @@ namespace Agent.Harness.Threads;
 /// - Child thread execution is kicked off by message delivery scheduling.
 /// - Parent is notified only when a child is fully idle (no pending deliverable work).
 /// </summary>
-public sealed class ThreadOrchestrator : IThreadScheduler
+public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThreadScheduler
 {
     private readonly ConcurrentQueue<string> _runQueue = new();
     private readonly ConcurrentDictionary<string, byte> _queued = new();
@@ -210,6 +210,8 @@ public sealed class ThreadOrchestrator : IThreadScheduler
                 sessionCwd: _sessionStore.TryLoadMetadata(_sessionId)?.Cwd,
                 store: _sessionStore,
                 threads: _threads,
+                observer: this,
+                lifecycle: this,
                 scheduler: this,
                 threadId: threadId);
 
