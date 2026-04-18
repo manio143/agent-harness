@@ -47,7 +47,15 @@ public sealed class EnqueueWakePolicyUnitTests
         var threadStore = new InMemoryThreadStore();
         var mgr = new ThreadManager("s1", threadStore);
 
-        var child = mgr.CreateChildThread(ThreadIds.Main);
+        // Create child metadata directly in store (thread lifecycle owned by orchestrator).
+        var child = "thr_test";
+        threadStore.CreateThread("s1", new ThreadMetadata(
+            ThreadId: child,
+            ParentThreadId: ThreadIds.Main,
+            Intent: null,
+            CreatedAtIso: "t0",
+            UpdatedAtIso: "t0"));
+
         threadStore.AppendCommittedEvent("s1", child, new ThreadInboxMessageEnqueued(
             ThreadId: child,
             EnvelopeId: "env_1",

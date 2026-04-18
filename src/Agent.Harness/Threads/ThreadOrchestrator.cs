@@ -137,20 +137,29 @@ public sealed class ThreadOrchestrator : IThreadScheduler
     {
         // In the unified model, ObserveAsync never persists committed events directly.
         // It simply enqueues observed events for the target thread and schedules a wake-driven turn.
-        var gate = _gates.GetOrAdd(threadId, _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            var q = _observedQueues.GetOrAdd(threadId, _ => new ConcurrentQueue<ObservedChatEvent>());
-            q.Enqueue(observed);
+        // IMPORTANT: ObserveAsync must be re-entrant safe.
+        // It can be called while a turn is running (e.g. tools that enqueue follow-up work). It must never
+        // block on the per-thread execution gate, otherwise self-send / nested observations can deadlock.
 
-            // Ensure the thread will run soon to reduce+commit the observation.
-            ScheduleRun(threadId);
-        }
-        finally
+        // Thread lifecycle is owned by the orchestrator in the unified model.
+        // Some lifecycle requests must be handled synchronously (e.g. thread_new/thread_fork need a threadId
+        // that exists immediately for subsequent observations).
+        if (observed is Agent.Harness.ObservedForkChildThreadRequested fork)
         {
-            gate.Release();
+            await ForkChildThreadAsync(
+                fork.ParentThreadId,
+                fork.ChildThreadId,
+                fork.SeedCommitted,
+                cancellationToken).ConfigureAwait(false);
+            return;
         }
+
+        var q = _observedQueues.GetOrAdd(threadId, _ => new ConcurrentQueue<ObservedChatEvent>());
+        q.Enqueue(observed);
+
+        // Ensure the thread will run soon to reduce+commit the observation.
+        ScheduleRun(threadId);
+
     }
 
     private async Task RunOneTurnIfNeededAsync(string threadId, Func<string, IEventSink?>? sinkFactory, CancellationToken cancellationToken)
@@ -185,14 +194,6 @@ public sealed class ThreadOrchestrator : IThreadScheduler
                 {
                     while (q.TryDequeue(out var obs))
                     {
-                        // Thread lifecycle is owned by the orchestrator in the unified model.
-                        // Handle thread operations here instead of feeding them to the reducer.
-                        if (obs is Agent.Harness.ObservedForkChildThreadRequested fork)
-                        {
-                            await ForkChildThreadAsync(fork.ParentThreadId, cancellationToken).ConfigureAwait(false);
-                            continue;
-                        }
-
                         yield return obs;
                     }
                 }
@@ -234,13 +235,16 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         }
     }
 
-    private async Task ForkChildThreadAsync(string parentThreadId, CancellationToken cancellationToken)
+    private async Task ForkChildThreadAsync(
+        string parentThreadId,
+        string childThreadId,
+        ImmutableArray<SessionEvent> seedCommitted,
+        CancellationToken cancellationToken)
     {
         // Create child thread metadata (owned by orchestrator).
-        var childId = "thr_" + Guid.NewGuid().ToString("N")[..12];
         var now = DateTimeOffset.UtcNow.ToString("O");
         var meta = new ThreadMetadata(
-            ThreadId: childId,
+            ThreadId: childThreadId,
             ParentThreadId: parentThreadId,
             Intent: null,
             CreatedAtIso: now,
@@ -248,10 +252,11 @@ public sealed class ThreadOrchestrator : IThreadScheduler
 
         _threadStore.CreateThread(_sessionId, meta);
 
-        // Seed child committed history from parent.
-        var parentCommitted = _threadStore.LoadCommittedEvents(_sessionId, parentThreadId);
-        var sink = new ThreadEventSink(_sessionId, childId, _threadStore);
-        foreach (var evt in parentCommitted)
+        // Seed child committed history from the provided parent snapshot.
+        // We intentionally do NOT read from the store here, because callers may request a fork mid-turn
+        // (after new commits exist in memory but before they hit the store).
+        var sink = new ThreadEventSink(_sessionId, childThreadId, _threadStore);
+        foreach (var evt in seedCommitted)
             await sink.OnCommittedAsync(evt, cancellationToken).ConfigureAwait(false);
 
         // New thread may have work to do if follow-up observations arrive; schedule is observation-driven.

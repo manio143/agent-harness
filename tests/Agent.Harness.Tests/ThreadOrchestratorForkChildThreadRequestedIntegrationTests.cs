@@ -76,7 +76,8 @@ public sealed class ThreadOrchestratorForkChildThreadRequestedIntegrationTests
         await orchestrator.RunUntilQuiescentAsync(CancellationToken.None);
 
         // Act
-        await orchestrator.ObserveAsync(ThreadIds.Main, new ObservedForkChildThreadRequested(ThreadIds.Main));
+        var childId = "thr_test_child";
+        await orchestrator.ObserveAsync(ThreadIds.Main, new ObservedForkChildThreadRequested(ThreadIds.Main, childId, threadStore.LoadCommittedEvents(sessionId, ThreadIds.Main)));
         await orchestrator.RunUntilQuiescentAsync(CancellationToken.None);
 
         // Assert

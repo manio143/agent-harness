@@ -114,4 +114,7 @@ public sealed record ObservedMcpConnectionFailed(string ServerId, string Error) 
 /// Request to fork a new child thread from the given parent thread.
 /// The orchestrator creates the thread and seeds it with the parent's committed history.
 /// </summary>
-public sealed record ObservedForkChildThreadRequested(string ParentThreadId) : ObservedChatEvent;
+public sealed record ObservedForkChildThreadRequested(
+    string ParentThreadId,
+    string ChildThreadId,
+    System.Collections.Immutable.ImmutableArray<Agent.Harness.SessionEvent> SeedCommitted) : ObservedChatEvent;
