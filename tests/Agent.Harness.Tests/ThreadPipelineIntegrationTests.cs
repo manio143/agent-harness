@@ -79,8 +79,9 @@ public sealed class ThreadPipelineIntegrationTests
         // Act: Send a user message
         await orchestrator.ObserveAsync(ThreadIds.Main, new ObservedUserMessage("Hello, pipeline!"));
 
-        // Wait briefly for async processing
-        await Task.Delay(200);
+        // ObserveAsync only enqueues observations + schedules a wake.
+        // We must run the scheduler to actually execute a turn and persist commits via the sink.
+        await orchestrator.RunUntilQuiescentAsync(CancellationToken.None);
 
         // Assert: Verify events were persisted to thread store
         var committedEvents = threadStore.LoadCommittedEvents(sessionId, ThreadIds.Main);
@@ -129,9 +130,10 @@ public sealed class ThreadPipelineIntegrationTests
 
         // Act: Send multiple messages
         await orchestrator.ObserveAsync(ThreadIds.Main, new ObservedUserMessage("First message"));
-        await Task.Delay(100);
+        await orchestrator.RunUntilQuiescentAsync(CancellationToken.None);
+
         await orchestrator.ObserveAsync(ThreadIds.Main, new ObservedUserMessage("Second message"));
-        await Task.Delay(200);
+        await orchestrator.RunUntilQuiescentAsync(CancellationToken.None);
 
         // Assert: Both messages should be persisted
         var committedEvents = threadStore.LoadCommittedEvents(sessionId, ThreadIds.Main);
@@ -182,9 +184,8 @@ public sealed class ThreadPipelineIntegrationTests
 
         // Act: Trigger a session title update
         await orchestrator.ObserveAsync(ThreadIds.Main, new ObservedUserMessage("What's the weather?"));
-        await Task.Delay(200);
+        await orchestrator.RunUntilQuiescentAsync(CancellationToken.None);
 
-        // The orchestrator may auto-set a title, or we could manually trigger it
         // For this test, just verify the session metadata is updated
         var meta = sessionStore.TryLoadMetadata(sessionId);
 
