@@ -245,11 +245,26 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     var message = GetRequiredString(args, "message");
                     var delivery = ParseDelivery(args);
 
-                    // Create child thread metadata.
-                    var id = _threads?.CreateChildThread(_threadId) ?? "";
+                    if (_scheduler is not Agent.Harness.Threads.ThreadOrchestrator orchestrator)
+                        throw new InvalidOperationException("thread_tools_require_orchestrator");
+
+                    // In the unified model, thread lifecycle is owned by the orchestrator.
+                    // Request a fork (empty child seeded from parent) by emitting an observation.
+                    await orchestrator.ObserveAsync(
+                        _threadId,
+                        new Agent.Harness.ObservedForkChildThreadRequested(_threadId),
+                        cancellationToken).ConfigureAwait(false);
+
+                    // Run the orchestrator immediately to create the child thread, so we can return its id.
+                    await orchestrator.RunUntilQuiescentAsync(cancellationToken).ConfigureAwait(false);
+
+                    var child = (_threads?.List() ?? ImmutableArray<Agent.Harness.Threads.ThreadInfo>.Empty)
+                        .LastOrDefault(ti => ti.ParentThreadId == _threadId && ti.ThreadId != Agent.Harness.Threads.ThreadIds.Main);
+
+                    var id = child?.ThreadId ?? "";
 
                     // Universal intake: express initial message as observed inbox arrival to the child thread.
-                    if (!string.IsNullOrWhiteSpace(id) && _scheduler is Agent.Harness.Threads.ThreadOrchestrator orchestrator)
+                    if (!string.IsNullOrWhiteSpace(id))
                     {
                         await orchestrator.ObserveAsync(
                             id,
@@ -265,10 +280,6 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                         {
                             _scheduler.ScheduleRun(id);
                         }
-                    }
-                    else if (!string.IsNullOrWhiteSpace(id))
-                    {
-                        throw new InvalidOperationException("thread_tools_require_orchestrator");
                     }
 
                     return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
