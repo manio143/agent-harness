@@ -133,6 +133,10 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         return _toolCatalog;
     }
 
+    /// <summary>
+    /// Re-entrant-safe observation enqueue API.
+    /// NOTE: This method must never block on the per-thread execution gate.
+    /// </summary>
     public async Task ObserveAsync(string threadId, ObservedChatEvent observed, CancellationToken cancellationToken = default)
     {
         // In the unified model, ObserveAsync never persists committed events directly.
@@ -146,7 +150,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         // that exists immediately for subsequent observations).
         if (observed is Agent.Harness.ObservedForkChildThreadRequested fork)
         {
-            await ForkChildThreadAsync(
+            await RequestForkChildThreadAsync(
                 fork.ParentThreadId,
                 fork.ChildThreadId,
                 fork.SeedCommitted,
@@ -233,6 +237,15 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         {
             gate.Release();
         }
+    }
+
+    public Task RequestForkChildThreadAsync(
+        string parentThreadId,
+        string childThreadId,
+        ImmutableArray<SessionEvent> seedCommitted,
+        CancellationToken cancellationToken = default)
+    {
+        return ForkChildThreadAsync(parentThreadId, childThreadId, seedCommitted, cancellationToken);
     }
 
     private async Task ForkChildThreadAsync(

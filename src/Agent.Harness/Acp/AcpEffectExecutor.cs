@@ -252,9 +252,10 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     // We must return a threadId synchronously, so we preallocate it.
                     var id = "thr_" + Guid.NewGuid().ToString("N")[..12];
 
-                    await orchestrator.ObserveAsync(
+                    await orchestrator.RequestForkChildThreadAsync(
                         _threadId,
-                        new Agent.Harness.ObservedForkChildThreadRequested(_threadId, id, state.Committed),
+                        id,
+                        state.Committed,
                         cancellationToken).ConfigureAwait(false);
 
                     // Universal intake: express initial message as observed inbox arrival to the child thread.
@@ -289,9 +290,10 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     // Unified model: thread lifecycle is owned by the orchestrator.
                     var id = "thr_" + Guid.NewGuid().ToString("N")[..12];
 
-                    await orchestrator.ObserveAsync(
+                    await orchestrator.RequestForkChildThreadAsync(
                         _threadId,
-                        new Agent.Harness.ObservedForkChildThreadRequested(_threadId, id, state.Committed),
+                        id,
+                        state.Committed,
                         cancellationToken).ConfigureAwait(false);
 
                     await orchestrator.ObserveAsync(
