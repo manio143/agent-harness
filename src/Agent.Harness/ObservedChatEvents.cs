@@ -106,16 +106,3 @@ public sealed record ObservedToolCallCancelled(string ToolId) : ObservedChatEven
 /// </summary>
 public sealed record ObservedMcpConnectionFailed(string ServerId, string Error) : ObservedChatEvent;
 
-// --- Thread Lifecycle Observations ---
-// In the unified orchestrator model, thread lifecycle is owned by ThreadOrchestrator.
-// Effects (and other shells) request thread operations by emitting observations.
-
-// NOTE: Thread lifecycle (create/fork) is owned by ThreadOrchestrator and must be invoked via
-// dedicated APIs (e.g. RequestForkChildThreadAsync). Lifecycle is intentionally NOT modeled as an
-// observed chat event, to keep ObserveAsync observation-only and avoid re-entrancy hazards.
-//
-// Kept only as a transitional/guarded shape: ObserveAsync rejects this event.
-public sealed record ObservedForkChildThreadRequested(
-    string ParentThreadId,
-    string ChildThreadId,
-    System.Collections.Immutable.ImmutableArray<Agent.Harness.SessionEvent> SeedCommitted) : ObservedChatEvent;

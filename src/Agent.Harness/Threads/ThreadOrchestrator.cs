@@ -145,11 +145,6 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         // It can be called while a turn is running (e.g. tools that enqueue follow-up work). It must never
         // block on the per-thread execution gate, otherwise self-send / nested observations can deadlock.
 
-        // Thread lifecycle is owned by the orchestrator in the unified model.
-        // Lifecycle requests must use the dedicated API to avoid mixing concerns.
-        if (observed is Agent.Harness.ObservedForkChildThreadRequested)
-            throw new InvalidOperationException("lifecycle_requests_must_not_use_observe_async");
-
         var q = _observedQueues.GetOrAdd(threadId, _ => new ConcurrentQueue<ObservedChatEvent>());
         q.Enqueue(observed);
 
