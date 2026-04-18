@@ -245,31 +245,32 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     var message = GetRequiredString(args, "message");
                     var delivery = ParseDelivery(args);
 
-                    // Thread creation is currently delegated to ThreadManager.
-                    // (Unification work will move lifecycle ownership fully into the orchestrator.)
-                    var id = _threads?.CreateChildThread(_threadId) ?? "";
+                    if (_scheduler is not Agent.Harness.Threads.ThreadOrchestrator orchestrator)
+                        throw new InvalidOperationException("thread_tools_require_orchestrator");
+
+                    // Unified model: thread lifecycle is owned by the orchestrator.
+                    // We must return a threadId synchronously, so we preallocate it.
+                    var id = "thr_" + Guid.NewGuid().ToString("N")[..12];
+
+                    await orchestrator.ObserveAsync(
+                        _threadId,
+                        new Agent.Harness.ObservedForkChildThreadRequested(_threadId, id, state.Committed),
+                        cancellationToken).ConfigureAwait(false);
 
                     // Universal intake: express initial message as observed inbox arrival to the child thread.
-                    if (!string.IsNullOrWhiteSpace(id) && _scheduler is Agent.Harness.Threads.ThreadOrchestrator orchestrator)
-                    {
-                        await orchestrator.ObserveAsync(
-                            id,
-                            Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
-                                threadId: id,
-                                text: message,
-                                sourceThreadId: _threadId,
-                                source: "thread",
-                                delivery: delivery),
-                            cancellationToken).ConfigureAwait(false);
+                    await orchestrator.ObserveAsync(
+                        id,
+                        Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
+                            threadId: id,
+                            text: message,
+                            sourceThreadId: _threadId,
+                            source: "thread",
+                            delivery: delivery),
+                        cancellationToken).ConfigureAwait(false);
 
-                        if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
-                        {
-                            _scheduler.ScheduleRun(id);
-                        }
-                    }
-                    else if (!string.IsNullOrWhiteSpace(id))
+                    if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
                     {
-                        throw new InvalidOperationException("thread_tools_require_orchestrator");
+                        _scheduler.ScheduleRun(id);
                     }
 
                     return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
@@ -282,30 +283,30 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     var message = GetRequiredString(args, "message");
                     var delivery = ParseDelivery(args);
 
-                    // Thread forking is currently delegated to ThreadManager.
-                    // (Unification work will move lifecycle ownership fully into the orchestrator.)
-                    var id = _threads?.ForkChildThread(_threadId, state) ?? "";
-
-                    if (!string.IsNullOrWhiteSpace(id) && _scheduler is Agent.Harness.Threads.ThreadOrchestrator orchestrator)
-                    {
-                        await orchestrator.ObserveAsync(
-                            id,
-                            Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
-                                threadId: id,
-                                text: message,
-                                sourceThreadId: _threadId,
-                                source: "thread",
-                                delivery: delivery),
-                            cancellationToken).ConfigureAwait(false);
-
-                        if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
-                        {
-                            _scheduler.ScheduleRun(id);
-                        }
-                    }
-                    else if (!string.IsNullOrWhiteSpace(id))
-                    {
+                    if (_scheduler is not Agent.Harness.Threads.ThreadOrchestrator orchestrator)
                         throw new InvalidOperationException("thread_tools_require_orchestrator");
+
+                    // Unified model: thread lifecycle is owned by the orchestrator.
+                    var id = "thr_" + Guid.NewGuid().ToString("N")[..12];
+
+                    await orchestrator.ObserveAsync(
+                        _threadId,
+                        new Agent.Harness.ObservedForkChildThreadRequested(_threadId, id, state.Committed),
+                        cancellationToken).ConfigureAwait(false);
+
+                    await orchestrator.ObserveAsync(
+                        id,
+                        Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
+                            threadId: id,
+                            text: message,
+                            sourceThreadId: _threadId,
+                            source: "thread",
+                            delivery: delivery),
+                        cancellationToken).ConfigureAwait(false);
+
+                    if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
+                    {
+                        _scheduler.ScheduleRun(id);
                     }
 
                     return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
