@@ -1,45 +1,34 @@
-# ✅ COMPLETED — Unify thread runner / sink-only persistence
+# 🚧 PENDING — Unify thread runner / sink-only persistence
 
 ## Goal
 Unify main-thread vs child-thread execution so that the *only* difference is sink decoration (ACP publishing/listeners on main). Eliminate duplicated responsibilities that caused bugs (e.g., session title event not persisted).
 
-## Target invariants ✅
-- **All committed events must go through `IEventSink.OnCommittedAsync`** (no direct store writes from orchestrator logic). ✅
-- Thread scheduling/execution is unified for main + child. ✅
-- **At most one model call in-flight per thread** (hard invariant). ✅ (via per-thread semaphore gate)
-- Non-model effects can complete asynchronously and enqueue observations; they must **not** block the next turn. ✅
+## What’s actually done so far ✅
+- **ObserveAsync** no longer persists committed events directly; it queues observations and schedules a wake-driven turn.
+- **Idle notifications** (child → parent) now flow via ObserveAsync → reducer → sink (no direct store append from orchestrator).
+- Harness + ACP test suites are green locally:
+  - Agent.Acp.Tests: 74 passed
+  - Agent.Harness.Tests: 138 passed
 
-## Implementation Summary
+## Still NOT done (do not merge yet) ❌
+MVP / non‑negotiable behaviors we still need tests for (and implementations if missing):
+- **ACP initialize/meta.json exact fields**: protocol version + capability negotiation must match schema.
+- **“Streaming‑ish prompt” semantics**: multiple `session/update` chunks interleaved, then final `PromptResponse.stopReason=end_turn`.
+- **No re‑entrancy invariant**: self‑send enqueue during a turn must not deadlock.
 
-### Commits (reverse chronological order)
-1. `b658b63` - fix(threads): include idle notification text on arrival
-2. `33e422b` - refactor(threads): route idle notifications via ObserveAsync
-3. `d583586` - refactor(threads): queue observations; remove direct commits from ObserveAsync
-4. `aece55b` - chore: track unify thread runner pending work
+## Target invariants (work in progress)
+- [ ] All committed events must go through `IEventSink.OnCommittedAsync` (no direct store writes from orchestrator logic).
+- [ ] Thread scheduling/execution is unified for main + child (only sink decoration differs).
+- [ ] At most one model call in-flight per thread (hard invariant).
 
-### Key Changes
-- **ObserveAsync** now queues observations in-memory and schedules wake-driven turns (no direct persistence)
-- **RunOneTurnIfNeededAsync** drains queued observations before each turn and routes all commits through sinks
-- **Idle notifications** (child → parent) now flow via ObserveAsync → reducer → sink pipeline (preserves sink-only invariant)
-- **Concurrency safety** maintained via existing per-thread semaphore gates
+## Notes
+- We have early coverage tests:
+  - `ThreadOrchestratorObservePersistsViaSinkTests`
+  - `ThreadOrchestratorObserveConcurrencyTests`
+- These do **not** yet prove the MVP ACP protocol behaviors above.
 
-### Test Coverage
-- `ThreadOrchestratorObservePersistsViaSinkTests` - verifies no direct thread store writes from ObserveAsync ✅
-- `ThreadOrchestratorObserveConcurrencyTests` - verifies thread gating prevents concurrent model calls ✅
-- All existing tests pass (212 total: 74 ACP + 138 Harness) ✅
+## Next step
+Pick one non‑negotiable above and drive it with a failing integration test first, then implement.
 
-## Ready to Merge
-- [x] All target invariants met
-- [x] Test coverage added for new behavior
-- [x] All tests passing (0 failures)
-- [x] No direct `_threadStore.AppendCommittedEvent` calls outside sinks
-
-## Merge Instructions
-```bash
-git checkout main
-git merge --no-ff refactor/unify-thread-runner -m "Merge refactor/unify-thread-runner: sink-only persistence"
-git push origin main
-```
-
-Branch: `refactor/unify-thread-runner`  
-Status: **READY TO MERGE** 🚀
+Branch: `refactor/unify-thread-runner`
+Status: **NOT READY TO MERGE YET**
