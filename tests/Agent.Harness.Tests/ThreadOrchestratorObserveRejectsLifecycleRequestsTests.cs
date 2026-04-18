@@ -68,12 +68,15 @@ public sealed class ThreadOrchestratorObserveRejectsLifecycleRequestsTests
 
         orch.SetToolCatalog(ImmutableArray<ToolDefinition>.Empty);
 
-        var req = new ObservedForkChildThreadRequested(
-            ParentThreadId: ThreadIds.Main,
-            ChildThreadId: "thr_test",
-            SeedCommitted: ImmutableArray<SessionEvent>.Empty);
+        // With option (1), lifecycle is a dedicated API, not an observed event.
+        Func<Task> act = () => orch.ObserveAsync(
+            ThreadIds.Main,
+            new ObservedForkChildThreadRequested(
+                ParentThreadId: ThreadIds.Main,
+                ChildThreadId: "thr_test",
+                SeedCommitted: ImmutableArray<SessionEvent>.Empty),
+            CancellationToken.None);
 
-        Func<Task> act = () => orch.ObserveAsync(ThreadIds.Main, req, CancellationToken.None);
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("lifecycle_requests_must_not_use_observe_async");
     }

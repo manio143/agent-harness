@@ -110,10 +110,11 @@ public sealed record ObservedMcpConnectionFailed(string ServerId, string Error) 
 // In the unified orchestrator model, thread lifecycle is owned by ThreadOrchestrator.
 // Effects (and other shells) request thread operations by emitting observations.
 
-/// <summary>
-/// Request to fork a new child thread from the given parent thread.
-/// The orchestrator creates the thread and seeds it with the parent's committed history.
-/// </summary>
+// NOTE: Thread lifecycle (create/fork) is owned by ThreadOrchestrator and must be invoked via
+// dedicated APIs (e.g. RequestForkChildThreadAsync). Lifecycle is intentionally NOT modeled as an
+// observed chat event, to keep ObserveAsync observation-only and avoid re-entrancy hazards.
+//
+// Kept only as a transitional/guarded shape: ObserveAsync rejects this event.
 public sealed record ObservedForkChildThreadRequested(
     string ParentThreadId,
     string ChildThreadId,
