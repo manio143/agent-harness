@@ -17,7 +17,7 @@ These contract tests already exist and are passing:
 - **No re‑entrancy invariant**: `ThreadSendSelfEnqueueDoesNotDeadlockIntegrationTests`.
 
 ## Target invariants (work in progress)
-- [ ] All committed events must go through `IEventSink.OnCommittedAsync` (no direct store writes from orchestrator logic).
+- [x] All committed events must go through `IEventSink.OnCommittedAsync` (no direct store writes from orchestrator logic).
 - [ ] Thread scheduling/execution is unified for main + child (only sink decoration differs).
 - [ ] At most one model call in-flight per thread (hard invariant).
 
