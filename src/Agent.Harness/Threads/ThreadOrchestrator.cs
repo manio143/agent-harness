@@ -195,7 +195,9 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 yield return new ObservedWakeModel(threadId);
             }
 
-            var titleGen = new SessionTitleGenerator(_chatByModel(_quickWorkModel));
+            var titleGen = threadId == ThreadIds.Main
+                ? new SessionTitleGenerator(_chatByModel(_quickWorkModel))
+                : SessionTitleGenerator.Null;
             var acpClient = threadId == ThreadIds.Main ? _client : NullAcpClientCaller.Instance;
 
             var effects = new AcpEffectExecutor(
