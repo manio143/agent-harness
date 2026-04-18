@@ -5,12 +5,14 @@ Unify main-thread vs child-thread execution so that the *only* difference is sin
 
 ## What's actually done so far ✅
 - **ObserveAsync** no longer persists committed events directly; it queues observations and schedules a wake-driven turn.
-- **Idle notifications** (child → parent) now flow via ObserveAsync → reducer → sink (no direct store append from orchestrator).
-- **ForkChildThread** routes forked events through `ThreadEventSink.OnCommittedAsync` (no direct store append).
-- **All orchestrator logic** routes commits via sinks (verified: no `.AppendCommittedEvent` calls outside of sink implementations).
-- Harness + ACP test suites are green:
+- **Idle notifications** (child → parent) flow via ObserveAsync → reducer → sink (no direct store append from orchestrator).
+- **Fork lifecycle is API-only**: `ThreadOrchestrator.RequestForkChildThreadAsync(...)` (no lifecycle-as-observed-event).
+- **Single orchestrator loop** runs main + child threads; **only sink decoration differs**:
+  - main thread uses `MainThreadEventSink` + ACP projection
+  - child threads use `ThreadEventSink`
+- Harness + ACP test suites are green (Release):
   - Agent.Acp.Tests: 74 passed
-  - Agent.Harness.Tests: 142 passed
+  - Agent.Harness.Tests: 154 passed
 
 ## MVP / non-negotiable behaviors (tests exist) ✅
 These contract tests already exist and are passing:
@@ -38,17 +40,12 @@ These contract tests already exist and are passing:
   - `AcpSessionUpdateStreamingContractTests` - validates streaming session/update semantics
   - `ThreadSendSelfEnqueueDoesNotDeadlockIntegrationTests` - validates no re-entrancy deadlock
 
-## Next refactor (unification) — single orchestrator owns thread lifecycle
-We want a single `ThreadOrchestrator` to own the thread universe: creation/forking, scheduling, and execution.
-Effects (and other imperative shells) should request thread operations by emitting **observed events**, which flow back into the orchestrator.
+## Next refactor / cleanup targets
+Now that the two-lane model is in place (observations via `ObserveAsync`, lifecycle via explicit APIs), remaining work is mostly cleanup and hardening:
 
-TDD work items:
-- [x] Add an observed event for thread fork/create requests (`ObservedForkChildThreadRequested`).
-- [x] Add an integration test proving: fork request → child thread created → parent history seeded.
-- [x] Move thread lifecycle responsibilities out of `ThreadManager` (kept as projector/utility only).
-
-Next TDD item:
-- [ ] Add an integration test proving a tool/effect can request a fork/create mid-turn **without deadlocking** while still preserving sink-only persistence.
-- [ ] Introduce a dedicated re-entrant-safe lifecycle enqueue API (effects must never block on per-thread gates).
+- [ ] Remove stale comments/docs/tests that still describe lifecycle-as-observation.
+- [ ] Consider further interface narrowing: ensure `AcpEffectExecutor` depends only on the minimal thread interfaces (`IThreadObserver`, `IThreadLifecycle`, `IThreadScheduler`, `IThreadTools`).
+- [ ] Consider whether `_states` cache in `ThreadOrchestrator` is still needed or can be reduced/removed (since committed state is reloaded from store per wake).
+- [ ] Add/adjust integration tests where they meaningfully reduce future regressions (esp. around tool catalog changes + quiescence scheduling).
 
 ## Status: 🚧 IN PROGRESS
