@@ -125,7 +125,7 @@ public sealed class ToolCatalogEphemeralSharedAcrossThreadsIntegrationTests
                 Contents = new List<MeaiAIContent>
                 {
                     new MeaiFunctionCallContent("call_m0", "report_intent", new Dictionary<string, object?> { ["intent"] = "spawn child" }),
-                    new MeaiFunctionCallContent("call_m1", "thread_new", new Dictionary<string, object?> { ["message"] = "Initial message: child should call mcp_echo", ["delivery"] = "immediate" }),
+                    new MeaiFunctionCallContent("call_m1", "thread_start", new Dictionary<string, object?> { ["context"] = "fork", ["message"] = "Initial message: child should call mcp_echo", ["delivery"] = "immediate" }),
                 }
             };
             await Task.CompletedTask;

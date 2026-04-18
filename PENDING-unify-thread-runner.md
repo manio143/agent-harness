@@ -31,6 +31,9 @@ These contract tests already exist and are passing:
 - ✅ **At most one model call in-flight per thread** (hard invariant).
   - Per-thread `SemaphoreSlim` gate in `ThreadOrchestrator._gates` enforces this.
   - `ThreadSendSelfEnqueueDoesNotDeadlockIntegrationTests` validates no re-entrancy deadlock.
+- ✅ **Effect ordering is sequential for dependent tools within a turn**.
+  - Turn runner must reduce observations produced by a tool effect *before* executing the next tool effect.
+  - Reason: tool calls can be causally dependent in one streamed update (e.g., `thread_config` emits `ObservedSetModel` which must commit `SetModel` before `thread_list` runs).
 
 ## Notes
 - Contract tests exist and pass:

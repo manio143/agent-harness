@@ -18,8 +18,7 @@ public sealed class AcpEffectExecutorThreadToolRequiresOrchestratorTests
                 ToolSchemas.ReportIntent,
                 ToolSchemas.ThreadSend,
                 ToolSchemas.ThreadList,
-                ToolSchemas.ThreadNew,
-                ToolSchemas.ThreadFork,
+                ToolSchemas.ThreadStart,
                 ToolSchemas.ThreadRead)
         };
 

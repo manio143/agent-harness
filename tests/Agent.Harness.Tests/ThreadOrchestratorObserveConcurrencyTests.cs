@@ -49,8 +49,7 @@ public sealed class ThreadOrchestratorObserveConcurrencyTests
         orch.InitializeToolCatalog(ImmutableArray.Create(
             ToolSchemas.ReportIntent,
             ToolSchemas.ThreadList,
-            ToolSchemas.ThreadNew,
-            ToolSchemas.ThreadFork,
+            ToolSchemas.ThreadStart,
             ToolSchemas.ThreadSend,
             ToolSchemas.ThreadRead));
 

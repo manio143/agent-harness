@@ -57,8 +57,7 @@ public sealed class ThreadOrchestratorIdleNotificationTests
         orchestrator.InitializeToolCatalog(ImmutableArray.Create(
             ToolSchemas.ReportIntent,
             ToolSchemas.ThreadList,
-            ToolSchemas.ThreadNew,
-            ToolSchemas.ThreadFork,
+            ToolSchemas.ThreadStart,
             ToolSchemas.ThreadSend,
             ToolSchemas.ThreadRead));
 

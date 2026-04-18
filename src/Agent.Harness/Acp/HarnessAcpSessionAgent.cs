@@ -24,7 +24,6 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     {
         return allowlist switch
         {
-            "threading_no_fork" => tools.Where(t => t.Name != ToolSchemas.ThreadFork.Name).ToImmutableArray(),
             _ => tools,
         };
     }
@@ -47,7 +46,6 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                 Options = new SessionConfigSelectOptions
                 {
                     new() { Value = "all", Name = "All tools" },
-                    new() { Value = "threading_no_fork", Name = "Threading (no fork tool)" },
                 },
             },
         };
@@ -133,8 +131,6 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                 ToolSchemas.ThreadList,
                 ToolSchemas.ThreadConfig,
                 ToolSchemas.ThreadStart,
-                ToolSchemas.ThreadNew,
-                ToolSchemas.ThreadFork,
                 ToolSchemas.ThreadSend,
                 ToolSchemas.ThreadRead));
         }

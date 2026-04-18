@@ -17,12 +17,12 @@ using MeaiTextContent = Microsoft.Extensions.AI.TextContent;
 
 namespace Agent.Harness.Tests;
 
-public sealed class ThreadOrchestratorThreadForkMidTurnCreatesChildAndCommitsInboxIntegrationTests
+public sealed class ThreadOrchestratorThreadStartForkMidTurnCreatesChildAndCommitsInboxIntegrationTests
 {
     [Fact]
-    public async Task ThreadFork_called_during_main_turn_creates_child_and_commits_child_inbox_message()
+    public async Task ThreadStart_fork_called_during_main_turn_creates_child_and_commits_child_inbox_message()
     {
-        var sessionId = "sess_midturn_thread_fork";
+        var sessionId = "sess_midturn_thread_start_fork";
         var root = Path.Combine(Path.GetTempPath(), "harness-midturn-thread-fork", Guid.NewGuid().ToString("N"));
 
         var sessionStore = new JsonlSessionStore(root);
@@ -36,7 +36,7 @@ public sealed class ThreadOrchestratorThreadForkMidTurnCreatesChildAndCommitsInb
         var threadStore = new JsonlThreadStore(root);
         var threads = new ThreadManager(sessionId, threadStore);
 
-        var chat = new ThreadForkChatClient();
+        var chat = new ThreadStartForkChatClient();
         var orchestrator = new ThreadOrchestrator(
             sessionId: sessionId,
             client: new NullClientCaller(),
@@ -52,7 +52,7 @@ public sealed class ThreadOrchestratorThreadForkMidTurnCreatesChildAndCommitsInb
 
         orchestrator.SetToolCatalog(ImmutableArray.Create(
             ToolSchemas.ReportIntent,
-            ToolSchemas.ThreadFork));
+            ToolSchemas.ThreadStart));
 
         await orchestrator.ObserveAsync(ThreadIds.Main, new ObservedUserMessage("hi"));
 
@@ -79,7 +79,7 @@ public sealed class ThreadOrchestratorThreadForkMidTurnCreatesChildAndCommitsInb
             => throw new InvalidOperationException("ACP client should not be used in this test");
     }
 
-    private sealed class ThreadForkChatClient : MeaiIChatClient
+    private sealed class ThreadStartForkChatClient : MeaiIChatClient
     {
         private bool _toolsDone;
 
@@ -100,8 +100,9 @@ public sealed class ThreadOrchestratorThreadForkMidTurnCreatesChildAndCommitsInb
                     Contents = new List<MeaiAIContent>
                     {
                         new MeaiFunctionCallContent("call_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "thread fork" }),
-                        new MeaiFunctionCallContent("call_1", "thread_fork", new Dictionary<string, object?>
+                        new MeaiFunctionCallContent("call_1", "thread_start", new Dictionary<string, object?>
                         {
+                            ["context"] = "fork",
                             ["message"] = "child hello",
                             ["delivery"] = "immediate",
                         }),

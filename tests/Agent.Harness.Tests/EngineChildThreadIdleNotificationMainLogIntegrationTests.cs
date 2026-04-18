@@ -67,7 +67,7 @@ public sealed class EngineChildThreadIdleNotificationMainLogIntegrationTests
             cts.Token);
 
         var childId = turn.CompletedRawOutputs
-            .Where(x => x.ToolName == "thread_new")
+            .Where(x => x.ToolName == "thread_start")
             .Select(x => ExtractThreadId(x.RawOutput))
             .FirstOrDefault(x => x is not null);
 
@@ -130,7 +130,7 @@ public sealed class EngineChildThreadIdleNotificationMainLogIntegrationTests
                     Contents = new List<MeaiAIContent>
                     {
                         new MeaiFunctionCallContent("call_m_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "create child" }),
-                        new MeaiFunctionCallContent("call_m_1", "thread_new", new Dictionary<string, object?> { ["message"] = "do work", ["delivery"] = "immediate" }),
+                        new MeaiFunctionCallContent("call_m_1", "thread_start", new Dictionary<string, object?> { ["context"] = "fork", ["message"] = "do work", ["delivery"] = "immediate" }),
                     }
                 };
                 await Task.CompletedTask;

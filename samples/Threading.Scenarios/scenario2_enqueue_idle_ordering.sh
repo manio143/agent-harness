@@ -24,7 +24,7 @@ acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --tim
   'You MUST follow these rules exactly:
 1) You may call at most 2 tools in this turn.
 2) You may ONLY call: report_intent, thread_start.
-3) You MUST NOT call any other tools (especially thread_new, thread_fork, thread_send, thread_read, thread_list).
+3) You MUST NOT call any other tools (especially thread_start, thread_send, thread_read, thread_list).
 4) After the 2 tool calls complete, output EXACTLY: OK (nothing else).
 
 Now do the work:
@@ -59,7 +59,7 @@ acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --tim
   "You MUST follow these rules exactly:
 1) You may call at most 2 tools in this turn.
 2) You may ONLY call: report_intent, thread_send.
-3) You MUST NOT call any other tools (especially thread_new, thread_fork, thread_read, thread_list).
+3) You MUST NOT call any other tools (especially thread_start, thread_read, thread_list).
 4) After the 2 tool calls complete, output EXACTLY: DONE (nothing else).
 
 Now do the work:

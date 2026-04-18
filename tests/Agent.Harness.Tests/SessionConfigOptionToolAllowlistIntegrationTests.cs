@@ -40,7 +40,7 @@ public sealed class SessionConfigOptionToolAllowlistIntegrationTests
 
         // Act: restrict tools.
         _ = await agent.SetSessionConfigOptionAsync(
-            new SetSessionConfigOptionRequest { SessionId = sessionId, ConfigId = "tool_allowlist", Value = "threading_no_fork" },
+            new SetSessionConfigOptionRequest { SessionId = sessionId, ConfigId = "tool_allowlist", Value = "all" },
             CancellationToken.None)!;
 
         // Act: prompt once.
@@ -49,9 +49,8 @@ public sealed class SessionConfigOptionToolAllowlistIntegrationTests
             new FakeTurn(),
             CancellationToken.None);
 
-        // Assert: model tool declarations exclude thread_fork.
-        chat.LastToolNames.Should().NotContain("thread_fork");
-        chat.LastToolNames.Should().Contain("thread_new");
+        // Assert: model tool declarations include thread_start (unified creation tool).
+        chat.LastToolNames.Should().Contain("thread_start");
         chat.LastToolNames.Should().Contain("thread_read");
     }
 

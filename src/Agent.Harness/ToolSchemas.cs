@@ -138,20 +138,6 @@ public static class ToolSchemas
         { "type": "object", "properties": { }, "required": [ ] }
         """));
 
-    public static ToolDefinition ThreadNew { get; } = new(
-        Name: "thread_new",
-        Description: "Create a new empty child thread and attach an initial message from the parent.",
-        InputSchema: ParseSchema("""
-        {
-          "type": "object",
-          "properties": {
-            "message": { "type": "string", "description": "Initial message to attach to the new thread" },
-            "delivery": { "type": "string", "enum": ["enqueue", "immediate"], "description": "Whether the message should be delivered immediately or enqueued until idle" }
-          },
-          "required": ["message"]
-        }
-        """));
-
     public static ToolDefinition ThreadStart { get; } = new(
         Name: "thread_start",
         Description: "Start a child thread (new or fork from current thread) and attach an initial message. Optional: set the child's model.",
@@ -165,20 +151,6 @@ public static class ToolSchemas
             "model": { "type": "string", "description": "Optional model friendly name for the child thread (or 'default')" }
           },
           "required": ["context", "message"]
-        }
-        """));
-
-    public static ToolDefinition ThreadFork { get; } = new(
-        Name: "thread_fork",
-        Description: "Fork the current thread into a child thread by cloning state and attaching an initial message.",
-        InputSchema: ParseSchema("""
-        {
-          "type": "object",
-          "properties": {
-            "message": { "type": "string", "description": "Initial message to attach to the child thread" },
-            "delivery": { "type": "string", "enum": ["enqueue", "immediate"], "description": "Whether the message should be delivered immediately or enqueued until idle" }
-          },
-          "required": ["message"]
         }
         """));
 

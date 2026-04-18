@@ -16,12 +16,12 @@ using MeaiTextContent = Microsoft.Extensions.AI.TextContent;
 
 namespace Agent.Harness.Tests;
 
-public sealed class AcpThreadNewDoesNotDeadlockIntegrationTests
+public sealed class AcpThreadStartDoesNotDeadlockIntegrationTests
 {
     [Fact]
-    public async Task ThreadNew_DoesNotDeadlock_WhenInvokedDuringPrompt()
+    public async Task ThreadStart_DoesNotDeadlock_WhenInvokedDuringPrompt()
     {
-        var sessionId = "ses_thread_new_deadlock";
+        var sessionId = "ses_thread_start_deadlock";
         var root = Path.Combine(Path.GetTempPath(), "harness-thread-new-deadlock", Guid.NewGuid().ToString("N"));
 
         var store = new JsonlSessionStore(root);
@@ -32,7 +32,7 @@ public sealed class AcpThreadNewDoesNotDeadlockIntegrationTests
             CreatedAtIso: "t0",
             UpdatedAtIso: "t1"));
 
-        var chat = new ThreadNewChatClient();
+        var chat = new ThreadStartChatClient();
         var agent = new HarnessAcpSessionAgent(
             sessionId,
             client: new AcpTwoPromptSameSessionLongLivedOrchestratorIntegrationTests.NullClientCaller(),
@@ -61,7 +61,7 @@ public sealed class AcpThreadNewDoesNotDeadlockIntegrationTests
         threadStore.ListThreads(sessionId).Should().Contain(t => t.ParentThreadId == ThreadIds.Main && t.ThreadId != ThreadIds.Main);
     }
 
-    private sealed class ThreadNewChatClient : MeaiIChatClient
+    private sealed class ThreadStartChatClient : MeaiIChatClient
     {
         private bool _toolsDone;
 
@@ -82,8 +82,9 @@ public sealed class AcpThreadNewDoesNotDeadlockIntegrationTests
                     Contents = new List<MeaiAIContent>
                     {
                         new MeaiFunctionCallContent("call_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "thread new" }),
-                        new MeaiFunctionCallContent("call_1", "thread_new", new Dictionary<string, object?>
+                        new MeaiFunctionCallContent("call_1", "thread_start", new Dictionary<string, object?>
                         {
+                            ["context"] = "fork",
                             ["message"] = "child hello",
                             ["delivery"] = "immediate",
                         }),

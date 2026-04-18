@@ -283,40 +283,6 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                         new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { ok = true, threadId, model })));
                 }
 
-                case "thread_new":
-                {
-                    // Back-compat: historically thread_new behaved like thread_fork (seed from current thread snapshot).
-                    var message = GetRequiredString(args, "message");
-                    var delivery = ParseDelivery(args);
-
-                    if (_lifecycle is null || _observer is null || _scheduler is null)
-                        throw new InvalidOperationException("thread_tools_require_orchestrator");
-
-                    var id = "thr_" + Guid.NewGuid().ToString("N")[..12];
-
-                    await _lifecycle.RequestForkChildThreadAsync(
-                        _threadId,
-                        id,
-                        state.Committed,
-                        cancellationToken).ConfigureAwait(false);
-
-                    await _observer.ObserveAsync(
-                        id,
-                        Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
-                            threadId: id,
-                            text: message,
-                            sourceThreadId: _threadId,
-                            source: "thread",
-                            delivery: delivery),
-                        cancellationToken).ConfigureAwait(false);
-
-                    if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
-                        _scheduler.ScheduleRun(id);
-
-                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
-                        t.ToolId,
-                        JsonSerializer.SerializeToElement(new { threadId = id })));
-                }
 
                 case "thread_start":
                 {
@@ -373,42 +339,6 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                         JsonSerializer.SerializeToElement(new { threadId = id })));
                 }
 
-                case "thread_fork":
-                {
-                    var message = GetRequiredString(args, "message");
-                    var delivery = ParseDelivery(args);
-
-                    if (_lifecycle is null || _observer is null || _scheduler is null)
-                        throw new InvalidOperationException("thread_tools_require_orchestrator");
-
-                    // Unified model: thread lifecycle is owned by the orchestrator.
-                    var id = "thr_" + Guid.NewGuid().ToString("N")[..12];
-
-                    await _lifecycle.RequestForkChildThreadAsync(
-                        _threadId,
-                        id,
-                        state.Committed,
-                        cancellationToken).ConfigureAwait(false);
-
-                    await _observer.ObserveAsync(
-                        id,
-                        Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
-                            threadId: id,
-                            text: message,
-                            sourceThreadId: _threadId,
-                            source: "thread",
-                            delivery: delivery),
-                        cancellationToken).ConfigureAwait(false);
-
-                    if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
-                    {
-                        _scheduler.ScheduleRun(id);
-                    }
-
-                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
-                        t.ToolId,
-                        JsonSerializer.SerializeToElement(new { threadId = id })));
-                }
 
                 case "thread_send":
                 {
