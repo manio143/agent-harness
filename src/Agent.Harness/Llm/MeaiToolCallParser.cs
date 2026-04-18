@@ -1,6 +1,9 @@
+using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using Agent.Harness;
 using Microsoft.Extensions.AI;
-using System.Collections.Generic;
 
 namespace Agent.Harness.Llm;
 
@@ -23,9 +26,9 @@ public static class MeaiToolCallParser
                 // or repeat the same call id with updated arguments. We currently treat each FunctionCallContent
                 // as a complete tool intent.
 
-                // ToolId: provider doesn't always give one; use a deterministic placeholder.
-                // The harness will replace/assign stable ids at the boundary if needed.
-                var toolId = call.CallId ?? Guid.NewGuid().ToString("N");
+                // ToolId: provider doesn't always give one.
+                // If CallId is absent, use a deterministic id so cumulative deltas can still be deduped.
+                var toolId = call.CallId ?? CreateDeterministicToolId(call.Name, call.Arguments);
 
                 yield return new ObservedToolCallDetected(
                     ToolId: toolId,
@@ -36,5 +39,14 @@ public static class MeaiToolCallParser
                 };
             }
         }
+    }
+
+    private static string CreateDeterministicToolId(string toolName, IDictionary<string, object?>? args)
+    {
+        // Stable over the lifetime of the process. Purpose is dedupe of cumulative deltas when provider omits call id.
+        // This is not a security boundary.
+        var payload = JsonSerializer.Serialize(new { toolName, args }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
+        return "auto_" + Convert.ToHexString(bytes).ToLowerInvariant();
     }
 }
