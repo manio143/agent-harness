@@ -210,6 +210,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 sessionCwd: _sessionStore.TryLoadMetadata(_sessionId)?.Cwd,
                 store: _sessionStore,
                 threads: _threads,
+                threadMeta: _threads,
                 observer: this,
                 lifecycle: this,
                 scheduler: this,

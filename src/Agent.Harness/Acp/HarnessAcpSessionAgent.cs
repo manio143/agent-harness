@@ -222,6 +222,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             sessionCwd: sessionCwd,
             store: _store,
             threads: _threads,
+            threadMeta: _threads,
             observer: _orchestrator,
             lifecycle: _orchestrator,
             scheduler: _orchestrator,
