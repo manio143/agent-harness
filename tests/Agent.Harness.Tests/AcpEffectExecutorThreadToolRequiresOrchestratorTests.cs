@@ -7,10 +7,10 @@ using FluentAssertions;
 
 namespace Agent.Harness.Tests;
 
-public sealed class AcpEffectExecutorThreadToolLegacyPathTests
+public sealed class AcpEffectExecutorThreadToolRequiresOrchestratorTests
 {
     [Fact]
-    public async Task ThreadSend_WhenSchedulerIsMissing_Throws_InsteadOfUsingLegacyEnqueuePath()
+    public async Task ThreadSend_WhenSchedulerIsMissing_FailsWithThreadToolsRequireOrchestrator()
     {
         var state = SessionState.Empty with
         {
