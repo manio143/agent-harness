@@ -53,8 +53,10 @@ public static class Program
         builder.Services.AddSingleton<IAcpAgentFactory>(sp =>
         {
             var chat = sp.GetRequiredService<Microsoft.Extensions.AI.IChatClient>();
+            var factory = sp.GetRequiredService<IChatClientFactory>();
+            var catalog = sp.GetRequiredService<ModelCatalog>();
             var opts = sp.GetRequiredService<AgentServerOptions>();
-            return new AcpHarnessAgentFactory(chat, opts);
+            return new AcpHarnessAgentFactory(chat, factory, catalog, opts);
         });
 
         using var host = builder.Build();

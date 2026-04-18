@@ -56,6 +56,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     private readonly string _sessionId;
     private readonly IAcpClientCaller _client;
     private readonly MeaiIChatClient _chat;
+    private readonly Func<string, MeaiIChatClient> _chatByModel;
+    private readonly string _quickWorkModel;
     private readonly IAcpSessionEvents _events;
     private readonly CoreOptions _coreOptions;
     private readonly AcpPublishOptions _publishOptions;
@@ -88,6 +90,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         string sessionId,
         IAcpClientCaller client,
         MeaiIChatClient chat,
+        Func<string, MeaiIChatClient> chatByModel,
+        string quickWorkModel,
         IAcpSessionEvents events,
         CoreOptions coreOptions,
         AcpPublishOptions publishOptions,
@@ -100,6 +104,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         _sessionId = sessionId;
         _client = client;
         _chat = chat;
+        _chatByModel = chatByModel;
+        _quickWorkModel = quickWorkModel;
         _events = events;
         _coreOptions = coreOptions;
         _publishOptions = publishOptions;
@@ -150,6 +156,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                 _sessionId,
                 _client,
                 _chat,
+                _chatByModel,
+                _quickWorkModel,
                 _mcp,
                 _coreOptions,
                 logLlmPrompts: _logLlmPrompts,
@@ -210,13 +218,14 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             yield return new ObservedWakeModel(Agent.Harness.Threads.ThreadIds.Main);
         }
 
-        var titleGen = new SessionTitleGenerator(_chat);
+        var titleGen = new SessionTitleGenerator(_chatByModel(_quickWorkModel));
         var sessionCwd = _store.TryLoadMetadata(_sessionId)?.Cwd;
 
         var effects = new AcpEffectExecutor(
             _sessionId,
             _client,
             _chat,
+            chatByModel: _chatByModel,
             _mcp,
             _logLlmPrompts,
             sessionCwd: sessionCwd,

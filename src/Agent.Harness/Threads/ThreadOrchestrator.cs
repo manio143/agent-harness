@@ -35,6 +35,8 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
     private readonly string _sessionId;
     private readonly IAcpClientCaller _client;
     private readonly Microsoft.Extensions.AI.IChatClient _chat;
+    private readonly Func<string, Microsoft.Extensions.AI.IChatClient> _chatByModel;
+    private readonly string _quickWorkModel;
     private readonly IMcpToolInvoker _mcp;
     private readonly CoreOptions _coreOptions;
     private readonly bool _logLlmPrompts;
@@ -53,6 +55,8 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         string sessionId,
         IAcpClientCaller client,
         Microsoft.Extensions.AI.IChatClient chat,
+        Func<string, Microsoft.Extensions.AI.IChatClient> chatByModel,
+        string quickWorkModel,
         IMcpToolInvoker mcp,
         CoreOptions coreOptions,
         bool logLlmPrompts,
@@ -63,6 +67,8 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         _sessionId = sessionId;
         _client = client;
         _chat = chat;
+        _chatByModel = chatByModel;
+        _quickWorkModel = quickWorkModel;
         _mcp = mcp;
         _coreOptions = coreOptions;
         _logLlmPrompts = logLlmPrompts;
@@ -186,13 +192,14 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 yield return new ObservedWakeModel(threadId);
             }
 
-            var titleGen = new SessionTitleGenerator(_chat);
+            var titleGen = new SessionTitleGenerator(_chatByModel(_quickWorkModel));
             var acpClient = threadId == ThreadIds.Main ? _client : NullAcpClientCaller.Instance;
 
             var effects = new AcpEffectExecutor(
                 _sessionId,
                 acpClient,
                 _chat,
+                chatByModel: _chatByModel,
                 _mcp,
                 logLlmPrompts: threadId == ThreadIds.Main && _logLlmPrompts,
                 sessionCwd: _sessionStore.TryLoadMetadata(_sessionId)?.Cwd,

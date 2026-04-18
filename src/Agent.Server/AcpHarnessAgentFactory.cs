@@ -37,6 +37,8 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
     }
 
     private readonly Microsoft.Extensions.AI.IChatClient _chat;
+    private readonly IChatClientFactory _chatFactory;
+    private readonly ModelCatalog _modelCatalog;
     private readonly AgentServerOptions _options;
     private readonly IMcpDiscovery _mcpDiscovery;
 
@@ -46,9 +48,29 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
 
     private readonly Dictionary<string, (ImmutableArray<ToolDefinition> Tools, IMcpToolInvoker Invoker)> _mcp = new();
 
-    public AcpHarnessAgentFactory(Microsoft.Extensions.AI.IChatClient chat, AgentServerOptions options, IMcpDiscovery? mcpDiscovery = null)
+    public AcpHarnessAgentFactory(
+        Microsoft.Extensions.AI.IChatClient chat,
+        AgentServerOptions options,
+        IMcpDiscovery? mcpDiscovery = null)
+        : this(
+            chat,
+            new OpenAiChatClientFactory(ModelCatalog.FromOptions(options)),
+            ModelCatalog.FromOptions(options),
+            options,
+            mcpDiscovery)
+    {
+    }
+
+    public AcpHarnessAgentFactory(
+        Microsoft.Extensions.AI.IChatClient chat,
+        IChatClientFactory chatFactory,
+        ModelCatalog modelCatalog,
+        AgentServerOptions options,
+        IMcpDiscovery? mcpDiscovery = null)
     {
         _chat = chat;
+        _chatFactory = chatFactory;
+        _modelCatalog = modelCatalog;
         _options = options;
         _mcpDiscovery = mcpDiscovery ?? new DefaultMcpDiscovery();
     }
@@ -379,6 +401,8 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             sessionId,
             client,
             _chat,
+            _chatFactory.Get,
+            _modelCatalog.QuickWorkModel,
             events,
             coreOptions,
             publishOptions,

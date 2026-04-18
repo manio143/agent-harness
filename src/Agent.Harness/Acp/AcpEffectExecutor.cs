@@ -14,6 +14,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
     private readonly string _sessionId;
     private readonly IAcpClientCaller _client;
     private readonly MeaiIChatClient _chat;
+    private readonly Func<string, MeaiIChatClient>? _chatByModel;
     private readonly IMcpToolInvoker _mcp;
     private readonly bool _logLlmPrompts;
     private readonly string? _sessionCwd;
@@ -28,6 +29,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         string sessionId,
         IAcpClientCaller client,
         MeaiIChatClient chat,
+        Func<string, MeaiIChatClient>? chatByModel = null,
         IMcpToolInvoker? mcp = null,
         bool logLlmPrompts = false,
         string? sessionCwd = null,
@@ -41,6 +43,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         _sessionId = sessionId;
         _client = client;
         _chat = chat;
+        _chatByModel = chatByModel;
         _mcp = mcp ?? NullMcpToolInvoker.Instance;
         _logLlmPrompts = logLlmPrompts;
         _sessionCwd = sessionCwd;
@@ -66,8 +69,8 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
     {
         switch (effect)
         {
-            case CallModel:
-                await foreach (var o in CallModelStreamingAsync(state, cancellationToken).ConfigureAwait(false))
+            case CallModel call:
+                await foreach (var o in CallModelStreamingAsync(state, call, cancellationToken).ConfigureAwait(false))
                     yield return o;
                 yield break;
 
@@ -101,7 +104,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         return ImmutableArray.Create<ObservedChatEvent>(new ObservedPermissionApproved(p.ToolId, "tool_in_catalog"));
     }
 
-    private async IAsyncEnumerable<ObservedChatEvent> CallModelStreamingAsync(SessionState state, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    private async IAsyncEnumerable<ObservedChatEvent> CallModelStreamingAsync(SessionState state, CallModel call, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
         try
         {
@@ -197,7 +200,8 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
             TryAppendPromptLog(promptPayload);
         }
 
-            var updates = _chat.GetStreamingResponseAsync(meaiMessages, options, cancellationToken);
+            var chat = _chatByModel is null ? _chat : _chatByModel(call.Model);
+            var updates = chat.GetStreamingResponseAsync(meaiMessages, options, cancellationToken);
 
             await foreach (var o in MeaiObservedEventSource.FromStreamingResponse(updates, cancellationToken).ConfigureAwait(false))
                 yield return o;
