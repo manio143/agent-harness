@@ -10,11 +10,11 @@ Unify main-thread vs child-thread execution so that the *only* difference is sin
   - Agent.Acp.Tests: 74 passed
   - Agent.Harness.Tests: 138 passed
 
-## Still NOT done (do not merge yet) ❌
-MVP / non‑negotiable behaviors we still need tests for (and implementations if missing):
-- **ACP initialize/meta.json exact fields**: protocol version + capability negotiation must match schema.
-- **“Streaming‑ish prompt” semantics**: multiple `session/update` chunks interleaved, then final `PromptResponse.stopReason=end_turn`.
-- **No re‑entrancy invariant**: self‑send enqueue during a turn must not deadlock.
+## MVP / non‑negotiable behaviors (tests exist) ✅
+These contract tests already exist and are passing:
+- **ACP initialize/meta.json**: `AcpInitializeMetaJsonContractTests`, `AcpInitializeContractTests`, capability negotiation tests.
+- **“Streaming‑ish prompt” semantics**: `AcpSessionUpdateStreamingContractTests` (multiple `session/update` before final response).
+- **No re‑entrancy invariant**: `ThreadSendSelfEnqueueDoesNotDeadlockIntegrationTests`.
 
 ## Target invariants (work in progress)
 - [ ] All committed events must go through `IEventSink.OnCommittedAsync` (no direct store writes from orchestrator logic).
