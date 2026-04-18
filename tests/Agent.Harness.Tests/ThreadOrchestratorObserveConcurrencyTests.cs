@@ -37,6 +37,8 @@ public sealed class ThreadOrchestratorObserveConcurrencyTests
             sessionId,
             client: new FakeCaller(),
             chat: chat,
+            chatByModel: _ => chat,
+            quickWorkModel: "default",
             mcp: NullMcpToolInvoker.Instance,
             coreOptions: coreOptions,
             logLlmPrompts: false,

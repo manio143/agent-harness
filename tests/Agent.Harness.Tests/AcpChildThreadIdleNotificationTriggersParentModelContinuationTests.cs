@@ -110,7 +110,7 @@ public sealed class AcpChildThreadIdleNotificationTriggersParentModelContinuatio
                     ToolSchemas.ThreadRead),
             };
 
-            return new HarnessAcpSessionAgent(sessionId, client, Chat, events, coreOptions, publishOptions, store, initialState);
+            return new HarnessAcpSessionAgent(sessionId, client, Chat, _ => Chat, "default", events, coreOptions, publishOptions, store, initialState);
         }
     }
 

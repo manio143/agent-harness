@@ -41,6 +41,8 @@ public sealed class ThreadOrchestratorThreadNewMidTurnCreatesChildAndCommitsInbo
             sessionId: sessionId,
             client: new NullClientCaller(),
             chat: chat,
+            chatByModel: _ => chat,
+            quickWorkModel: "default",
             mcp: NullMcpToolInvoker.Instance,
             coreOptions: new CoreOptions { CommitAssistantTextDeltas = true },
             logLlmPrompts: false,

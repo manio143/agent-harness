@@ -32,10 +32,13 @@ public sealed class AcpThreadNewSeedsFromInMemoryCommittedIntegrationTests
         var mainSink = new ThreadEventSink(sessionId, ThreadIds.Main, threadStore);
         await mainSink.OnCommittedAsync(new UserMessage("persisted"), CancellationToken.None);
 
+        var chat = new NoopChatClient();
         var orchestrator = new ThreadOrchestrator(
             sessionId,
             client: new FakeCaller(),
-            chat: new NoopChatClient(),
+            chat: chat,
+            chatByModel: _ => chat,
+            quickWorkModel: "default",
             mcp: NullMcpToolInvoker.Instance,
             coreOptions: new CoreOptions(CommitAssistantTextDeltas: false, CommitReasoningTextDeltas: false),
             logLlmPrompts: false,

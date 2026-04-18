@@ -39,10 +39,13 @@ public sealed class ThreadOrchestratorIdleNotificationTests
             CreatedAtIso: now,
             UpdatedAtIso: now));
 
+        var chat = new MinimalChatClient();
         var orchestrator = new ThreadOrchestrator(
             sessionId: sessionId,
             client: new FakeClientCaller(),
-            chat: new MinimalChatClient(),
+            chat: chat,
+            chatByModel: _ => chat,
+            quickWorkModel: "default",
             mcp: NullMcpToolInvoker.Instance,
             coreOptions: new CoreOptions(),
             logLlmPrompts: false,

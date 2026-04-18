@@ -55,10 +55,13 @@ public sealed class ThreadOrchestratorForkSeedsFromProvidedSnapshotIntegrationTe
             UpdatedAtIso: "t0"));
 
         var threads = new ThreadManager(sessionId, threadStore);
+        var chat = new NullChatClient();
         var orch = new ThreadOrchestrator(
             sessionId,
             client: new NullClientCaller(),
-            chat: new NullChatClient(),
+            chat: chat,
+            chatByModel: _ => chat,
+            quickWorkModel: "default",
             mcp: NullMcpToolInvoker.Instance,
             coreOptions: new CoreOptions(CommitAssistantTextDeltas: false, CommitReasoningTextDeltas: false),
             logLlmPrompts: false,
