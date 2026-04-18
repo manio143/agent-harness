@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace Agent.Harness.Threads;
 
-public sealed class ThreadManager : IThreadQuery, IThreadMetadataWriter, IThreadTools
+public sealed class ThreadManager : IThreadTools
 {
     public bool HasDeliverableEnqueueNow(string threadId)
     {
