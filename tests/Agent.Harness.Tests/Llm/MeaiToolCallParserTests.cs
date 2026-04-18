@@ -36,9 +36,8 @@ public sealed class MeaiToolCallParserTests
         return update;
     }
 
-    private static FunctionCallContent CreateFunctionCallContent(string name, JsonElement arguments)
+    private static FunctionCallContent CreateFunctionCallContent(string name, JsonElement arguments, string? callId = "call_1")
     {
-        var callId = "call_1";
         var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(arguments.GetRawText())
             ?? new Dictionary<string, object>();
 
@@ -47,12 +46,23 @@ public sealed class MeaiToolCallParserTests
             var ps = c.GetParameters();
 
             // MEAI 10.4.1: (string callId, string name, IDictionary<string, object> arguments)
-            if (ps.Length == 3
+            if (callId is not null
+                && ps.Length == 3
                 && ps[0].ParameterType == typeof(string)
                 && ps[1].ParameterType == typeof(string)
                 && ps[2].ParameterType.IsAssignableFrom(dict.GetType()))
             {
-                return (FunctionCallContent)c.Invoke(new object[] { callId, name, dict });
+                return (FunctionCallContent)c.Invoke(new object?[] { callId, name, dict });
+            }
+
+            // Provider/MEAI variants that omit callId.
+            // e.g. (string name, IDictionary<string, object> arguments)
+            if (callId is null
+                && ps.Length == 2
+                && ps[0].ParameterType == typeof(string)
+                && ps[1].ParameterType.IsAssignableFrom(dict.GetType()))
+            {
+                return (FunctionCallContent)c.Invoke(new object?[] { name, dict });
             }
 
             // Older/alternate shapes (best-effort)
@@ -93,6 +103,23 @@ public sealed class MeaiToolCallParserTests
 
         observed.ToolName.Should().Be("read_text_file");
         observed.Args.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ParseUpdate_WhenFunctionCallContentMissingCallId_UsesDeterministicAutoToolId()
+    {
+        var content = CreateFunctionCallContent(
+            name: "read_text_file",
+            arguments: JsonSerializer.SerializeToElement(new { path = "/tmp/a.txt" }),
+            callId: "");
+
+        var update = CreateUpdateWithContents(content);
+
+        var observed1 = MeaiToolCallParser.Parse(update).OfType<ObservedToolCallDetected>().Single();
+        var observed2 = MeaiToolCallParser.Parse(update).OfType<ObservedToolCallDetected>().Single();
+
+        observed1.ToolId.Should().StartWith("auto_");
+        observed1.ToolId.Should().Be(observed2.ToolId);
     }
 
     [Fact]

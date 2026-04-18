@@ -28,7 +28,9 @@ public static class MeaiToolCallParser
 
                 // ToolId: provider doesn't always give one.
                 // If CallId is absent, use a deterministic id so cumulative deltas can still be deduped.
-                var toolId = call.CallId ?? CreateDeterministicToolId(call.Name, call.Arguments);
+                var toolId = string.IsNullOrWhiteSpace(call.CallId)
+                    ? CreateDeterministicToolId(call.Name, call.Arguments)
+                    : call.CallId;
 
                 yield return new ObservedToolCallDetected(
                     ToolId: toolId,
