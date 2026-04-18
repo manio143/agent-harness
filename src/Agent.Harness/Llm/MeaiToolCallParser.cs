@@ -21,10 +21,9 @@ public static class MeaiToolCallParser
             // Mode A: model proposes tool-call intent; we emit an observation.
             if (c is FunctionCallContent call)
             {
-                // TODO(tool-calls): Handle multi-chunk / incremental FunctionCallContent updates.
-                // Some providers may stream tool calls in multiple partial chunks (e.g. args arriving over time),
-                // or repeat the same call id with updated arguments. We currently treat each FunctionCallContent
-                // as a complete tool intent.
+                // NOTE: Some providers stream tool calls in multiple partial chunks (cumulative/incremental deltas).
+                // The parser stays intentionally dumb/lossless: each FunctionCallContent becomes a tool intent snapshot.
+                // Incremental merging/deduping happens in MeaiObservedEventSource (buffers latest per ToolId and flushes once).
 
                 // ToolId: provider doesn't always give one.
                 // If CallId is absent, use a deterministic id so cumulative deltas can still be deduped.
