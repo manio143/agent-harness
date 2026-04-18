@@ -45,7 +45,6 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
     private readonly IThreadStore _threadStore;
     private readonly ThreadManager _threads;
 
-    private readonly ConcurrentDictionary<string, SessionState> _states = new();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _gates = new();
 
     // Observed events that have arrived for a thread but have not yet been processed
@@ -168,8 +167,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
             var parentId = meta?.ParentThreadId;
 
             var tools = GetToolCatalogSnapshot();
-            var initial = _states.GetOrAdd(threadId, _ => SessionState.Empty with { Tools = tools });
-            initial = initial with { Tools = tools };
+            var initial = SessionState.Empty with { Tools = tools };
 
             // Always refresh committed history from the store before executing a wake.
             // Other threads may have appended inbox enqueues (e.g. idle notifications / enqueue delivery)
@@ -213,8 +211,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
             var runner = new SessionRunner(_coreOptions, titleGen, effects);
             var sink = sinkFactory?.Invoke(threadId) ?? new ThreadEventSink(_sessionId, threadId, _threadStore);
 
-            var result = await runner.RunTurnAsync(threadId, initial, WakeObserved(), cancellationToken, sink: sink).ConfigureAwait(false);
-            _states[threadId] = result.Next;
+            await runner.RunTurnAsync(threadId, initial, WakeObserved(), cancellationToken, sink: sink).ConfigureAwait(false);
 
             // Event-driven waking: reducer emits ScheduleWake effects when a wake is needed.
             // No imperative polling/rescheduling here.
