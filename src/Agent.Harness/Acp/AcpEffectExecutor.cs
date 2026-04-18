@@ -54,7 +54,8 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
 
     public async Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
     {
-        // Back-compat buffering wrapper.
+        // Convenience wrapper: collect the streaming form.
+        // Note: TurnRunner will *refuse* to execute CallModel via this non-streaming path.
         var list = new List<ObservedChatEvent>();
         await foreach (var o in ExecuteStreamingAsync(state, effect, cancellationToken).ConfigureAwait(false))
             list.Add(o);
