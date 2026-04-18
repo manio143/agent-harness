@@ -4,8 +4,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using OpenAI;
-using System.ClientModel;
 using Microsoft.Extensions.AI;
 
 namespace Agent.Server;
@@ -40,23 +38,16 @@ public static class Program
         // NOTE: session stores are created per-session and rooted at ACP client-provided CWD.
         // (see AcpHarnessAgentFactory)
 
-        // MEAI OpenAI adapter (Ollama is OpenAI-compatible when pointed at /v1).
+        builder.Services.AddSingleton(sp => ModelCatalog.FromOptions(sp.GetRequiredService<AgentServerOptions>()));
+
+        builder.Services.AddSingleton<IChatClientFactory, OpenAiChatClientFactory>();
+
+        // Back-compat: default chat client is still registered for call sites that aren't model-aware yet.
         builder.Services.AddSingleton<Microsoft.Extensions.AI.IChatClient>(sp =>
         {
-            var opts = sp.GetRequiredService<AgentServerOptions>();
-
-            var clientOptions = new OpenAIClientOptions
-            {
-                Endpoint = new Uri(opts.OpenAI.BaseUrl, UriKind.Absolute),
-            };
-
-            if (opts.OpenAI.NetworkTimeoutSeconds is { } seconds)
-                clientOptions.NetworkTimeout = TimeSpan.FromSeconds(seconds);
-
-            var openai = new OpenAIClient(new ApiKeyCredential(opts.OpenAI.ApiKey), clientOptions);
-            var chat = openai.GetChatClient(opts.OpenAI.Model);
-
-            return Microsoft.Extensions.AI.OpenAIClientExtensions.AsIChatClient(chat);
+            var catalog = sp.GetRequiredService<ModelCatalog>();
+            var factory = sp.GetRequiredService<IChatClientFactory>();
+            return factory.Get(catalog.DefaultModel);
         });
 
         builder.Services.AddSingleton<IAcpAgentFactory>(sp =>
