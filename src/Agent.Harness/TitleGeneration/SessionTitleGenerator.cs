@@ -1,5 +1,4 @@
 using Microsoft.Extensions.AI;
-using System.Linq;
 
 namespace Agent.Harness.TitleGeneration;
 
@@ -10,8 +9,6 @@ namespace Agent.Harness.TitleGeneration;
 /// </summary>
 public sealed class SessionTitleGenerator
 {
-    public static SessionTitleGenerator Null { get; } = new NullSessionTitleGenerator();
-
     public const string SystemPrompt =
         "You're a title generator based on the following conversation <conversation>...</conversation> you must output precisely one short line that contains a title for this conversation.";
 
@@ -22,7 +19,7 @@ public sealed class SessionTitleGenerator
         _chat = chat;
     }
 
-    public virtual async Task<SessionTitleSet?> MaybeGenerateAfterTurnAsync(SessionState state, CancellationToken cancellationToken)
+    public async Task<SessionTitleSet?> MaybeGenerateAfterTurnAsync(SessionState state, CancellationToken cancellationToken)
     {
         if (state.Committed.Any(e => e is SessionTitleSet))
             return null;
@@ -58,27 +55,4 @@ public sealed class SessionTitleGenerator
 
         return new SessionTitleSet(line);
     }
-}
-
-file sealed class NullSessionTitleGenerator : SessionTitleGenerator
-{
-    private sealed class NullChatClient : IChatClient
-    {
-        public void Dispose() { }
-
-        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
-            => Task.FromResult(new ChatResponse(Array.Empty<ChatMessage>()));
-
-        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
-            => AsyncEnumerable.Empty<ChatResponseUpdate>();
-
-        public object? GetService(Type serviceType, object? serviceKey = null) => null;
-    }
-
-    public NullSessionTitleGenerator() : base(new NullChatClient())
-    {
-    }
-
-    public override Task<SessionTitleSet?> MaybeGenerateAfterTurnAsync(SessionState state, CancellationToken cancellationToken)
-        => Task.FromResult<SessionTitleSet?>(null);
 }
