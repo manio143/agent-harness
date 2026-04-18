@@ -13,7 +13,7 @@ dotnet build Agent.slnx -c Release >/dev/null
 SESSION="patch-demo-$(date +%s)"
 
 # Create a new session.
-acpx --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll" --timeout "$ACP_TIMEOUT" sessions new --name "$SESSION" >/dev/null
+acpx --approve-all --non-interactive-permissions fail --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll" --timeout "$ACP_TIMEOUT" sessions new --name "$SESSION" >/dev/null
 
 echo "[patch-demo] session=$SESSION"
 
@@ -44,7 +44,7 @@ Call tool read_text_file with arguments: {"path":"demo.txt"}.
 Then output EXACTLY: DONE.
 EOF
 
-OUT="$(acpx --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll" \
+OUT="$(acpx --approve-all --non-interactive-permissions fail --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll" \
   --timeout "$ACP_TIMEOUT" \
   prompt -s "$SESSION" -f "$PROMPT_FILE")"
 

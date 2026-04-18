@@ -7,10 +7,10 @@ using FluentAssertions;
 
 namespace Agent.Harness.Tests;
 
-public sealed class AcpEffectExecutorThreadToolLegacyPathTests
+public sealed class AcpEffectExecutorThreadToolRequiresOrchestratorTests
 {
     [Fact]
-    public async Task ThreadSend_WhenSchedulerIsMissing_Throws_InsteadOfUsingLegacyEnqueuePath()
+    public async Task ThreadSend_WhenSchedulerIsMissing_FailsWithThreadToolsRequireOrchestrator()
     {
         var state = SessionState.Empty with
         {
@@ -35,7 +35,7 @@ public sealed class AcpEffectExecutorThreadToolLegacyPathTests
         var threads = new ThreadManager("s1", new InMemoryThreadStore());
 
         // Intentionally omit scheduler/orchestrator to verify we don't fall back to ThreadManager.Send.
-        var exec = new AcpEffectExecutor("s1", new FakeCaller(), new NoopChatClient(), store: store, threads: threads, scheduler: null);
+        var exec = new AcpEffectExecutor("s1", new FakeCaller(), new NoopChatClient(), store: store, threadTools: threads, scheduler: null);
 
         var call = new ExecuteToolCall(
             ToolId: "call_0",

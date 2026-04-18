@@ -13,9 +13,11 @@ public sealed class TurnRunnerDriftPreventionTests
 
         async IAsyncEnumerable<ObservedChatEvent> Observed()
         {
-            yield return new ObservedUserMessage("hi");
+            // No user message here: keep the reducer in a no-effect path so we can compare
+            // reduce-only vs reduce+effects for drift.
             yield return new ObservedAssistantTextDelta("hello");
             yield return new ObservedAssistantMessageCompleted();
+            await Task.CompletedTask;
         }
 
         var committedReduceOnly = new List<SessionEvent>();

@@ -16,9 +16,13 @@ public static class MeaiObservedEventSource
         var assistantMessageOpen = false;
         var reasoningMessageOpen = false;
 
-        // Some providers repeat previously-seen tool calls in later streaming updates ("cumulative" deltas).
-        // If we forward these duplicates to the reducer, we'll execute the same tool multiple times.
-        var seenToolCallIds = new HashSet<string>(StringComparer.Ordinal);
+        // Some providers repeat previously-seen tool calls in later streaming updates ("cumulative" deltas)
+        // or stream a single tool call over multiple updates.
+        // The core reducer deduplicates by ToolId (ToolCallRequested is committed once per toolId),
+        // so we must not emit multiple ObservedToolCallDetected events for the same toolId.
+        // We buffer the latest intent per toolId and flush once at a turn boundary (finish/end).
+        var toolCallOrder = new List<string>();
+        var pendingToolCalls = new Dictionary<string, Agent.Harness.ObservedToolCallDetected>(StringComparer.Ordinal);
 
         await foreach (var u in updates.WithCancellation(cancellationToken).ConfigureAwait(false))
         {
@@ -67,7 +71,7 @@ public static class MeaiObservedEventSource
                         case FunctionCallContent:
                         {
                             // Boundary: tool calls may arrive after assistant text or reasoning in the same stream.
-                            // Invariant: close the current content-type message before emitting tool call intent.
+                            // Invariant: close the current content-type message before buffering tool call intent.
                             if (assistantMessageOpen)
                             {
                                 assistantMessageOpen = false;
@@ -84,10 +88,14 @@ public static class MeaiObservedEventSource
                             {
                                 if (evt is Agent.Harness.ObservedToolCallDetected d)
                                 {
-                                    if (!seenToolCallIds.Add(d.ToolId))
-                                        continue;
+                                    if (!pendingToolCalls.ContainsKey(d.ToolId))
+                                        toolCallOrder.Add(d.ToolId);
+
+                                    pendingToolCalls[d.ToolId] = d;
+                                    continue;
                                 }
 
+                                // For completeness: buffer only tool call intents; pass through anything else.
                                 yield return evt;
                             }
                             break;
@@ -108,9 +116,18 @@ public static class MeaiObservedEventSource
                 yield return new Agent.Harness.ObservedAssistantTextDelta(u.Text) { RawUpdate = u };
             }
 
-            // Boundary: if MEAI signals finish, emit completion observed events.
+            // Boundary: if MEAI signals finish, flush buffered tool calls and emit completion observed events.
             if (u.FinishReason is not null)
             {
+                foreach (var id in toolCallOrder)
+                {
+                    if (pendingToolCalls.TryGetValue(id, out var detected))
+                        yield return detected;
+                }
+
+                toolCallOrder.Clear();
+                pendingToolCalls.Clear();
+
                 if (reasoningMessageOpen)
                 {
                     reasoningMessageOpen = false;
@@ -123,6 +140,13 @@ public static class MeaiObservedEventSource
         }
 
         // Hard boundary: stream completed.
+        // Flush any buffered tool calls.
+        foreach (var id in toolCallOrder)
+        {
+            if (pendingToolCalls.TryGetValue(id, out var detected))
+                yield return detected;
+        }
+
         // Close any open content blocks.
         if (reasoningMessageOpen)
             yield return new Agent.Harness.ObservedReasoningMessageCompleted(null) { RawUpdate = null };

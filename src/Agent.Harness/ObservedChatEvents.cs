@@ -105,3 +105,4 @@ public sealed record ObservedToolCallCancelled(string ToolId) : ObservedChatEven
 /// Invariant: Fed to reducer; session continues gracefully (degraded mode).
 /// </summary>
 public sealed record ObservedMcpConnectionFailed(string ServerId, string Error) : ObservedChatEvent;
+

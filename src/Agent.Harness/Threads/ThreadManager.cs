@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace Agent.Harness.Threads;
 
-public sealed class ThreadManager
+public sealed class ThreadManager : IThreadTools
 {
     public bool HasDeliverableEnqueueNow(string threadId)
     {
@@ -49,34 +49,8 @@ public sealed class ThreadManager
             .ToImmutableArray();
     }
 
-    public string CreateChildThread(string parentThreadId)
-    {
-        var id = "thr_" + Guid.NewGuid().ToString("N")[..12];
-        var now = DateTimeOffset.UtcNow.ToString("O");
-        _store.CreateThread(_sessionId, new ThreadMetadata(
-            ThreadId: id,
-            ParentThreadId: parentThreadId,
-            Intent: null,
-            CreatedAtIso: now,
-            UpdatedAtIso: now));
-        return id;
-    }
-
-
-    public string ForkChildThread(string parentThreadId, SessionState parentState)
-    {
-        Debug.Assert(parentState.Buffer == TurnBuffer.Empty, "Fork requires empty buffer (no in-flight streaming deltas)");
-
-        var childId = CreateChildThread(parentThreadId);
-
-        // For now we do not persist cloned state; we will when we promote ThreadState to a first-class
-        // persisted snapshot. At minimum, copy the committed events for readback.
-        foreach (var evt in parentState.Committed)
-            _store.AppendCommittedEvent(_sessionId, childId, evt);
-
-        return childId;
-    }
-
+    // Thread lifecycle (create/fork) is owned by ThreadOrchestrator in the unified model.
+    // ThreadManager remains as a projector/utility facade over the thread store (list/read/inbox status).
 
 
     public ImmutableArray<ThreadMessage> ReadThreadMessages(string threadId)
@@ -102,8 +76,6 @@ public sealed class ThreadManager
         var now = DateTimeOffset.UtcNow.ToString("O");
         var next = meta with { Intent = intent, UpdatedAtIso = now };
         _store.SaveThreadMetadata(_sessionId, next);
-
-        _store.AppendCommittedEvent(_sessionId, threadId, new ThreadIntentReported(intent));
     }
 
 

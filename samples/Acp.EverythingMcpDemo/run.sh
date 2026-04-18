@@ -9,11 +9,11 @@ dotnet build Agent.slnx -c Release
 cd "$repo_root/samples/Acp.EverythingMcpDemo"
 
 # Create a new session for this cwd (includes mcpServers from .acpxrc.json)
-npx -y acpx@latest --cwd . sessions new --name demo
+npx -y acpx@latest --cwd . --approve-all --non-interactive-permissions fail sessions new --name demo
 
 # One-shot prompt
 # NOTE: The harness enforces: report_intent must be called before other tools.
-npx -y acpx@latest --cwd . prompt --session demo \
+npx -y acpx@latest --cwd . --approve-all --non-interactive-permissions fail prompt --session demo \
   'You MUST follow these rules exactly:
 1) You MUST call tool report_intent first.
 2) You MUST NOT call any tool with missing required fields.

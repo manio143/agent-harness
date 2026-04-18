@@ -17,7 +17,7 @@ namespace Agent.Harness.Threads;
 /// - Child thread execution is kicked off by message delivery scheduling.
 /// - Parent is notified only when a child is fully idle (no pending deliverable work).
 /// </summary>
-public sealed class ThreadOrchestrator : IThreadScheduler
+public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThreadScheduler, IThreadTools
 {
     private readonly ConcurrentQueue<string> _runQueue = new();
     private readonly ConcurrentDictionary<string, byte> _queued = new();
@@ -45,8 +45,9 @@ public sealed class ThreadOrchestrator : IThreadScheduler
     private readonly IThreadStore _threadStore;
     private readonly ThreadManager _threads;
 
-    private readonly ConcurrentDictionary<string, SessionState> _states = new();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _gates = new();
+
+    private readonly ConcurrentDictionary<string, ConcurrentQueue<ObservedChatEvent>> _observedQueues = new();
 
     public ThreadOrchestrator(
         string sessionId,
@@ -107,13 +108,9 @@ public sealed class ThreadOrchestrator : IThreadScheduler
 
     public void InitializeToolCatalog(ImmutableArray<ToolDefinition> tools)
     {
-        // Back-compat: callers historically initialized once.
-        // Some scenarios (e.g. session config option updates) need to adjust the tool catalog.
-        if (_toolsInitialized)
-            return;
-
-        _toolCatalog = tools;
-        _toolsInitialized = true;
+        // Back-compat: older call sites used "Initialize" even though the catalog may legitimately change
+        // over the lifetime of a session (e.g. config option updates / allowlists).
+        SetToolCatalog(tools);
     }
 
     public void SetToolCatalog(ImmutableArray<ToolDefinition> tools)
@@ -129,33 +126,25 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         return _toolCatalog;
     }
 
-    public async Task ObserveAsync(string threadId, ObservedChatEvent observed, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Re-entrant-safe observation enqueue API.
+    /// NOTE: This method must never block on the per-thread execution gate.
+    /// </summary>
+    public Task ObserveAsync(string threadId, ObservedChatEvent observed, CancellationToken cancellationToken = default)
     {
-        // Observe can be called concurrently with RunOneTurnIfNeededAsync. Protect the in-memory
-        // state cache with the same per-thread gate used for execution.
-        var gate = _gates.GetOrAdd(threadId, _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            var tools = GetToolCatalogSnapshot();
-            var initial = _states.GetOrAdd(threadId, _ => SessionState.Empty with { Tools = tools });
-            initial = initial with { Tools = tools };
+        // In the unified model, ObserveAsync never persists committed events directly.
+        // It simply enqueues observed events for the target thread and schedules a wake-driven turn.
+        // IMPORTANT: ObserveAsync must be re-entrant safe.
+        // It can be called while a turn is running (e.g. tools that enqueue follow-up work). It must never
+        // block on the per-thread execution gate, otherwise self-send / nested observations can deadlock.
 
-            var reduced = Core.Reduce(initial, observed);
+        var q = _observedQueues.GetOrAdd(threadId, _ => new ConcurrentQueue<ObservedChatEvent>());
+        q.Enqueue(observed);
 
-            foreach (var evt in reduced.NewlyCommitted)
-                _threadStore.AppendCommittedEvent(_sessionId, threadId, evt);
+        // Ensure the thread will run soon to reduce+commit the observation.
+        ScheduleRun(threadId);
 
-            _states[threadId] = reduced.Next;
-
-            // If reducer requested a wake/model call, schedule the thread.
-            if (reduced.Effects.Any(e => e is CallModel or ScheduleWake))
-                ScheduleRun(threadId);
-        }
-        finally
-        {
-            gate.Release();
-        }
+        return Task.CompletedTask;
     }
 
     private async Task RunOneTurnIfNeededAsync(string threadId, Func<string, IEventSink?>? sinkFactory, CancellationToken cancellationToken)
@@ -173,8 +162,7 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             var parentId = meta?.ParentThreadId;
 
             var tools = GetToolCatalogSnapshot();
-            var initial = _states.GetOrAdd(threadId, _ => SessionState.Empty with { Tools = tools });
-            initial = initial with { Tools = tools };
+            var initial = SessionState.Empty with { Tools = tools };
 
             // Always refresh committed history from the store before executing a wake.
             // Other threads may have appended inbox enqueues (e.g. idle notifications / enqueue delivery)
@@ -185,6 +173,16 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             // Run a single turn kicked off by wake.
             async IAsyncEnumerable<ObservedChatEvent> WakeObserved()
             {
+                // Drain any queued observations first.
+                if (_observedQueues.TryGetValue(threadId, out var q))
+                {
+                    while (q.TryDequeue(out var obs))
+                    {
+                        yield return obs;
+                    }
+                }
+
+                // Always include a wake marker to allow inbox promotion + turn boundary processing.
                 yield return new ObservedWakeModel(threadId);
             }
 
@@ -199,15 +197,16 @@ public sealed class ThreadOrchestrator : IThreadScheduler
                 logLlmPrompts: threadId == ThreadIds.Main && _logLlmPrompts,
                 sessionCwd: _sessionStore.TryLoadMetadata(_sessionId)?.Cwd,
                 store: _sessionStore,
-                threads: _threads,
+                threadTools: this,
+                observer: this,
+                lifecycle: this,
                 scheduler: this,
                 threadId: threadId);
 
             var runner = new SessionRunner(_coreOptions, titleGen, effects);
             var sink = sinkFactory?.Invoke(threadId) ?? new ThreadEventSink(_sessionId, threadId, _threadStore);
 
-            var result = await runner.RunTurnAsync(threadId, initial, WakeObserved(), cancellationToken, sink: sink).ConfigureAwait(false);
-            _states[threadId] = result.Next;
+            await runner.RunTurnAsync(threadId, initial, WakeObserved(), cancellationToken, sink: sink).ConfigureAwait(false);
 
             // Event-driven waking: reducer emits ScheduleWake effects when a wake is needed.
             // No imperative polling/rescheduling here.
@@ -220,6 +219,48 @@ public sealed class ThreadOrchestrator : IThreadScheduler
             gate.Release();
         }
     }
+
+    public Task RequestForkChildThreadAsync(
+        string parentThreadId,
+        string childThreadId,
+        ImmutableArray<SessionEvent> seedCommitted,
+        CancellationToken cancellationToken = default)
+    {
+        return ForkChildThreadAsync(parentThreadId, childThreadId, seedCommitted, cancellationToken);
+    }
+
+    private async Task ForkChildThreadAsync(
+        string parentThreadId,
+        string childThreadId,
+        ImmutableArray<SessionEvent> seedCommitted,
+        CancellationToken cancellationToken)
+    {
+        // Create child thread metadata (owned by orchestrator).
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        var meta = new ThreadMetadata(
+            ThreadId: childThreadId,
+            ParentThreadId: parentThreadId,
+            Intent: null,
+            CreatedAtIso: now,
+            UpdatedAtIso: now);
+
+        _threadStore.CreateThread(_sessionId, meta);
+
+        // Seed child committed history from the provided parent snapshot.
+        // We intentionally do NOT read from the store here, because callers may request a fork mid-turn
+        // (after new commits exist in memory but before they hit the store).
+        var sink = new ThreadEventSink(_sessionId, childThreadId, _threadStore);
+        foreach (var evt in seedCommitted)
+            await sink.OnCommittedAsync(evt, cancellationToken).ConfigureAwait(false);
+
+        // New thread may have work to do if follow-up observations arrive; schedule is observation-driven.
+    }
+
+    public ImmutableArray<ThreadInfo> List() => _threads.List();
+
+    public ImmutableArray<ThreadMessage> ReadThreadMessages(string threadId) => _threads.ReadThreadMessages(threadId);
+
+    public void ReportIntent(string threadId, string intent) => _threads.ReportIntent(threadId, intent);
 
     private async Task NotifyParentIfChildFullyIdleAsync(string threadId, CancellationToken cancellationToken)
     {

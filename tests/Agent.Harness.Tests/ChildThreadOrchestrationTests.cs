@@ -5,24 +5,11 @@ namespace Agent.Harness.Tests;
 
 public sealed class ChildThreadOrchestrationTests
 {
-    [Fact]
-    public void ThreadNew_Immediate_Schedules_Run()
-    {
-        var threadStore = new InMemoryThreadStore();
-        var mgr = new ThreadManager("s1", threadStore);
-
-        var scheduled = new List<string>();
-        IThreadScheduler scheduler = new FakeScheduler(scheduled);
-
-        // Simulate AcpEffectExecutor behavior: create child metadata, then immediate schedules run.
-        var childId = mgr.CreateChildThread(ThreadIds.Main);
-        scheduler.ScheduleRun(childId);
-
-        scheduled.Should().Contain(childId);
-    }
-
-    private sealed class FakeScheduler(List<string> scheduled) : IThreadScheduler
-    {
-        public void ScheduleRun(string threadId) => scheduled.Add(threadId);
-    }
+    // Obsoleted by unification work: thread lifecycle is owned by ThreadOrchestrator.
+    // Covered by:
+    // - AcpEffectExecutorThreadNewUsesOrchestratorForkTests
+    // - AcpEffectExecutorThreadForkUsesOrchestratorForkTests
+    // - ThreadOrchestratorRequestForkChildThreadIntegrationTests
+    //
+    // Keeping file (empty) so git history shows the change; can be removed later.
 }

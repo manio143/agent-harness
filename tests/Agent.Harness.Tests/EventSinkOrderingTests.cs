@@ -72,7 +72,7 @@ public sealed class EventSinkOrderingTests
         }
     }
 
-    private sealed class AssertingEffectExecutor : IEffectExecutor
+    private sealed class AssertingEffectExecutor : IStreamingEffectExecutor
     {
         private readonly RecordingSink _sink;
 
@@ -82,6 +82,9 @@ public sealed class EventSinkOrderingTests
         }
 
         public Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
+            => Task.FromResult(ImmutableArray<ObservedChatEvent>.Empty);
+
+        public IAsyncEnumerable<ObservedChatEvent> ExecuteStreamingAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
         {
             // The first effect after a user message is expected to be CallModel.
             effect.Should().BeOfType<CallModel>();
@@ -89,15 +92,22 @@ public sealed class EventSinkOrderingTests
             // Invariant under test: user message commit is sunk before any effects execute.
             _sink.Committed.Should().Contain(e => e is UserMessage);
 
-            return Task.FromResult(ImmutableArray<ObservedChatEvent>.Empty);
+            return Empty();
+
+            static async IAsyncEnumerable<ObservedChatEvent> Empty()
+            {
+                await Task.CompletedTask;
+                yield break;
+            }
         }
     }
 
-    private sealed class ThrowingEffectExecutor : IEffectExecutor
+    private sealed class ThrowingEffectExecutor : IStreamingEffectExecutor
     {
         public Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
-        {
-            throw new InvalidOperationException("boom");
-        }
+            => throw new InvalidOperationException("boom");
+
+        public IAsyncEnumerable<ObservedChatEvent> ExecuteStreamingAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
+            => throw new InvalidOperationException("boom");
     }
 }

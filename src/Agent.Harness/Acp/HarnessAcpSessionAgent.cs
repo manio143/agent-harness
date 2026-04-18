@@ -221,7 +221,9 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             _logLlmPrompts,
             sessionCwd: sessionCwd,
             store: _store,
-            threads: _threads,
+            threadTools: _orchestrator,
+            observer: _orchestrator,
+            lifecycle: _orchestrator,
             scheduler: _orchestrator,
             threadId: Agent.Harness.Threads.ThreadIds.Main);
         var runner = new SessionRunner(_coreOptions, titleGen, effects);

@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Agent.Harness;
+using Agent.Harness.Tests.TestChatClients;
 using Agent.Harness.TitleGeneration;
 
 namespace Agent.Harness.Tests;
@@ -15,7 +16,7 @@ public sealed class ModeAToolFailureRecoveryIntegrationTests
         };
 
         var effects = new ToolFailsThenAnswerEffectExecutor();
-        var runner = new SessionRunner(new CoreOptions(), new SessionTitleGenerator(new NullChatClient()), effects);
+        var runner = new SessionRunner(new CoreOptions(), new SessionTitleGenerator(new FixedResponseChatClient("Some title")), effects);
 
         async IAsyncEnumerable<ObservedChatEvent> Observed()
         {
@@ -33,7 +34,7 @@ public sealed class ModeAToolFailureRecoveryIntegrationTests
         Assert.Equal(2, effects.Executed.Count(e => e is CallModel));
     }
 
-    private sealed class ToolFailsThenAnswerEffectExecutor : IEffectExecutor
+    private sealed class ToolFailsThenAnswerEffectExecutor : IStreamingEffectExecutor
     {
         private int _modelCalls;
         public List<Effect> Executed { get; } = new();
@@ -42,10 +43,11 @@ public sealed class ModeAToolFailureRecoveryIntegrationTests
         {
             Executed.Add(effect);
 
+            if (effect is CallModel)
+                throw new InvalidOperationException("call_model_must_be_streamed_in_tests");
+
             return effect switch
             {
-                CallModel => Task.FromResult(ModelStep()),
-
                 CheckPermission p => Task.FromResult(ImmutableArray.Create<ObservedChatEvent>(
                     new ObservedPermissionApproved(p.ToolId, "capability_present"))),
 
@@ -55,6 +57,19 @@ public sealed class ModeAToolFailureRecoveryIntegrationTests
 
                 _ => Task.FromResult(ImmutableArray<ObservedChatEvent>.Empty),
             };
+        }
+
+        public async IAsyncEnumerable<ObservedChatEvent> ExecuteStreamingAsync(SessionState state, Effect effect, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            Executed.Add(effect);
+
+            if (effect is not CallModel)
+                yield break;
+
+            foreach (var o in ModelStep())
+                yield return o;
+
+            await Task.CompletedTask;
         }
 
         private ImmutableArray<ObservedChatEvent> ModelStep()

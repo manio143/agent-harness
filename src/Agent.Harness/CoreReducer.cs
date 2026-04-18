@@ -14,7 +14,7 @@ public sealed record CoreOptions(
 /// Functional core reducer.
 ///
 /// Rules (initial slice):
-/// - ObservedUserMessage is treated as an inbox arrival (back-compat).
+/// - ObservedUserMessage commits a UserMessage and requests CallModel (legacy direct path; normal orchestrator flow uses ObservedInboxMessageArrived + ObservedWakeModel).
 /// - ObservedAssistantTextDelta appends to the in-flight assistant buffer.
 /// - ObservedAssistantMessageCompleted flushes the assistant buffer into AssistantMessage.
 /// - RenderPrompt uses ONLY committed user/assistant messages (debug events are ignored).
@@ -419,13 +419,34 @@ public static class Core
 
                 // Commit ToolCallCompleted (terminal state) then request a model call.
                 var completedEvent = new ToolCallCompleted(completed.ToolId, JsonSerializer.SerializeToElement(completed.Result));
-                var committed = state.Committed.Add(completedEvent);
+                
+                // If this is report_intent, also commit ThreadIntentReported
+                var newlyCommitted = ImmutableArray.CreateBuilder<SessionEvent>();
+                newlyCommitted.Add(completedEvent);
+                
+                var isReportIntent = IsReportIntentTool(state, completed.ToolId);
+                if (isReportIntent)
+                {
+                    // Extract intent from the original tool call request
+                    var toolCall = state.Committed.OfType<ToolCallRequested>()
+                        .FirstOrDefault(t => t.ToolId == completed.ToolId);
+                    
+                    if (toolCall is not null && toolCall.Args.TryGetProperty("intent", out var intentProp))
+                    {
+                        var intent = intentProp.GetString();
+                        if (!string.IsNullOrEmpty(intent))
+                        {
+                            newlyCommitted.Add(new ThreadIntentReported(intent));
+                        }
+                    }
+                }
+                
+                var committed = state.Committed.AddRange(newlyCommitted);
                 var next = state with { Committed = committed };
 
                 // Report-intent should normally not force a re-prompt if the model already streamed
                 // additional tool intents in the same response.
                 // However if report_intent is the ONLY thing the model emitted, we must re-prompt.
-                var isReportIntent = IsReportIntentTool(state, completed.ToolId);
                 var hasOtherOpen = HasOtherOpenToolCalls(state, completed.ToolId);
 
                 var effects = (isReportIntent && hasOtherOpen)
@@ -434,7 +455,7 @@ public static class Core
 
                 return new ReduceResult(
                     next,
-                    ImmutableArray.Create<SessionEvent>(completedEvent),
+                    newlyCommitted.ToImmutable(),
                     effects);
             }
 
