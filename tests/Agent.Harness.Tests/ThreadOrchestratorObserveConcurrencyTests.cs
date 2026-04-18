@@ -81,6 +81,9 @@ public sealed class ThreadOrchestratorObserveConcurrencyTests
 
         await Task.WhenAll(runTask, observeTask);
 
+        // ObserveAsync only enqueues observations + schedules; ensure we actually run again to commit the observation.
+        await orch.RunUntilQuiescentAsync(CancellationToken.None);
+
         // The committed log must contain both enqueues.
         var committed = threadStore.LoadCommittedEvents(sessionId, ThreadIds.Main);
         committed.OfType<ThreadInboxMessageEnqueued>().Any(e => e.Text == "Hi").Should().BeTrue();
