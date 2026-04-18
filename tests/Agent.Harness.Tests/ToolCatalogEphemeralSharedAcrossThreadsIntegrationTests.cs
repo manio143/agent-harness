@@ -54,11 +54,13 @@ public sealed class ToolCatalogEphemeralSharedAcrossThreadsIntegrationTests
         var agent = new HarnessAcpSessionAgent(
             sessionId,
             client: new NullClientCaller(),
-            chat,
+            chat: chat,
+            chatByModel: _ => chat,
+            quickWorkModel: "default",
             events: new NullSessionEvents(),
             coreOptions: new CoreOptions { CommitAssistantTextDeltas = true },
             publishOptions: new AcpPublishOptions(PublishReasoning: false),
-            store,
+            store: store,
             // Seed with the MCP tool so the catalog merge includes it.
             initialState: SessionState.Empty with { Tools = ImmutableArray.Create(mcpTool) },
             mcp: mcp);

@@ -15,6 +15,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
     private readonly IAcpClientCaller _client;
     private readonly MeaiIChatClient _chat;
     private readonly Func<string, MeaiIChatClient>? _chatByModel;
+    private readonly Func<string, bool>? _isKnownModel;
     private readonly IMcpToolInvoker _mcp;
     private readonly bool _logLlmPrompts;
     private readonly string? _sessionCwd;
@@ -30,6 +31,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         IAcpClientCaller client,
         MeaiIChatClient chat,
         Func<string, MeaiIChatClient>? chatByModel = null,
+        Func<string, bool>? isKnownModel = null,
         IMcpToolInvoker? mcp = null,
         bool logLlmPrompts = false,
         string? sessionCwd = null,
@@ -44,6 +46,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         _client = client;
         _chat = chat;
         _chatByModel = chatByModel;
+        _isKnownModel = isKnownModel;
         _mcp = mcp ?? NullMcpToolInvoker.Instance;
         _logLlmPrompts = logLlmPrompts;
         _sessionCwd = sessionCwd;
@@ -211,6 +214,9 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         }
     }
 
+    private static string ResolveModelFromCommitted(ImmutableArray<SessionEvent> committed)
+        => committed.OfType<SetModel>().Select(m => m.Model).LastOrDefault() ?? "default";
+
     private async Task<ImmutableArray<ObservedChatEvent>> ExecuteToolAsync(SessionState state, ExecuteToolCall t, CancellationToken cancellationToken)
     {
         // Args can be JsonElement (committed ToolCallRequested.Args) or a plain dictionary (from detection).
@@ -246,6 +252,35 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
                         t.ToolId,
                         JsonSerializer.SerializeToElement(new { messages })));
+                }
+
+                case "thread_config":
+                {
+                    var threadId = args.TryGetValue("threadId", out var tidVal) && tidVal.ValueKind == JsonValueKind.String
+                        ? tidVal.GetString()!
+                        : _threadId;
+
+                    // Read-only: return current projected model.
+                    if (!args.TryGetValue("model", out var modelVal) || modelVal.ValueKind != JsonValueKind.String)
+                    {
+                        var current = ResolveModelFromCommitted(state.Committed);
+                        return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
+                            t.ToolId,
+                            JsonSerializer.SerializeToElement(new { threadId, model = current })));
+                    }
+
+                    var model = modelVal.GetString()!;
+                    if (string.IsNullOrWhiteSpace(model))
+                        throw new InvalidOperationException("thread_config.model_required");
+
+                    // Validation rule: model must be 'default' or a known friendly name.
+                    if (!string.Equals(model, "default", StringComparison.OrdinalIgnoreCase) && _isKnownModel is not null && !_isKnownModel(model))
+                        throw new InvalidOperationException("thread_config.unknown_model");
+
+                    // Return an observed set-model event so the reducer can commit SetModel before the tool completes.
+                    return ImmutableArray.Create<ObservedChatEvent>(
+                        new ObservedSetModel(threadId, model),
+                        new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { ok = true, threadId, model })));
                 }
 
                 case "thread_new":

@@ -29,11 +29,13 @@ public sealed class SessionConfigOptionToolAllowlistIntegrationTests
         var agent = new HarnessAcpSessionAgent(
             sessionId,
             client: new NullAcpClientCaller(),
-            chat,
+            chat: chat,
+            chatByModel: _ => chat,
+            quickWorkModel: "default",
             events: new NullAcpSessionEvents(),
             coreOptions: new CoreOptions(),
             publishOptions: new AcpPublishOptions(PublishReasoning: false),
-            store,
+            store: store,
             initialState: SessionState.Empty);
 
         // Act: restrict tools.

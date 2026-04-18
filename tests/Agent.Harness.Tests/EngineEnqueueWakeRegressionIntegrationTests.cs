@@ -41,11 +41,13 @@ public sealed class EngineEnqueueWakeRegressionIntegrationTests
         var agent = new HarnessAcpSessionAgent(
             sessionId,
             client: new AcpTwoPromptSameSessionLongLivedOrchestratorIntegrationTests.NullClientCaller(),
-            chat,
-            events,
+            chat: chat,
+            chatByModel: _ => chat,
+            quickWorkModel: "default",
+            events: events,
             coreOptions: new Agent.Harness.CoreOptions { CommitAssistantTextDeltas = true },
             publishOptions: new Agent.Harness.Acp.AcpPublishOptions(PublishReasoning: false),
-            store,
+            store: store,
             initialState: Agent.Harness.SessionState.Empty);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));

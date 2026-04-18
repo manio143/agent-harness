@@ -25,6 +25,18 @@ public sealed class ThreadEventSink : IEventSink
     public ValueTask OnCommittedAsync(SessionEvent evt, CancellationToken cancellationToken)
     {
         _store.AppendCommittedEvent(_sessionId, _threadId, evt);
+
+        // Projection: keep thread metadata in sync with model changes.
+        if (evt is SetModel setModel)
+        {
+            var meta = _store.TryLoadThreadMetadata(_sessionId, _threadId);
+            if (meta is not null)
+            {
+                var now = DateTimeOffset.UtcNow.ToString("O");
+                _store.SaveThreadMetadata(_sessionId, meta with { Model = setModel.Model, UpdatedAtIso = now });
+            }
+        }
+
         return ValueTask.CompletedTask;
     }
 }

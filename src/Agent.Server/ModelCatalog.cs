@@ -41,6 +41,13 @@ public sealed record ModelCatalog(
             QuickWorkModel: quick);
     }
 
+    public bool IsKnownModel(string friendlyName)
+    {
+        if (string.IsNullOrWhiteSpace(friendlyName)) return false;
+        if (string.Equals(friendlyName, "default", StringComparison.OrdinalIgnoreCase)) return true;
+        return Models.ContainsKey(friendlyName);
+    }
+
     public AgentServerOptions.OpenAiModelOptions Resolve(string friendlyNameOrDefault)
     {
         var name = string.IsNullOrWhiteSpace(friendlyNameOrDefault) || friendlyNameOrDefault == "default"

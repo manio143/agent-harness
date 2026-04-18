@@ -37,7 +37,8 @@ public sealed class ThreadOrchestratorIdleNotificationTests
             ParentThreadId: ThreadIds.Main,
             Intent: "doing work",
             CreatedAtIso: now,
-            UpdatedAtIso: now));
+            UpdatedAtIso: now,
+            Model: null));
 
         var chat = new MinimalChatClient();
         var orchestrator = new ThreadOrchestrator(

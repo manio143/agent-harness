@@ -194,6 +194,20 @@ public static class ToolSchemas
         }
         """));
 
+    public static ToolDefinition ThreadConfig { get; } = new(
+        Name: "thread_config",
+        Description: "Get or set thread configuration (currently: model).",
+        InputSchema: ParseSchema("""
+        {
+          "type": "object",
+          "properties": {
+            "threadId": { "type": "string", "description": "Thread id (defaults to current thread)" },
+            "model": { "type": "string", "description": "Model friendly name to use for this thread (or 'default')" }
+          },
+          "required": [ ]
+        }
+        """));
+
     private static JsonElement ParseSchema(string json)
         => JsonDocument.Parse(json).RootElement.Clone();
 }

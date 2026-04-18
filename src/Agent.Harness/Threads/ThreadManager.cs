@@ -45,7 +45,12 @@ public sealed class ThreadManager : IThreadTools
     public ImmutableArray<ThreadInfo> List()
     {
         return _store.ListThreads(_sessionId)
-            .Select(m => new ThreadInfo(m.ThreadId, m.ParentThreadId, ProjectStatus(m.ThreadId), m.Intent))
+            .Select(m => new ThreadInfo(
+                ThreadId: m.ThreadId,
+                ParentThreadId: m.ParentThreadId,
+                Status: ProjectStatus(m.ThreadId),
+                Intent: m.Intent,
+                Model: string.IsNullOrWhiteSpace(m.Model) ? "default" : m.Model))
             .ToImmutableArray();
     }
 

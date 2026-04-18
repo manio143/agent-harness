@@ -20,7 +20,8 @@ public sealed class ThreadManagerTests
             ParentThreadId: ThreadIds.Main,
             Intent: null,
             CreatedAtIso: "t0",
-            UpdatedAtIso: "t0"));
+            UpdatedAtIso: "t0",
+            Model: null));
 
         var threads = mgr.List();
         threads.Should().Contain(t => t.ThreadId == ThreadIds.Main);

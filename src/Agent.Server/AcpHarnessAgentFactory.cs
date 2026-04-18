@@ -410,7 +410,8 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             initial,
             mcp.Invoker,
             logLlmPrompts: _options.Logging.LogLlmPrompts,
-            logObservedEvents: _options.Logging.LogObservedEvents);
+            logObservedEvents: _options.Logging.LogObservedEvents,
+            isKnownModel: _modelCatalog.IsKnownModel);
     }
 
     public async Task ReplaySessionAsync(string sessionId, IAcpSessionEvents events, CancellationToken cancellationToken)

@@ -37,6 +37,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
     private readonly Microsoft.Extensions.AI.IChatClient _chat;
     private readonly Func<string, Microsoft.Extensions.AI.IChatClient> _chatByModel;
     private readonly string _quickWorkModel;
+    private readonly Func<string, bool>? _isKnownModel;
     private readonly IMcpToolInvoker _mcp;
     private readonly CoreOptions _coreOptions;
     private readonly bool _logLlmPrompts;
@@ -62,13 +63,15 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         bool logLlmPrompts,
         ISessionStore sessionStore,
         IThreadStore threadStore,
-        ThreadManager threads)
+        ThreadManager threads,
+        Func<string, bool>? isKnownModel = null)
     {
         _sessionId = sessionId;
         _client = client;
         _chat = chat;
         _chatByModel = chatByModel;
         _quickWorkModel = quickWorkModel;
+        _isKnownModel = isKnownModel;
         _mcp = mcp;
         _coreOptions = coreOptions;
         _logLlmPrompts = logLlmPrompts;
@@ -200,6 +203,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 acpClient,
                 _chat,
                 chatByModel: _chatByModel,
+                isKnownModel: _isKnownModel,
                 _mcp,
                 logLlmPrompts: threadId == ThreadIds.Main && _logLlmPrompts,
                 sessionCwd: _sessionStore.TryLoadMetadata(_sessionId)?.Cwd,
@@ -249,7 +253,8 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
             ParentThreadId: parentThreadId,
             Intent: null,
             CreatedAtIso: now,
-            UpdatedAtIso: now);
+            UpdatedAtIso: now,
+            Model: ResolveModelFromCommitted(seedCommitted));
 
         _threadStore.CreateThread(_sessionId, meta);
 
@@ -262,6 +267,9 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
 
         // New thread may have work to do if follow-up observations arrive; schedule is observation-driven.
     }
+
+    private static string ResolveModelFromCommitted(ImmutableArray<SessionEvent> committed)
+        => committed.OfType<SetModel>().Select(m => m.Model).LastOrDefault() ?? "default";
 
     public ImmutableArray<ThreadInfo> List() => _threads.List();
 

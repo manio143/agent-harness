@@ -58,6 +58,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     private readonly MeaiIChatClient _chat;
     private readonly Func<string, MeaiIChatClient> _chatByModel;
     private readonly string _quickWorkModel;
+    private readonly Func<string, bool>? _isKnownModel;
     private readonly IAcpSessionEvents _events;
     private readonly CoreOptions _coreOptions;
     private readonly AcpPublishOptions _publishOptions;
@@ -99,13 +100,15 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         SessionState initialState,
         IMcpToolInvoker? mcp = null,
         bool logLlmPrompts = false,
-        bool logObservedEvents = false)
+        bool logObservedEvents = false,
+        Func<string, bool>? isKnownModel = null)
     {
         _sessionId = sessionId;
         _client = client;
         _chat = chat;
         _chatByModel = chatByModel;
         _quickWorkModel = quickWorkModel;
+        _isKnownModel = isKnownModel;
         _events = events;
         _coreOptions = coreOptions;
         _publishOptions = publishOptions;
@@ -163,7 +166,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                 logLlmPrompts: _logLlmPrompts,
                 _store,
                 _threadStore,
-                _threads);
+                _threads,
+                isKnownModel: _isKnownModel);
 
             // Catalog == runnable/permission surface, and must be consistent across all threads.
             _orchestrator.InitializeToolCatalog(_state.Tools);
@@ -226,6 +230,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             _client,
             _chat,
             chatByModel: _chatByModel,
+            isKnownModel: _isKnownModel,
             _mcp,
             _logLlmPrompts,
             sessionCwd: sessionCwd,

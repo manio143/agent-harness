@@ -126,6 +126,7 @@ public static class Core
         builder.Add(ToolSchemas.ThreadFork);
         builder.Add(ToolSchemas.ThreadSend);
         builder.Add(ToolSchemas.ThreadRead);
+        builder.Add(ToolSchemas.ThreadConfig);
 
         return builder.ToImmutable();
     }
