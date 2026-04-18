@@ -292,9 +292,23 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     var message = GetRequiredString(args, "message");
                     var delivery = ParseDelivery(args);
 
-                    var id = _threads?.ForkChildThread(_threadId, state) ?? "";
+                    if (_scheduler is not Agent.Harness.Threads.ThreadOrchestrator orchestrator)
+                        throw new InvalidOperationException("thread_tools_require_orchestrator");
 
-                    if (!string.IsNullOrWhiteSpace(id) && _scheduler is Agent.Harness.Threads.ThreadOrchestrator orchestrator)
+                    // In the unified model, thread lifecycle is owned by the orchestrator.
+                    await orchestrator.ObserveAsync(
+                        _threadId,
+                        new Agent.Harness.ObservedForkChildThreadRequested(_threadId),
+                        cancellationToken).ConfigureAwait(false);
+
+                    await orchestrator.RunUntilQuiescentAsync(cancellationToken).ConfigureAwait(false);
+
+                    var child = (_threads?.List() ?? ImmutableArray<Agent.Harness.Threads.ThreadInfo>.Empty)
+                        .LastOrDefault(ti => ti.ParentThreadId == _threadId && ti.ThreadId != Agent.Harness.Threads.ThreadIds.Main);
+
+                    var id = child?.ThreadId ?? "";
+
+                    if (!string.IsNullOrWhiteSpace(id))
                     {
                         await orchestrator.ObserveAsync(
                             id,
@@ -310,10 +324,6 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                         {
                             _scheduler.ScheduleRun(id);
                         }
-                    }
-                    else if (!string.IsNullOrWhiteSpace(id))
-                    {
-                        throw new InvalidOperationException("thread_tools_require_orchestrator");
                     }
 
                     return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
