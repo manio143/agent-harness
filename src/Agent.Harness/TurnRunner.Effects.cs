@@ -148,14 +148,9 @@ public static partial class TurnRunner
                 }
                 else
                 {
-                    // Non-streaming fallback: buffer observations.
-                    var observations = await effects.ExecuteAsync(state, callModel, cancellationToken).ConfigureAwait(false);
-                    foreach (var obs in observations)
-                        observedQueue.Enqueue(obs);
-
-                    // Important: we must now drain these observations through the reducer BEFORE executing
-                    // any other effects (permissions/tools). So we continue the outer loop.
-                    continue;
+                    // CallModel must be streamed (deltas must be committed/published live).
+                    // We intentionally do not support a non-streaming model call path.
+                    throw new InvalidOperationException("call_model_requires_streaming_effect_executor");
                 }
             }
 
