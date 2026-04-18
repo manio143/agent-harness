@@ -290,6 +290,8 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
 
     public void ReportIntent(string threadId, string intent) => _threads.ReportIntent(threadId, intent);
 
+    public string GetModel(string threadId) => _threads.GetModel(threadId);
+
     private async Task NotifyParentIfChildFullyIdleAsync(string threadId, CancellationToken cancellationToken)
     {
         var meta = _threadStore.TryLoadThreadMetadata(_sessionId, threadId);

@@ -83,6 +83,15 @@ public sealed class ThreadManager : IThreadTools
         _store.SaveThreadMetadata(_sessionId, next);
     }
 
+    public string GetModel(string threadId)
+    {
+        var meta = _store.TryLoadThreadMetadata(_sessionId, threadId);
+        if (meta is null)
+            throw new InvalidOperationException($"unknown_thread:{threadId}");
+
+        return string.IsNullOrWhiteSpace(meta.Model) ? "default" : meta.Model;
+    }
+
 
     private ImmutableArray<ThreadInboxMessageEnqueued> LoadPendingInbox(string threadId)
     {

@@ -260,10 +260,13 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                         ? tidVal.GetString()!
                         : _threadId;
 
-                    // Read-only: return current projected model (best-effort for requested thread).
+                    // Read-only: return current projected model.
                     if (!args.TryGetValue("model", out var modelVal) || modelVal.ValueKind != JsonValueKind.String)
                     {
-                        var current = threadId == _threadId ? ResolveModelFromCommitted(state.Committed) : "default";
+                        var current = threadId == _threadId
+                            ? ResolveModelFromCommitted(state.Committed)
+                            : _threadTools?.GetModel(threadId) ?? "default";
+
                         return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
                             t.ToolId,
                             JsonSerializer.SerializeToElement(new { threadId, model = current })));

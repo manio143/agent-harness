@@ -78,9 +78,16 @@ public sealed class EngineThreadConfigChildModelIntegrationTests
 
         turn2.CompletedRawOutputs.Should().Contain(x => x.ToolName == "thread_config");
         turn2.CompletedRawOutputs.Should().Contain(x => x.ToolName == "thread_list");
+        turn2.CompletedRawOutputs.Should().Contain(x => x.ToolName == "thread_config");
 
         var threadListRaw = turn2.CompletedRawOutputs.First(x => x.ToolName == "thread_list").RawOutput;
         threadListRaw.Should().NotBeNull();
+
+        var childConfigRaw = turn2.CompletedRawOutputs.Last(x => x.ToolName == "thread_config").RawOutput;
+        childConfigRaw.Should().NotBeNull();
+        using var cfgDoc = JsonDocument.Parse(JsonSerializer.Serialize(childConfigRaw));
+        cfgDoc.RootElement.GetProperty("threadId").GetString().Should().Be(childId);
+        cfgDoc.RootElement.GetProperty("model").GetString().Should().Be("m2");
 
         using var doc = JsonDocument.Parse(JsonSerializer.Serialize(threadListRaw));
         var threads = doc.RootElement.GetProperty("threads").EnumerateArray().ToList();
@@ -159,6 +166,7 @@ public sealed class EngineThreadConfigChildModelIntegrationTests
                         new MeaiFunctionCallContent("call_cfg_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "set child model" }),
                         new MeaiFunctionCallContent("call_cfg_1", "thread_config", new Dictionary<string, object?> { ["threadId"] = ChildId, ["model"] = "m2" }),
                         new MeaiFunctionCallContent("call_cfg_2", "thread_list", new Dictionary<string, object?>()),
+                        new MeaiFunctionCallContent("call_cfg_3", "thread_config", new Dictionary<string, object?> { ["threadId"] = ChildId }),
                     }
                 };
                 await Task.CompletedTask;

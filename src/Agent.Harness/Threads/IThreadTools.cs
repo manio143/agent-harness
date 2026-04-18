@@ -11,4 +11,9 @@ public interface IThreadTools
     ImmutableArray<ThreadInfo> List();
     ImmutableArray<ThreadMessage> ReadThreadMessages(string threadId);
     void ReportIntent(string threadId, string intent);
+
+    /// <summary>
+    /// Return the currently projected model for a thread.
+    /// </summary>
+    string GetModel(string threadId);
 }
