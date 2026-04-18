@@ -285,14 +285,13 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
 
                 case "thread_new":
                 {
+                    // Back-compat: historically thread_new behaved like thread_fork (seed from current thread snapshot).
                     var message = GetRequiredString(args, "message");
                     var delivery = ParseDelivery(args);
 
                     if (_lifecycle is null || _observer is null || _scheduler is null)
                         throw new InvalidOperationException("thread_tools_require_orchestrator");
 
-                    // Unified model: thread lifecycle is owned by the orchestrator.
-                    // We must return a threadId synchronously, so we preallocate it.
                     var id = "thr_" + Guid.NewGuid().ToString("N")[..12];
 
                     await _lifecycle.RequestForkChildThreadAsync(
@@ -301,7 +300,6 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                         state.Committed,
                         cancellationToken).ConfigureAwait(false);
 
-                    // Universal intake: express initial message as observed inbox arrival to the child thread.
                     await _observer.ObserveAsync(
                         id,
                         Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
@@ -313,9 +311,62 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                         cancellationToken).ConfigureAwait(false);
 
                     if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
-                    {
                         _scheduler.ScheduleRun(id);
+
+                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
+                        t.ToolId,
+                        JsonSerializer.SerializeToElement(new { threadId = id })));
+                }
+
+                case "thread_start":
+                {
+                    var context = GetRequiredString(args, "context");
+                    var message = GetRequiredString(args, "message");
+                    var delivery = ParseDelivery(args);
+
+                    if (_lifecycle is null || _observer is null || _scheduler is null)
+                        throw new InvalidOperationException("thread_tools_require_orchestrator");
+
+                    ImmutableArray<SessionEvent> seed = context switch
+                    {
+                        "new" => ImmutableArray<SessionEvent>.Empty,
+                        "fork" => state.Committed,
+                        _ => throw new InvalidOperationException("thread_start.invalid_context"),
+                    };
+
+                    var id = "thr_" + Guid.NewGuid().ToString("N")[..12];
+
+                    await _lifecycle.RequestForkChildThreadAsync(
+                        _threadId,
+                        id,
+                        seed,
+                        cancellationToken).ConfigureAwait(false);
+
+                    // Optional: set model before any prompt processing.
+                    if (args.TryGetValue("model", out var modelVal) && modelVal.ValueKind == JsonValueKind.String)
+                    {
+                        var model = modelVal.GetString()!;
+                        if (string.IsNullOrWhiteSpace(model))
+                            throw new InvalidOperationException("thread_start.model_required");
+
+                        if (!string.Equals(model, "default", StringComparison.OrdinalIgnoreCase) && _isKnownModel is not null && !_isKnownModel(model))
+                            throw new InvalidOperationException("thread_start.unknown_model");
+
+                        await _observer.ObserveAsync(id, new ObservedSetModel(id, model), cancellationToken).ConfigureAwait(false);
                     }
+
+                    await _observer.ObserveAsync(
+                        id,
+                        Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
+                            threadId: id,
+                            text: message,
+                            sourceThreadId: _threadId,
+                            source: "thread",
+                            delivery: delivery),
+                        cancellationToken).ConfigureAwait(false);
+
+                    if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
+                        _scheduler.ScheduleRun(id);
 
                     return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
                         t.ToolId,

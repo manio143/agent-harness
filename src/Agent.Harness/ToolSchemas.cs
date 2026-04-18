@@ -152,6 +152,22 @@ public static class ToolSchemas
         }
         """));
 
+    public static ToolDefinition ThreadStart { get; } = new(
+        Name: "thread_start",
+        Description: "Start a child thread (new or fork from current thread) and attach an initial message. Optional: set the child's model.",
+        InputSchema: ParseSchema("""
+        {
+          "type": "object",
+          "properties": {
+            "context": { "type": "string", "enum": ["new", "fork"], "description": "Whether to start from empty state or fork the current thread" },
+            "message": { "type": "string", "description": "Initial message to attach to the child thread" },
+            "delivery": { "type": "string", "enum": ["enqueue", "immediate"], "description": "Whether the message should be delivered immediately or enqueued until idle" },
+            "model": { "type": "string", "description": "Optional model friendly name for the child thread (or 'default')" }
+          },
+          "required": ["context", "message"]
+        }
+        """));
+
     public static ToolDefinition ThreadFork { get; } = new(
         Name: "thread_fork",
         Description: "Fork the current thread into a child thread by cloning state and attaching an initial message.",
