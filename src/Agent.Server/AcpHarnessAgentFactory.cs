@@ -31,7 +31,6 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             Options = new SessionConfigSelectOptions
             {
                 new() { Value = "all", Name = "All tools" },
-                new() { Value = "threading_no_fork", Name = "Threading (no fork tool)" },
             },
         };
     }
