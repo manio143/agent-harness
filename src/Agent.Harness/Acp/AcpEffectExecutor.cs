@@ -18,8 +18,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
     private readonly bool _logLlmPrompts;
     private readonly string? _sessionCwd;
     private readonly Agent.Harness.Persistence.ISessionStore? _store;
-    private readonly Agent.Harness.Threads.IThreadQuery? _threads;
-    private readonly Agent.Harness.Threads.IThreadMetadataWriter? _threadMeta;
+    private readonly Agent.Harness.Threads.IThreadTools? _threadTools;
     private readonly Agent.Harness.Threads.IThreadObserver? _observer;
     private readonly Agent.Harness.Threads.IThreadLifecycle? _lifecycle;
     private readonly Agent.Harness.Threads.IThreadScheduler? _scheduler;
@@ -33,8 +32,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         bool logLlmPrompts = false,
         string? sessionCwd = null,
         Agent.Harness.Persistence.ISessionStore? store = null,
-        Agent.Harness.Threads.IThreadQuery? threads = null,
-        Agent.Harness.Threads.IThreadMetadataWriter? threadMeta = null,
+        Agent.Harness.Threads.IThreadTools? threadTools = null,
         Agent.Harness.Threads.IThreadObserver? observer = null,
         Agent.Harness.Threads.IThreadLifecycle? lifecycle = null,
         Agent.Harness.Threads.IThreadScheduler? scheduler = null,
@@ -47,8 +45,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         _logLlmPrompts = logLlmPrompts;
         _sessionCwd = sessionCwd;
         _store = store;
-        _threads = threads;
-        _threadMeta = threadMeta;
+        _threadTools = threadTools;
         _observer = observer;
         _lifecycle = lifecycle;
         _scheduler = scheduler;
@@ -223,7 +220,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     var intent = GetRequiredString(args, "intent");
                     
                     // Update thread metadata
-                    _threadMeta?.ReportIntent(_threadId, intent);
+                    _threadTools?.ReportIntent(_threadId, intent);
 
                     return ImmutableArray.Create<ObservedChatEvent>(
                         new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { ok = true })));
@@ -231,7 +228,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
 
                 case "thread_list":
                 {
-                    var threads = _threads?.List() ?? ImmutableArray<Agent.Harness.Threads.ThreadInfo>.Empty;
+                    var threads = _threadTools?.List() ?? ImmutableArray<Agent.Harness.Threads.ThreadInfo>.Empty;
                     return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
                         t.ToolId,
                         JsonSerializer.SerializeToElement(new { threads })));
@@ -240,7 +237,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                 case "thread_read":
                 {
                     var threadId = GetRequiredString(args, "threadId");
-                    var messages = _threads?.ReadThreadMessages(threadId) ?? ImmutableArray<Agent.Harness.Threads.ThreadMessage>.Empty;
+                    var messages = _threadTools?.ReadThreadMessages(threadId) ?? ImmutableArray<Agent.Harness.Threads.ThreadMessage>.Empty;
                     return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
                         t.ToolId,
                         JsonSerializer.SerializeToElement(new { messages })));

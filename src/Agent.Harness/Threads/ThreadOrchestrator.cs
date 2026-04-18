@@ -17,7 +17,7 @@ namespace Agent.Harness.Threads;
 /// - Child thread execution is kicked off by message delivery scheduling.
 /// - Parent is notified only when a child is fully idle (no pending deliverable work).
 /// </summary>
-public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThreadScheduler
+public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThreadScheduler, IThreadTools
 {
     private readonly ConcurrentQueue<string> _runQueue = new();
     private readonly ConcurrentDictionary<string, byte> _queued = new();
@@ -209,8 +209,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 logLlmPrompts: threadId == ThreadIds.Main && _logLlmPrompts,
                 sessionCwd: _sessionStore.TryLoadMetadata(_sessionId)?.Cwd,
                 store: _sessionStore,
-                threads: _threads,
-                threadMeta: _threads,
+                threadTools: this,
                 observer: this,
                 lifecycle: this,
                 scheduler: this,
@@ -269,6 +268,12 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
 
         // New thread may have work to do if follow-up observations arrive; schedule is observation-driven.
     }
+
+    public ImmutableArray<ThreadInfo> List() => _threads.List();
+
+    public ImmutableArray<ThreadMessage> ReadThreadMessages(string threadId) => _threads.ReadThreadMessages(threadId);
+
+    public void ReportIntent(string threadId, string intent) => _threads.ReportIntent(threadId, intent);
 
     private async Task NotifyParentIfChildFullyIdleAsync(string threadId, CancellationToken cancellationToken)
     {

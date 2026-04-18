@@ -58,7 +58,7 @@ public sealed class AcpThreadForkSeedsFromInMemoryCommittedIntegrationTests
             logLlmPrompts: false,
             sessionCwd: "/tmp",
             store: sessionStore,
-            threads: threads,
+            threadTools: threads,
             observer: orchestrator,
             lifecycle: orchestrator,
             scheduler: orchestrator,
