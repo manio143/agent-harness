@@ -21,7 +21,9 @@ public sealed class ReportIntentRePromptTests
         var result = Core.Reduce(state, new ObservedToolCallCompleted("call_0", new { ok = true }));
 
         // Assert
-        result.NewlyCommitted.Should().ContainSingle().Which.Should().BeOfType<ToolCallCompleted>();
+        result.NewlyCommitted.Should().HaveCount(2);
+        result.NewlyCommitted[0].Should().BeOfType<ToolCallCompleted>();
+        result.NewlyCommitted[1].Should().BeOfType<ThreadIntentReported>();
         result.Effects.Should().ContainSingle().Which.Should().BeOfType<CallModel>();
     }
 }

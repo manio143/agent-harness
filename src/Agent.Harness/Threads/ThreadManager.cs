@@ -102,8 +102,6 @@ public sealed class ThreadManager
         var now = DateTimeOffset.UtcNow.ToString("O");
         var next = meta with { Intent = intent, UpdatedAtIso = now };
         _store.SaveThreadMetadata(_sessionId, next);
-
-        _store.AppendCommittedEvent(_sessionId, threadId, new ThreadIntentReported(intent));
     }
 
 

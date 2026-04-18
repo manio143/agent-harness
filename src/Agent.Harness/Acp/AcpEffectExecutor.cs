@@ -211,9 +211,11 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
             {
                 case "report_intent":
                 {
+                    var intent = GetRequiredString(args, "intent");
+                    
+                    // Update thread metadata
                     if (_threads is not null)
                     {
-                        var intent = GetRequiredString(args, "intent");
                         _threads.ReportIntent(_threadId, intent);
                     }
 

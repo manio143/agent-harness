@@ -70,7 +70,7 @@ public sealed class ThreadManagerTests
     }
 
     [Fact]
-    public void ReportIntent_Persists_Metadata_And_Commits_ThreadIntentReported()
+    public void ReportIntent_Persists_Metadata()
     {
         var threadStore = new InMemoryThreadStore();
         var mgr = new ThreadManager("s1", threadStore);
@@ -79,9 +79,10 @@ public sealed class ThreadManagerTests
 
         var meta = threadStore.TryLoadThreadMetadata("s1", ThreadIds.Main);
         meta!.Intent.Should().Be("do stuff");
-
-        var evts = threadStore.LoadCommittedEvents("s1", ThreadIds.Main);
-        evts.OfType<ThreadIntentReported>().Should().ContainSingle(i => i.Intent == "do stuff");
+        
+        // Note: ThreadIntentReported is NOT committed directly by ReportIntent.
+        // It's emitted by the reducer when report_intent tool completes.
+        // See ReportIntentSinkRoutingIntegrationTests for that behavior.
     }
 
 }
