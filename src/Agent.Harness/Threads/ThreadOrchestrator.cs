@@ -184,7 +184,17 @@ public sealed class ThreadOrchestrator : IThreadScheduler
                 if (_observedQueues.TryGetValue(threadId, out var q))
                 {
                     while (q.TryDequeue(out var obs))
+                    {
+                        // Thread lifecycle is owned by the orchestrator in the unified model.
+                        // Handle thread operations here instead of feeding them to the reducer.
+                        if (obs is Agent.Harness.ObservedForkChildThreadRequested fork)
+                        {
+                            await ForkChildThreadAsync(fork.ParentThreadId, cancellationToken).ConfigureAwait(false);
+                            continue;
+                        }
+
                         yield return obs;
+                    }
                 }
 
                 // Always include a wake marker to allow inbox promotion + turn boundary processing.
@@ -222,6 +232,29 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         {
             gate.Release();
         }
+    }
+
+    private async Task ForkChildThreadAsync(string parentThreadId, CancellationToken cancellationToken)
+    {
+        // Create child thread metadata (owned by orchestrator).
+        var childId = "thr_" + Guid.NewGuid().ToString("N")[..12];
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        var meta = new ThreadMetadata(
+            ThreadId: childId,
+            ParentThreadId: parentThreadId,
+            Intent: null,
+            CreatedAtIso: now,
+            UpdatedAtIso: now);
+
+        _threadStore.CreateThread(_sessionId, meta);
+
+        // Seed child committed history from parent.
+        var parentCommitted = _threadStore.LoadCommittedEvents(_sessionId, parentThreadId);
+        var sink = new ThreadEventSink(_sessionId, childId, _threadStore);
+        foreach (var evt in parentCommitted)
+            await sink.OnCommittedAsync(evt, cancellationToken).ConfigureAwait(false);
+
+        // New thread may have work to do if follow-up observations arrive; schedule is observation-driven.
     }
 
     private async Task NotifyParentIfChildFullyIdleAsync(string threadId, CancellationToken cancellationToken)

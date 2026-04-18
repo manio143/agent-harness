@@ -38,5 +38,13 @@ These contract tests already exist and are passing:
   - `AcpSessionUpdateStreamingContractTests` - validates streaming session/update semantics
   - `ThreadSendSelfEnqueueDoesNotDeadlockIntegrationTests` - validates no re-entrancy deadlock
 
-## Status: ✅ COMPLETE (ready for review/merge)
-All target invariants are met and validated by tests. No open work items remain.
+## Next refactor (unification) — single orchestrator owns thread lifecycle
+We want a single `ThreadOrchestrator` to own the thread universe: creation/forking, scheduling, and execution.
+Effects (and other imperative shells) should request thread operations by emitting **observed events**, which flow back into the orchestrator.
+
+TDD work items:
+- [ ] Add an observed event for thread fork/create requests.
+- [ ] Add an integration test proving: fork request → child thread created → parent history seeded.
+- [ ] Move any remaining thread lifecycle responsibilities out of `ThreadManager` (Option A: delete, or Option B: keep as projector-only).
+
+## Status: 🚧 IN PROGRESS

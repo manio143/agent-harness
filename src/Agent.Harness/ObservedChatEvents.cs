@@ -105,3 +105,13 @@ public sealed record ObservedToolCallCancelled(string ToolId) : ObservedChatEven
 /// Invariant: Fed to reducer; session continues gracefully (degraded mode).
 /// </summary>
 public sealed record ObservedMcpConnectionFailed(string ServerId, string Error) : ObservedChatEvent;
+
+// --- Thread Lifecycle Observations ---
+// In the unified orchestrator model, thread lifecycle is owned by ThreadOrchestrator.
+// Effects (and other shells) request thread operations by emitting observations.
+
+/// <summary>
+/// Request to fork a new child thread from the given parent thread.
+/// The orchestrator creates the thread and seeds it with the parent's committed history.
+/// </summary>
+public sealed record ObservedForkChildThreadRequested(string ParentThreadId) : ObservedChatEvent;
