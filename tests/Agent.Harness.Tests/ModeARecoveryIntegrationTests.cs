@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Agent.Harness;
+using Agent.Harness.Tests.TestChatClients;
 using Agent.Harness.TitleGeneration;
 
 namespace Agent.Harness.Tests;
@@ -15,7 +16,7 @@ public sealed class ModeARecoveryIntegrationTests
         };
 
         var effects = new InvalidArgsThenAnswerEffectExecutor();
-        var runner = new SessionRunner(new CoreOptions(), new SessionTitleGenerator(new NullChatClient()), effects);
+        var runner = new SessionRunner(new CoreOptions(), new SessionTitleGenerator(new FixedResponseChatClient("Some title")), effects);
 
         async IAsyncEnumerable<ObservedChatEvent> Observed()
         {
@@ -32,7 +33,7 @@ public sealed class ModeARecoveryIntegrationTests
         Assert.Equal(2, effects.Executed.Count(e => e is CallModel));
     }
 
-    private sealed class InvalidArgsThenAnswerEffectExecutor : IEffectExecutor
+    private sealed class InvalidArgsThenAnswerEffectExecutor : IStreamingEffectExecutor
     {
         private int _modelCalls;
         public List<Effect> Executed { get; } = new();
@@ -41,11 +42,23 @@ public sealed class ModeARecoveryIntegrationTests
         {
             Executed.Add(effect);
 
-            return effect switch
-            {
-                CallModel => Task.FromResult(ModelStep()),
-                _ => Task.FromResult(ImmutableArray<ObservedChatEvent>.Empty),
-            };
+            if (effect is CallModel)
+                throw new InvalidOperationException("call_model_must_be_streamed_in_tests");
+
+            return Task.FromResult(ImmutableArray<ObservedChatEvent>.Empty);
+        }
+
+        public async IAsyncEnumerable<ObservedChatEvent> ExecuteStreamingAsync(SessionState state, Effect effect, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            Executed.Add(effect);
+
+            if (effect is not CallModel)
+                yield break;
+
+            foreach (var o in ModelStep())
+                yield return o;
+
+            await Task.CompletedTask;
         }
 
         private ImmutableArray<ObservedChatEvent> ModelStep()

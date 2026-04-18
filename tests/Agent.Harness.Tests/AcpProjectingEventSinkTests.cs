@@ -56,14 +56,17 @@ public sealed class AcpProjectingEventSinkTests
         await Task.CompletedTask;
     }
 
-    private sealed class ThrowOnCallModel : IEffectExecutor
+    private sealed class ThrowOnCallModel : IStreamingEffectExecutor
     {
         public Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
+            => Task.FromResult(ImmutableArray<ObservedChatEvent>.Empty);
+
+        public async IAsyncEnumerable<ObservedChatEvent> ExecuteStreamingAsync(SessionState state, Effect effect, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
         {
             if (effect is CallModel)
                 throw new InvalidOperationException("boom");
 
-            return Task.FromResult(ImmutableArray<ObservedChatEvent>.Empty);
+            yield break;
         }
     }
 }

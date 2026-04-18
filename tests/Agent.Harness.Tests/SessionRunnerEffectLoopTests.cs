@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Agent.Harness;
+using Agent.Harness.Tests.TestChatClients;
 using Agent.Harness.TitleGeneration;
 using FluentAssertions;
 
@@ -17,7 +18,7 @@ public class SessionRunnerEffectLoopTests
         var state = SessionState.Empty with { Tools = ImmutableArray.Create(ToolSchemas.ReportIntent, ToolSchemas.ReadTextFile) };
 
         var effects = new FakeEffectExecutor();
-        var runner = new SessionRunner(new CoreOptions(), new SessionTitleGenerator(new ThrowingChatClient()), effects);
+        var runner = new SessionRunner(new CoreOptions(), new SessionTitleGenerator(new FixedResponseChatClient("Some title")), effects);
 
         // External observed stream: the model proposes a tool call.
         async IAsyncEnumerable<ObservedChatEvent> Observed()
@@ -50,13 +51,16 @@ public class SessionRunnerEffectLoopTests
         effects.Executed.Count(e => e is CallModel).Should().BeGreaterThanOrEqualTo(1);
     }
 
-    private sealed class FakeEffectExecutor : IEffectExecutor
+    private sealed class FakeEffectExecutor : IStreamingEffectExecutor
     {
         public List<Effect> Executed { get; } = new();
 
         public Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
         {
             Executed.Add(effect);
+
+            if (effect is CallModel)
+                throw new InvalidOperationException("call_model_must_be_streamed_in_tests");
 
             return effect switch
             {
@@ -70,24 +74,18 @@ public class SessionRunnerEffectLoopTests
                 _ => Task.FromResult(ImmutableArray<ObservedChatEvent>.Empty),
             };
         }
-    }
 
-    private sealed class ThrowingChatClient : Microsoft.Extensions.AI.IChatClient
-    {
-        public void Dispose() { }
+        public async IAsyncEnumerable<ObservedChatEvent> ExecuteStreamingAsync(SessionState state, Effect effect, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            Executed.Add(effect);
 
-        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+            if (effect is not CallModel)
+                yield break;
 
-        public Task<Microsoft.Extensions.AI.ChatResponse> GetResponseAsync(
-            IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages,
-            Microsoft.Extensions.AI.ChatOptions? options = null,
-            CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException("Title generation should not run in this test.");
-
-        public IAsyncEnumerable<Microsoft.Extensions.AI.ChatResponseUpdate> GetStreamingResponseAsync(
-            IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages,
-            Microsoft.Extensions.AI.ChatOptions? options = null,
-            CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException("Streaming model should not run in this test.");
+            // Provide a minimal model completion so the reducer can finish the turn.
+            yield return new ObservedAssistantTextDelta("ok");
+            yield return new ObservedAssistantMessageCompleted();
+            await Task.CompletedTask;
+        }
     }
 }

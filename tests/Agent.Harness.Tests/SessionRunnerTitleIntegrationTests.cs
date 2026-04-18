@@ -7,6 +7,25 @@ namespace Agent.Harness.Tests;
 
 public sealed class SessionRunnerTitleIntegrationTests
 {
+    private sealed class AnsweringEffects(string assistantText) : IStreamingEffectExecutor
+    {
+        public Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
+            => throw new InvalidOperationException("streaming_only");
+
+        public async IAsyncEnumerable<ObservedChatEvent> ExecuteStreamingAsync(SessionState state, Effect effect, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            if (effect is CallModel)
+            {
+                yield return new ObservedAssistantTextDelta(assistantText);
+                yield return new ObservedAssistantMessageCompleted(null);
+                yield break;
+            }
+
+            await Task.CompletedTask;
+            yield break;
+        }
+    }
+
     private sealed class ScriptedMeaiChatClient : IChatClient
     {
         private string _next = "";
@@ -49,13 +68,12 @@ public sealed class SessionRunnerTitleIntegrationTests
         var coreOptions = new CoreOptions(CommitAssistantTextDeltas: false, CommitReasoningTextDeltas: false);
         var chat = new ScriptedMeaiChatClient().WhenCalledReturn("My Title");
         var titleGen = new SessionTitleGenerator(chat);
-        var runner = new SessionRunner(coreOptions, titleGen);
+        var effects = new AnsweringEffects("Hello");
+        var runner = new SessionRunner(coreOptions, titleGen, effects);
 
         async IAsyncEnumerable<ObservedChatEvent> Observed()
         {
             yield return new ObservedUserMessage("Hi");
-            yield return new ObservedAssistantTextDelta("Hello");
-            yield return new ObservedAssistantMessageCompleted(null);
             await Task.Yield();
         }
 
@@ -75,7 +93,8 @@ public sealed class SessionRunnerTitleIntegrationTests
         var coreOptions = new CoreOptions(CommitAssistantTextDeltas: false, CommitReasoningTextDeltas: false);
         var chat = new ScriptedMeaiChatClient().WhenCalledReturn("SHOULD_NOT_BE_USED");
         var titleGen = new SessionTitleGenerator(chat);
-        var runner = new SessionRunner(coreOptions, titleGen);
+        var effects = new AnsweringEffects("Ok");
+        var runner = new SessionRunner(coreOptions, titleGen, effects);
 
         var initial = new SessionState(
             Committed: ImmutableArray.Create<SessionEvent>(
@@ -88,8 +107,6 @@ public sealed class SessionRunnerTitleIntegrationTests
         async IAsyncEnumerable<ObservedChatEvent> Observed()
         {
             yield return new ObservedUserMessage("Next");
-            yield return new ObservedAssistantTextDelta("Ok");
-            yield return new ObservedAssistantMessageCompleted(null);
             await Task.Yield();
         }
 
