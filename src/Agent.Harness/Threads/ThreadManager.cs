@@ -71,8 +71,10 @@ public sealed class ThreadManager
 
         // For now we do not persist cloned state; we will when we promote ThreadState to a first-class
         // persisted snapshot. At minimum, copy the committed events for readback.
+        // Route through the sink pipeline to preserve the "commits flow via IEventSink" invariant.
+        var sink = new ThreadEventSink(_sessionId, childId, _store);
         foreach (var evt in parentState.Committed)
-            _store.AppendCommittedEvent(_sessionId, childId, evt);
+            sink.OnCommittedAsync(evt, CancellationToken.None).GetAwaiter().GetResult();
 
         return childId;
     }
