@@ -240,6 +240,19 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         return ForkChildThreadAsync(parentThreadId, childThreadId, seedCommitted, cancellationToken);
     }
 
+    public async Task RequestSetThreadModelAsync(
+        string threadId,
+        string model,
+        CancellationToken cancellationToken = default)
+    {
+        // Persist via sink to preserve the "sink-only" invariant.
+        var sink = threadId == ThreadIds.Main
+            ? (IEventSink)new MainThreadEventSink(_sessionId, _threadStore, _sessionStore, logObserved: false)
+            : new ThreadEventSink(_sessionId, threadId, _threadStore);
+
+        await sink.OnCommittedAsync(new SetModel(model), cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task ForkChildThreadAsync(
         string parentThreadId,
         string childThreadId,

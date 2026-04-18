@@ -260,10 +260,10 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                         ? tidVal.GetString()!
                         : _threadId;
 
-                    // Read-only: return current projected model.
+                    // Read-only: return current projected model (best-effort for requested thread).
                     if (!args.TryGetValue("model", out var modelVal) || modelVal.ValueKind != JsonValueKind.String)
                     {
-                        var current = ResolveModelFromCommitted(state.Committed);
+                        var current = threadId == _threadId ? ResolveModelFromCommitted(state.Committed) : "default";
                         return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
                             t.ToolId,
                             JsonSerializer.SerializeToElement(new { threadId, model = current })));
@@ -277,7 +277,19 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     if (!string.Equals(model, "default", StringComparison.OrdinalIgnoreCase) && _isKnownModel is not null && !_isKnownModel(model))
                         throw new InvalidOperationException("thread_config.unknown_model");
 
-                    // Return an observed set-model event so the reducer can commit SetModel before the tool completes.
+                    // Cross-thread: persist immediately via orchestrator lifecycle.
+                    if (threadId != _threadId)
+                    {
+                        if (_lifecycle is null)
+                            throw new InvalidOperationException("thread_tools_require_orchestrator");
+
+                        await _lifecycle.RequestSetThreadModelAsync(threadId, model, cancellationToken).ConfigureAwait(false);
+
+                        return ImmutableArray.Create<ObservedChatEvent>(
+                            new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { ok = true, threadId, model })));
+                    }
+
+                    // Current thread: emit an observed set-model event so reducer commits SetModel before tool completes.
                     return ImmutableArray.Create<ObservedChatEvent>(
                         new ObservedSetModel(threadId, model),
                         new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { ok = true, threadId, model })));

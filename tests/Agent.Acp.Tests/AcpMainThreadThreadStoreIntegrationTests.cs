@@ -20,7 +20,13 @@ public sealed class AcpMainThreadThreadStoreIntegrationTests
             Sessions = new AgentServerOptions.SessionStoreOptions { Directory = ".agent/sessions" },
         };
 
-        var factory = new AcpHarnessAgentFactory(new OneTokenStreamingChatClient(), opts, new NoopMcpDiscovery());
+        var chat = new OneTokenStreamingChatClient();
+        var factory = new AcpHarnessAgentFactory(
+            chat,
+            new FixedChatClientFactory(chat),
+            FixedModelCatalog(),
+            opts,
+            new NoopMcpDiscovery());
 
         var ses = await factory.NewSessionAsync(new NewSessionRequest
         {
@@ -45,6 +51,20 @@ public sealed class AcpMainThreadThreadStoreIntegrationTests
         var committed = threadStore.LoadCommittedEvents(ses.SessionId, ThreadIds.Main);
         Assert.NotEmpty(committed);
         Assert.Contains(committed, e => e is ThreadInboxMessageEnqueued enq && enq.ThreadId == ThreadIds.Main && enq.Text == "hi");
+    }
+
+    private static Agent.Server.ModelCatalog FixedModelCatalog()
+        => new(
+            Models: new Dictionary<string, AgentServerOptions.OpenAiModelOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["default"] = new AgentServerOptions.OpenAiModelOptions { Model = "fake" },
+            },
+            DefaultModel: "default",
+            QuickWorkModel: "default");
+
+    private sealed class FixedChatClientFactory(Microsoft.Extensions.AI.IChatClient chat) : IChatClientFactory
+    {
+        public Microsoft.Extensions.AI.IChatClient Get(string modelFriendlyName) => chat;
     }
 
     private sealed class NoopMcpDiscovery : IMcpDiscovery

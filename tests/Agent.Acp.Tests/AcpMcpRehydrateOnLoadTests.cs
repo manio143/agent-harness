@@ -25,7 +25,8 @@ public sealed class AcpMcpRehydrateOnLoadTests
         };
 
         var discovery1 = new CapturingMcpDiscovery();
-        var factory1 = new AcpHarnessAgentFactory(new EmptyStreamingChatClient(), opts, discovery1);
+        var chat1 = new EmptyStreamingChatClient();
+        var factory1 = new AcpHarnessAgentFactory(chat1, new FixedChatClientFactory(chat1), FixedModelCatalog(), opts, discovery1);
 
         // Create session with MCP servers; should persist mcpServers.json.
         var newSession = await factory1.NewSessionAsync(new NewSessionRequest
@@ -41,7 +42,8 @@ public sealed class AcpMcpRehydrateOnLoadTests
 
         // Simulate new process: new factory with empty in-memory MCP cache.
         var discovery2 = new CapturingMcpDiscovery();
-        var factory2 = new AcpHarnessAgentFactory(new EmptyStreamingChatClient(), opts, discovery2);
+        var chat2 = new EmptyStreamingChatClient();
+        var factory2 = new AcpHarnessAgentFactory(chat2, new FixedChatClientFactory(chat2), FixedModelCatalog(), opts, discovery2);
 
         // session/load gives cwd again (ACP contract)
         await factory2.LoadSessionAsync(new LoadSessionRequest
@@ -70,6 +72,20 @@ public sealed class AcpMcpRehydrateOnLoadTests
 
         var last = File.ReadLines(promptPath).Last();
         Assert.Contains("fake_mcp_server__echo", last);
+    }
+
+    private static ModelCatalog FixedModelCatalog()
+        => new(
+            Models: new Dictionary<string, AgentServerOptions.OpenAiModelOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["default"] = new AgentServerOptions.OpenAiModelOptions { Model = "fake" },
+            },
+            DefaultModel: "default",
+            QuickWorkModel: "default");
+
+    private sealed class FixedChatClientFactory(Microsoft.Extensions.AI.IChatClient chat) : IChatClientFactory
+    {
+        public Microsoft.Extensions.AI.IChatClient Get(string modelFriendlyName) => chat;
     }
 
     private sealed class CapturingMcpDiscovery : IMcpDiscovery

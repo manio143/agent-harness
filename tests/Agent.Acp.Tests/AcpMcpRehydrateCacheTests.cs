@@ -22,7 +22,8 @@ public sealed class AcpMcpRehydrateCacheTests
         };
 
         // First factory creates session and persists MCP config.
-        var factory1 = new AcpHarnessAgentFactory(new EmptyStreamingChatClient(), opts, new NoopMcpDiscovery());
+        var chat1 = new EmptyStreamingChatClient();
+        var factory1 = new AcpHarnessAgentFactory(chat1, new FixedChatClientFactory(chat1), FixedModelCatalog(), opts, new NoopMcpDiscovery());
 
         var ses = await factory1.NewSessionAsync(new NewSessionRequest
         {
@@ -35,7 +36,8 @@ public sealed class AcpMcpRehydrateCacheTests
 
         // New factory simulates a new process: no _mcp cache.
         var discovery = new CountingMcpDiscovery();
-        var factory2 = new AcpHarnessAgentFactory(new EmptyStreamingChatClient(), opts, discovery);
+        var chat2 = new EmptyStreamingChatClient();
+        var factory2 = new AcpHarnessAgentFactory(chat2, new FixedChatClientFactory(chat2), FixedModelCatalog(), opts, discovery);
 
         await factory2.LoadSessionAsync(new LoadSessionRequest { SessionId = ses.SessionId, Cwd = cwd, McpServers = new List<McpServer>() }, CancellationToken.None);
 
@@ -57,6 +59,20 @@ public sealed class AcpMcpRehydrateCacheTests
 
         var last = File.ReadLines(promptPath).Last();
         Assert.Contains("fake_mcp_server__echo", last);
+    }
+
+    private static ModelCatalog FixedModelCatalog()
+        => new(
+            Models: new Dictionary<string, AgentServerOptions.OpenAiModelOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["default"] = new AgentServerOptions.OpenAiModelOptions { Model = "fake" },
+            },
+            DefaultModel: "default",
+            QuickWorkModel: "default");
+
+    private sealed class FixedChatClientFactory(Microsoft.Extensions.AI.IChatClient chat) : IChatClientFactory
+    {
+        public Microsoft.Extensions.AI.IChatClient Get(string modelFriendlyName) => chat;
     }
 
     private sealed class NoopMcpDiscovery : IMcpDiscovery
