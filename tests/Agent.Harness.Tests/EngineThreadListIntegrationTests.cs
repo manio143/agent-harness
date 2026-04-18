@@ -80,6 +80,7 @@ public sealed class EngineThreadListIntegrationTests
 
         var main = threads.EnumerateArray().First(t => GetString(t, "threadId", "ThreadId") == "main");
         GetString(main, "intent", "Intent").Should().Be("list threads");
+        GetString(main, "model", "Model").Should().Be("default");
     }
 
     private sealed class ScriptedMeaiChatClient : MeaiIChatClient

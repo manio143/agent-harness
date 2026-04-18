@@ -133,7 +133,7 @@ public static class ToolSchemas
 
     public static ToolDefinition ThreadList { get; } = new(
         Name: "thread_list",
-        Description: "List threads in the current session, including their current intent and status.",
+        Description: "List threads in the current session, including their current intent, status, and model.",
         InputSchema: ParseSchema("""
         { "type": "object", "properties": { }, "required": [ ] }
         """));
