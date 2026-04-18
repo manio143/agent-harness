@@ -163,6 +163,29 @@ public static partial class TurnRunner
                 var observations = await effects.ExecuteAsync(state, eff, cancellationToken).ConfigureAwait(false);
                 foreach (var obs in observations)
                     observedQueue.Enqueue(obs);
+
+                // Important: reduce the effects' observations before executing the next effect.
+                // This preserves tool-call ordering when a later tool depends on state changes
+                // produced by an earlier tool in the same turn (e.g., thread_config -> thread_list).
+                while (observedQueue.Count > 0)
+                {
+                    var next = observedQueue.Dequeue();
+
+                    await sink.OnObservedAsync(next, cancellationToken).ConfigureAwait(false);
+
+                    var step = ReduceOne(state, next, options);
+                    state = step.Next;
+                    onState?.Invoke(state);
+
+                    foreach (var committed in step.NewlyCommitted)
+                    {
+                        await sink.OnCommittedAsync(committed, cancellationToken).ConfigureAwait(false);
+                        yield return committed;
+                    }
+
+                    if (!step.Effects.IsDefaultOrEmpty)
+                        pendingEffects.AddRange(step.Effects);
+                }
             }
         }
     }
