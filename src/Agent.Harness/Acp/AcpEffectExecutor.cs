@@ -326,8 +326,8 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                     var delivery = ParseDelivery(args);
 
                     // Universal intake: express as an observed inbox arrival for the target thread.
-                    // IMPORTANT: if the target is the current thread, do NOT go through ThreadOrchestrator.ObserveAsync
-                    // (it is thread-gated and would deadlock inside an in-flight turn).
+                    // NOTE: ObserveAsync is re-entrant-safe; self-send is still returned as a local observation
+                    // to preserve ordering within the current turn.
                     var inboxArrived = Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
                         threadId: threadId,
                         text: message,
