@@ -14,7 +14,7 @@ public sealed record CoreOptions(
 /// Functional core reducer.
 ///
 /// Rules (initial slice):
-/// - ObservedUserMessage is treated as an inbox arrival (back-compat).
+/// - ObservedUserMessage commits a UserMessage and requests CallModel (legacy direct path; normal orchestrator flow uses ObservedInboxMessageArrived + ObservedWakeModel).
 /// - ObservedAssistantTextDelta appends to the in-flight assistant buffer.
 /// - ObservedAssistantMessageCompleted flushes the assistant buffer into AssistantMessage.
 /// - RenderPrompt uses ONLY committed user/assistant messages (debug events are ignored).
