@@ -6,7 +6,7 @@ SESSION="scen1-$(date +%s)"
 
 echo "[scenario1] session=$SESSION"
 
-NEW_OUT="$(acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" sessions new --name "$SESSION")"
+NEW_OUT="$(acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" sessions new --name "$SESSION")"
 SESSION_ID="$(echo "$NEW_OUT" | sed -n 's/.*(\([0-9a-f-]\{36\}\)).*/\1/p' | tail -n 1)"
 if [[ -z "$SESSION_ID" ]]; then
   # Some acpx builds print just the UUID.
@@ -21,7 +21,7 @@ fi
 echo "[scenario1] sessionId=$SESSION_ID"
 
 # Turn 1: create child.
-acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
   'You MUST follow these rules exactly:
 1) You may call at most 2 tools in this turn.
 2) You may ONLY call: report_intent, thread_new.
@@ -68,7 +68,7 @@ done
 echo "---"
 
 # Turn 2: read child explicitly.
-acpx --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
   "You MUST follow these rules exactly:
 1) You may call at most 2 tools in this turn.
 2) You may ONLY call: report_intent, thread_read.
