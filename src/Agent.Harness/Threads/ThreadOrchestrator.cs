@@ -146,17 +146,9 @@ public sealed class ThreadOrchestrator : IThreadScheduler
         // block on the per-thread execution gate, otherwise self-send / nested observations can deadlock.
 
         // Thread lifecycle is owned by the orchestrator in the unified model.
-        // Some lifecycle requests must be handled synchronously (e.g. thread_new/thread_fork need a threadId
-        // that exists immediately for subsequent observations).
-        if (observed is Agent.Harness.ObservedForkChildThreadRequested fork)
-        {
-            await RequestForkChildThreadAsync(
-                fork.ParentThreadId,
-                fork.ChildThreadId,
-                fork.SeedCommitted,
-                cancellationToken).ConfigureAwait(false);
-            return;
-        }
+        // Lifecycle requests must use the dedicated API to avoid mixing concerns.
+        if (observed is Agent.Harness.ObservedForkChildThreadRequested)
+            throw new InvalidOperationException("lifecycle_requests_must_not_use_observe_async");
 
         var q = _observedQueues.GetOrAdd(threadId, _ => new ConcurrentQueue<ObservedChatEvent>());
         q.Enqueue(observed);

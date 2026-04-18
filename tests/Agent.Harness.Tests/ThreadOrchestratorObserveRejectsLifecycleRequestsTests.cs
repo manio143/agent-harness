@@ -8,7 +8,7 @@ using FluentAssertions;
 
 namespace Agent.Harness.Tests;
 
-public sealed class ThreadOrchestratorForkChildThreadRequestedIntegrationTests
+public sealed class ThreadOrchestratorObserveRejectsLifecycleRequestsTests
 {
     private sealed class NullChatClient : Microsoft.Extensions.AI.IChatClient
     {
@@ -19,10 +19,7 @@ public sealed class ThreadOrchestratorForkChildThreadRequestedIntegrationTests
             IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages,
             Microsoft.Extensions.AI.ChatOptions? options = null,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(new Microsoft.Extensions.AI.ChatResponse(new[]
-            {
-                new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.Assistant, "test")
-            }));
+            => Task.FromResult(new Microsoft.Extensions.AI.ChatResponse(Array.Empty<Microsoft.Extensions.AI.ChatMessage>()));
 
         public async IAsyncEnumerable<Microsoft.Extensions.AI.ChatResponseUpdate> GetStreamingResponseAsync(
             IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages,
@@ -43,24 +40,23 @@ public sealed class ThreadOrchestratorForkChildThreadRequestedIntegrationTests
     }
 
     [Fact]
-    public async Task ForkChildThreadRequested_creates_child_and_seeds_parent_history()
+    public async Task ObserveAsync_rejects_lifecycle_requests()
     {
-        // Arrange
-        var dir = Path.Combine(Path.GetTempPath(), "harness-fork-tests", Guid.NewGuid().ToString("N"));
+        var dir = Path.Combine(Path.GetTempPath(), "harness-observe-reject-lifecycle", Guid.NewGuid().ToString("N"));
         var sessionStore = new JsonlSessionStore(dir);
         var threadStore = new JsonlThreadStore(dir);
+        var sessionId = "sess_observe_reject_lifecycle";
 
-        var sessionId = "sess_fork";
         sessionStore.CreateNew(sessionId, new SessionMetadata(
             SessionId: sessionId,
             Cwd: "/tmp",
             Title: null,
-            CreatedAtIso: DateTimeOffset.UtcNow.ToString("O"),
-            UpdatedAtIso: DateTimeOffset.UtcNow.ToString("O")));
+            CreatedAtIso: "t0",
+            UpdatedAtIso: "t0"));
 
         var threads = new ThreadManager(sessionId, threadStore);
-        var orchestrator = new ThreadOrchestrator(
-            sessionId: sessionId,
+        var orch = new ThreadOrchestrator(
+            sessionId,
             client: new NullClientCaller(),
             chat: new NullChatClient(),
             mcp: NullMcpToolInvoker.Instance,
@@ -70,27 +66,15 @@ public sealed class ThreadOrchestratorForkChildThreadRequestedIntegrationTests
             threadStore: threadStore,
             threads: threads);
 
-        orchestrator.SetToolCatalog(ImmutableArray<ToolDefinition>.Empty);
+        orch.SetToolCatalog(ImmutableArray<ToolDefinition>.Empty);
 
-        await orchestrator.ObserveAsync(ThreadIds.Main, new ObservedUserMessage("seed"));
-        await orchestrator.RunUntilQuiescentAsync(CancellationToken.None);
+        var req = new ObservedForkChildThreadRequested(
+            ParentThreadId: ThreadIds.Main,
+            ChildThreadId: "thr_test",
+            SeedCommitted: ImmutableArray<SessionEvent>.Empty);
 
-        // Act
-        var childId = "thr_test_child";
-        await orchestrator.RequestForkChildThreadAsync(
-            parentThreadId: ThreadIds.Main,
-            childThreadId: childId,
-            seedCommitted: threadStore.LoadCommittedEvents(sessionId, ThreadIds.Main),
-            cancellationToken: CancellationToken.None);
-        await orchestrator.RunUntilQuiescentAsync(CancellationToken.None);
-
-        // Assert
-        var allThreads = threadStore.ListThreads(sessionId);
-        var child = allThreads.SingleOrDefault(t => t.ParentThreadId == ThreadIds.Main && t.ThreadId != ThreadIds.Main);
-        child.Should().NotBeNull("fork request should create a child thread with parent=main");
-
-        var childCommitted = threadStore.LoadCommittedEvents(sessionId, child!.ThreadId);
-        childCommitted.OfType<UserMessage>().Any(m => m.Text == "seed").Should().BeTrue(
-            "child thread should be seeded with parent's committed history");
+        Func<Task> act = () => orch.ObserveAsync(ThreadIds.Main, req, CancellationToken.None);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("lifecycle_requests_must_not_use_observe_async");
     }
 }

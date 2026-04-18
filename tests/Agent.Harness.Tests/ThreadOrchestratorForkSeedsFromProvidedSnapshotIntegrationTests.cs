@@ -80,13 +80,11 @@ public sealed class ThreadOrchestratorForkSeedsFromProvidedSnapshotIntegrationTe
         var seed = fromStore.Add(new UserMessage("unpersisted"));
 
         var childId = "thr_child_seed";
-        await orch.ObserveAsync(
-            ThreadIds.Main,
-            new ObservedForkChildThreadRequested(
-                ParentThreadId: ThreadIds.Main,
-                ChildThreadId: childId,
-                SeedCommitted: seed),
-            CancellationToken.None);
+        await orch.RequestForkChildThreadAsync(
+            parentThreadId: ThreadIds.Main,
+            childThreadId: childId,
+            seedCommitted: seed,
+            cancellationToken: CancellationToken.None);
 
         var childCommitted = threadStore.LoadCommittedEvents(sessionId, childId);
         childCommitted.OfType<UserMessage>().Should().ContainSingle(m => m.Text == "persisted");

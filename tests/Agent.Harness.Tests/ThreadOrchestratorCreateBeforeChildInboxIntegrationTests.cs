@@ -63,10 +63,11 @@ public sealed class ThreadOrchestratorCreateBeforeChildInboxIntegrationTests
         var childId = "thr_child";
 
         // Enqueue create request AND a child inbox message, then let the orchestrator run.
-        await orch.ObserveAsync(ThreadIds.Main, new ObservedForkChildThreadRequested(
-            ParentThreadId: ThreadIds.Main,
-            ChildThreadId: childId,
-            SeedCommitted: threadStore.LoadCommittedEvents(sessionId, ThreadIds.Main)));
+        await orch.RequestForkChildThreadAsync(
+            parentThreadId: ThreadIds.Main,
+            childThreadId: childId,
+            seedCommitted: threadStore.LoadCommittedEvents(sessionId, ThreadIds.Main),
+            cancellationToken: CancellationToken.None);
 
         await orch.ObserveAsync(
             childId,
