@@ -131,6 +131,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         {
             internalTools = ClientToolCatalog.Merge(internalTools, ImmutableArray.Create(
                 ToolSchemas.ThreadList,
+                ToolSchemas.ThreadConfig,
+                ToolSchemas.ThreadStart,
                 ToolSchemas.ThreadNew,
                 ToolSchemas.ThreadFork,
                 ToolSchemas.ThreadSend,
