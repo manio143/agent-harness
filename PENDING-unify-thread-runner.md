@@ -43,8 +43,12 @@ We want a single `ThreadOrchestrator` to own the thread universe: creation/forki
 Effects (and other imperative shells) should request thread operations by emitting **observed events**, which flow back into the orchestrator.
 
 TDD work items:
-- [ ] Add an observed event for thread fork/create requests.
-- [ ] Add an integration test proving: fork request → child thread created → parent history seeded.
-- [ ] Move any remaining thread lifecycle responsibilities out of `ThreadManager` (Option A: delete, or Option B: keep as projector-only).
+- [x] Add an observed event for thread fork/create requests (`ObservedForkChildThreadRequested`).
+- [x] Add an integration test proving: fork request → child thread created → parent history seeded.
+- [x] Move thread lifecycle responsibilities out of `ThreadManager` (kept as projector/utility only).
+
+Next TDD item:
+- [ ] Add an integration test proving a tool/effect can request a fork/create mid-turn **without deadlocking** while still preserving sink-only persistence.
+- [ ] Introduce a dedicated re-entrant-safe lifecycle enqueue API (effects must never block on per-thread gates).
 
 ## Status: 🚧 IN PROGRESS
