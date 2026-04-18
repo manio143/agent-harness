@@ -9,7 +9,7 @@ public sealed class ChildThreadOrchestrationTests
     // Covered by:
     // - AcpEffectExecutorThreadNewUsesOrchestratorForkTests
     // - AcpEffectExecutorThreadForkUsesOrchestratorForkTests
-    // - ThreadOrchestratorForkChildThreadRequestedIntegrationTests
+    // - ThreadOrchestratorRequestForkChildThreadIntegrationTests
     //
     // Keeping file (empty) so git history shows the change; can be removed later.
 }

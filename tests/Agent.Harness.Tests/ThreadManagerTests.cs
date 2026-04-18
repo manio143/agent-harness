@@ -28,7 +28,7 @@ public sealed class ThreadManagerTests
     }
 
     // Forking is now owned by ThreadOrchestrator and tested via:
-    // - ThreadOrchestratorForkChildThreadRequestedIntegrationTests
+    // - ThreadOrchestratorRequestForkChildThreadIntegrationTests
     // - AcpEffectExecutorThreadForkUsesOrchestratorForkTests
 
     [Fact]

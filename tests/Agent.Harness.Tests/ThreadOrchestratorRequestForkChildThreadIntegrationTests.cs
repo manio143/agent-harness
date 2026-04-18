@@ -8,7 +8,7 @@ using FluentAssertions;
 
 namespace Agent.Harness.Tests;
 
-public sealed class ThreadOrchestratorForkChildThreadRequestedIntegrationTests
+public sealed class ThreadOrchestratorRequestForkChildThreadIntegrationTests
 {
     private sealed class NullChatClient : Microsoft.Extensions.AI.IChatClient
     {
@@ -43,7 +43,7 @@ public sealed class ThreadOrchestratorForkChildThreadRequestedIntegrationTests
     }
 
     [Fact]
-    public async Task ForkChildThreadRequested_creates_child_and_seeds_parent_history()
+    public async Task RequestForkChildThreadAsync_creates_child_and_seeds_parent_history()
     {
         // Arrange
         var dir = Path.Combine(Path.GetTempPath(), "harness-fork-tests", Guid.NewGuid().ToString("N"));
