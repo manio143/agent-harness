@@ -21,8 +21,8 @@ Key behaviors:
    - Optional: `model` — sets the model for that thread.
    - Without `model`, returns projected thread config (at least: current model).
 7) ✅ Unified thread creation tool: `thread_start` with `context: "new"|"fork"` and optional `model` (legacy `thread_new`/`thread_fork` removed).
-8) ACP slash command: `/set-model <friendlyName>` — sets model for **main** thread.
-9) System prompt advertises available models and default; prompt rendering emits: `Inference model has been set to: {model}.`
+8) ✅ ACP slash command: `/set-model <friendlyName>` — sets model for **main** thread.
+9) ✅ System prompt advertises available models and default; prompt rendering emits: `Inference model has been set to: {model}.`
 
 ---
 
