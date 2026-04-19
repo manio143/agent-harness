@@ -46,7 +46,9 @@ Introduce a first-class **NewThreadTask** concept so that:
   - `ThreadManager.ReadThreadMessages` now filters to the first `NewThreadTask` marker when `IsFork==true`
   - `thread_read` includes a `system` message for `NewThreadTask` with the same markup used in prompts
   - Tests: `ThreadReadForkWindowTests`
-- [ ] Phase 5 — Integration/sample updates
+- [x] Phase 5 — Integration/sample updates
+  - Updated integration tests that identify child prompts to key off `<thread_created` instead of `<inter_thread`
+  - Documented the new prompt markup in `samples/Threading.Scenarios/README.md`
 
 1. Every newly created thread (including forks created via `thread_start` + `context`) receives **exactly one** `NewThreadTask` delivered via the inbox pipeline.
 2. The task is **rendered into the model prompt** in a stable, explicit format that includes the **new thread id**, **parent id**, and the **task message**.

@@ -20,6 +20,13 @@ Artifacts:
 
 ## Scenarios
 
+Note: child thread startup tasks are delivered via `NewThreadTask` and rendered in the prompt as:
+
+- `<thread_created id="..." parent_id="..." />`
+- optional fork notice (`<notice>...`) when created with `context=fork`
+- `<task>...` with the startup message
+
+
 1. **scenario1_child_immediate_persisted**
    - create child thread (immediate)
    - second turn reads child thread and quotes child output
