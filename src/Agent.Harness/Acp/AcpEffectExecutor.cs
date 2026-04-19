@@ -20,6 +20,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
     private readonly bool _logLlmPrompts;
     private readonly string? _sessionCwd;
     private readonly Agent.Harness.Persistence.ISessionStore? _store;
+    private readonly string? _modelCatalogSystemPrompt;
     private readonly Agent.Harness.Threads.IThreadTools? _threadTools;
     private readonly Agent.Harness.Threads.IThreadObserver? _observer;
     private readonly Agent.Harness.Threads.IThreadLifecycle? _lifecycle;
@@ -36,6 +37,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         bool logLlmPrompts = false,
         string? sessionCwd = null,
         Agent.Harness.Persistence.ISessionStore? store = null,
+        string? modelCatalogSystemPrompt = null,
         Agent.Harness.Threads.IThreadTools? threadTools = null,
         Agent.Harness.Threads.IThreadObserver? observer = null,
         Agent.Harness.Threads.IThreadLifecycle? lifecycle = null,
@@ -51,6 +53,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         _logLlmPrompts = logLlmPrompts;
         _sessionCwd = sessionCwd;
         _store = store;
+        _modelCatalogSystemPrompt = modelCatalogSystemPrompt;
         _threadTools = threadTools;
         _observer = observer;
         _lifecycle = lifecycle;
@@ -125,6 +128,9 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
             }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
             meaiMessages.Insert(0, new MeaiChatMessage(MeaiChatRole.System, $"<session>{sessionPayload}</session>"));
+
+            if (!string.IsNullOrWhiteSpace(_modelCatalogSystemPrompt))
+                meaiMessages.Insert(0, new MeaiChatMessage(MeaiChatRole.System, _modelCatalogSystemPrompt));
 
 
         var options = new Microsoft.Extensions.AI.ChatOptions

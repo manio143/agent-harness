@@ -42,6 +42,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
     private readonly CoreOptions _coreOptions;
     private readonly bool _logLlmPrompts;
     private readonly ISessionStore _sessionStore;
+    private readonly string? _modelCatalogSystemPrompt;
 
     private bool _toolsInitialized;
     private ImmutableArray<ToolDefinition> _toolCatalog;
@@ -64,7 +65,8 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         ISessionStore sessionStore,
         IThreadStore threadStore,
         ThreadManager threads,
-        Func<string, bool>? isKnownModel = null)
+        Func<string, bool>? isKnownModel = null,
+        string? modelCatalogSystemPrompt = null)
     {
         _sessionId = sessionId;
         _client = client;
@@ -76,6 +78,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         _coreOptions = coreOptions;
         _logLlmPrompts = logLlmPrompts;
         _sessionStore = sessionStore;
+        _modelCatalogSystemPrompt = modelCatalogSystemPrompt;
 
         _toolsInitialized = false;
         _toolCatalog = ImmutableArray<ToolDefinition>.Empty;
@@ -208,6 +211,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 logLlmPrompts: threadId == ThreadIds.Main && _logLlmPrompts,
                 sessionCwd: _sessionStore.TryLoadMetadata(_sessionId)?.Cwd,
                 store: _sessionStore,
+                modelCatalogSystemPrompt: _modelCatalogSystemPrompt,
                 threadTools: this,
                 observer: this,
                 lifecycle: this,

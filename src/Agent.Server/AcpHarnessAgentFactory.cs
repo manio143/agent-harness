@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 using System.Text.Json;
 using Agent.Acp.Acp;
 using Agent.Acp.Protocol;
@@ -33,6 +34,14 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
                 new() { Value = "all", Name = "All tools" },
             },
         };
+    }
+
+    private static string BuildModelCatalogSystemPrompt(ModelCatalog catalog)
+    {
+        var names = catalog.Models.Keys.OrderBy(x => x, StringComparer.Ordinal).ToArray();
+        var list = names.Length == 0 ? "(none)" : string.Join(", ", names);
+
+        return $"Available inference models: {list}. Default: {catalog.DefaultModel}. Quick-work: {catalog.QuickWorkModel}.";
     }
 
     private readonly Microsoft.Extensions.AI.IChatClient _chat;
@@ -410,7 +419,8 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             mcp.Invoker,
             logLlmPrompts: _options.Logging.LogLlmPrompts,
             logObservedEvents: _options.Logging.LogObservedEvents,
-            isKnownModel: _modelCatalog.IsKnownModel);
+            isKnownModel: _modelCatalog.IsKnownModel,
+            modelCatalogSystemPrompt: BuildModelCatalogSystemPrompt(_modelCatalog));
     }
 
     public async Task ReplaySessionAsync(string sessionId, IAcpSessionEvents events, CancellationToken cancellationToken)
