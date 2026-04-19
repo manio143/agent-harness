@@ -95,7 +95,7 @@ public sealed class SessionTitleMainThreadPersistenceIntegrationTests
             await Task.Yield();
         }
 
-        var sink = new MainThreadEventSink(sessionId, threads, store, logObserved: false);
+        var sink = new MainThreadEventSink(sessionId, threads, threads, store, logObserved: false);
 
         await runner.RunTurnAsync(ThreadIds.Main, SessionState.Empty, Observed(), CancellationToken.None, sink: sink);
 
@@ -145,7 +145,7 @@ public sealed class SessionTitleMainThreadPersistenceIntegrationTests
             UpdatedAtIso: DateTimeOffset.UtcNow.ToString("O"),
             Model: null));
 
-        var sink = new ThreadEventSink(sessionId, childThreadId, threads);
+        var sink = new ThreadEventSink(sessionId, childThreadId, threads, threads);
 
         await runner.RunTurnAsync(childThreadId, SessionState.Empty, Observed(), CancellationToken.None, sink: sink);
 

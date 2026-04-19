@@ -45,6 +45,7 @@ public sealed class DeltaCommitModeTests
             new UserMessage("Hello"),
             new AssistantTextDelta("Hel"),
             new AssistantTextDelta("lo"),
-            new AssistantMessage("Hello"));
+            new AssistantMessage("Hello"),
+            new TurnEnded());
     }
 }

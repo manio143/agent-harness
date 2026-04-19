@@ -30,32 +30,6 @@ public static class Core
         return last?.Model ?? "default";
     }
 
-    private static bool HasPendingEnqueuedInbox(ImmutableArray<SessionEvent> committed)
-    {
-        if (committed.IsDefaultOrEmpty) return false;
-
-        // Pending = enqueued without a corresponding dequeue.
-        var dequeued = new HashSet<string>();
-        foreach (var e in committed)
-        {
-            switch (e)
-            {
-                case ThreadInboxMessageDequeued d:
-                    dequeued.Add(d.EnvelopeId);
-                    break;
-            }
-        }
-
-        foreach (var e in committed)
-        {
-            if (e is ThreadInboxMessageEnqueued enq
-                && enq.Delivery == "enqueue"
-                && !dequeued.Contains(enq.EnvelopeId))
-                return true;
-        }
-
-        return false;
-    }
 
     private static bool HasTerminalToolCall(SessionState state, string toolId)
         => state.Committed.Any(e => e switch
@@ -139,7 +113,20 @@ public static class Core
             case ObservedTurnStarted started:
             {
                 // New turn (thread-scoped): clear per-turn buffers/policies.
-                var next = state with { Buffer = state.Buffer with { IntentReportedThisTurn = false } };
+                // IMPORTANT: capture whether the thread was idle BEFORE this turn began.
+                // This enables reducer-driven inbox promotion policies without relying on
+                // committed TurnStarted markers (which occur inside the turn).
+                var startedFromIdle = Agent.Harness.Threads.ThreadStatusProjector.IsIdle(state.Committed);
+
+                var next = state with
+                {
+                    Buffer = state.Buffer with
+                    {
+                        IntentReportedThisTurn = false,
+                        TurnStartedFromIdle = startedFromIdle,
+                    }
+                };
+
                 return Commit(next, new TurnStarted());
             }
 
@@ -188,7 +175,11 @@ public static class Core
 
             case ObservedWakeModel wake:
             {
-                var (next, newly) = PromotePendingInbox(state, wake.ThreadId);
+                // Wake-time inbox promotion:
+                // - immediate is always promotable
+                // - enqueue is promotable only if this turn started from an idle state
+                //   (i.e., this wake is the first opportunity to run after being idle).
+                var (next, newly) = PromotePendingInbox(state, wake.ThreadId, allowEnqueue: state.Buffer.TurnStartedFromIdle);
 
                 // Only call the model if the wake actually produced a prompt-visible message that
                 // may require continuation.
@@ -258,20 +249,32 @@ public static class Core
 
             case ObservedTurnStabilized stabilized:
             {
-                var reduced = Commit(state, new TurnEnded());
+                // Turn stabilization is the reducer's chance to:
+                // - deliver pending enqueue inbox items ("only when about to go idle")
+                // - and decide whether the turn can truly end.
+                //
+                // IMPORTANT invariant:
+                // - If we emit CallModel from stabilization, we must NOT commit TurnEnded yet.
+                //   The turn continues until the model/tool lifecycle stabilizes.
+                var (next, newly) = PromotePendingInbox(state, stabilized.ThreadId, allowEnqueue: true);
 
-                // Event-driven waking: if this thread has pending enqueue-delivery inbox items,
-                // request a wake now that we're at an idle boundary. This removes the need for
-                // outer polling loops (design: wake is an effect).
-                if (HasPendingEnqueuedInbox(state.Committed))
+                var shouldCallModel = newly.Any(e => e is UserMessage or InterThreadMessage or ThreadIdleNotification);
+                if (shouldCallModel)
                 {
                     return new ReduceResult(
-                        reduced.Next,
-                        reduced.NewlyCommitted,
-                        ImmutableArray.Create<Effect>(new ScheduleWake(stabilized.ThreadId)));
+                        next,
+                        newly,
+                        ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next))));
                 }
 
-                return reduced;
+                // Nothing else to do: end the turn.
+                var reduced = Commit(next, new TurnEnded());
+
+                var all = ImmutableArray.CreateBuilder<SessionEvent>();
+                all.AddRange(newly);
+                all.AddRange(reduced.NewlyCommitted);
+
+                return new ReduceResult(reduced.Next, all.ToImmutable(), ImmutableArray<Effect>.Empty);
             }
 
 
@@ -605,11 +608,11 @@ public static class Core
         return new ReduceResult(next, ImmutableArray.Create(evt), ImmutableArray<Effect>.Empty);
     }
 
-    private static (SessionState Next, ImmutableArray<SessionEvent> NewlyCommitted) PromotePendingInbox(SessionState state, string currentThreadId)
+    private static (SessionState Next, ImmutableArray<SessionEvent> NewlyCommitted) PromotePendingInbox(
+        SessionState state,
+        string currentThreadId,
+        bool allowEnqueue)
     {
-        // Delivery gating depends on projected thread status at a wake boundary.
-        static bool IsThreadIdleForPromotion(string threadId, ImmutableArray<SessionEvent> committed)
-            => Agent.Harness.Threads.ThreadStatusProjector.IsIdleAtWakeBoundary(committed);
 
         var enq = state.Committed
             .OfType<ThreadInboxMessageEnqueued>()
@@ -625,8 +628,8 @@ public static class Core
         var pending = enq
             .Where(e => !dq.Contains(e.EnvelopeId))
             // immediate: always promotable
-            // enqueue: only promotable once the target thread is idle
-            .Where(e => e.Delivery == "immediate" || IsThreadIdleForPromotion(e.ThreadId, state.Committed))
+            // enqueue: promotable only at the boundaries where the reducer permits it
+            .Where(e => e.Delivery == "immediate" || (allowEnqueue && e.Delivery == "enqueue"))
             .OrderBy(e => e.EnqueuedAtIso)
             .ThenBy(e => e.EnvelopeId)
             .ToList();

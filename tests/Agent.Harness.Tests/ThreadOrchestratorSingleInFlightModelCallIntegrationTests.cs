@@ -40,6 +40,7 @@ public sealed class ThreadOrchestratorSingleInFlightModelCallIntegrationTests
             logLlmPrompts: false,
             sessionStore: sessionStore,
             threadStore: threadStore,
+            threadAppender: threadStore,
             threads: threads);
 
         orchestrator.SetToolCatalog(ImmutableArray.Create(ToolSchemas.ReportIntent));

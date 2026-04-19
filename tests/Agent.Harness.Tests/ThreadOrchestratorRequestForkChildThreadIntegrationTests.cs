@@ -71,6 +71,7 @@ public sealed class ThreadOrchestratorRequestForkChildThreadIntegrationTests
             logLlmPrompts: false,
             sessionStore: sessionStore,
             threadStore: threadStore,
+            threadAppender: threadStore,
             threads: threads);
 
         orchestrator.SetToolCatalog(ImmutableArray<ToolDefinition>.Empty);

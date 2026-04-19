@@ -57,6 +57,7 @@ public sealed class ThreadOrchestratorCoverageEdgeTests
             logLlmPrompts: false,
             sessionStore: store,
             threadStore: threadStore,
+            threadAppender: threadStore,
             threads: threads);
 
         return (o, root);

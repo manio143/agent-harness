@@ -5,6 +5,12 @@ namespace Agent.Harness.Threads;
 
 public sealed class ThreadManager : IThreadTools
 {
+    public bool HasAnyPendingInbox(string threadId)
+    {
+        var items = LoadPendingInbox(threadId);
+        return !items.IsDefaultOrEmpty;
+    }
+
     public bool HasDeliverableEnqueueNow(string threadId)
     {
         if (ProjectStatus(threadId) != ThreadStatus.Idle)

@@ -44,6 +44,7 @@ public sealed class ThreadOrchestratorObserveConcurrencyTests
             logLlmPrompts: false,
             sessionStore: sessionStore,
             threadStore: threadStore,
+            threadAppender: threadStore,
             threads: threads);
 
         orch.InitializeToolCatalog(ImmutableArray.Create(

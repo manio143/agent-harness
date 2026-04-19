@@ -13,13 +13,20 @@ public sealed class MainThreadEventSink : IEventSink
 {
     private readonly string _sessionId;
     private readonly IThreadStore _threadStore;
+    private readonly IThreadCommittedEventAppender _appender;
     private readonly Persistence.ISessionStore _sessionStore;
     private readonly bool _logObserved;
 
-    public MainThreadEventSink(string sessionId, IThreadStore threadStore, Persistence.ISessionStore sessionStore, bool logObserved)
+    public MainThreadEventSink(
+        string sessionId,
+        IThreadStore threadStore,
+        IThreadCommittedEventAppender appender,
+        Persistence.ISessionStore sessionStore,
+        bool logObserved)
     {
         _sessionId = sessionId;
         _threadStore = threadStore;
+        _appender = appender;
         _sessionStore = sessionStore;
         _logObserved = logObserved;
     }
@@ -39,7 +46,7 @@ public sealed class MainThreadEventSink : IEventSink
 
     public ValueTask OnCommittedAsync(SessionEvent committed, CancellationToken cancellationToken = default)
     {
-        _threadStore.AppendCommittedEvent(_sessionId, ThreadIds.Main, committed);
+        _appender.AppendCommittedEvent(_sessionId, ThreadIds.Main, committed);
 
         // Best-effort thread metadata projection (main thread).
         if (committed is SetModel set)

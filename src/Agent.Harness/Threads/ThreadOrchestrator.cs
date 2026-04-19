@@ -47,6 +47,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
     private bool _toolsInitialized;
     private ImmutableArray<ToolDefinition> _toolCatalog;
     private readonly IThreadStore _threadStore;
+    private readonly IThreadCommittedEventAppender _threadAppender;
     private readonly ThreadManager _threads;
 
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _gates = new();
@@ -64,6 +65,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         bool logLlmPrompts,
         ISessionStore sessionStore,
         IThreadStore threadStore,
+        IThreadCommittedEventAppender threadAppender,
         ThreadManager threads,
         Func<string, bool>? isKnownModel = null,
         string? modelCatalogSystemPrompt = null)
@@ -83,6 +85,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         _toolsInitialized = false;
         _toolCatalog = ImmutableArray<ToolDefinition>.Empty;
         _threadStore = threadStore;
+        _threadAppender = threadAppender;
         _threads = threads;
     }
 
@@ -219,7 +222,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 threadId: threadId);
 
             var runner = new SessionRunner(_coreOptions, titleGen, effects);
-            var sink = sinkFactory?.Invoke(threadId) ?? new ThreadEventSink(_sessionId, threadId, _threadStore);
+            var sink = sinkFactory?.Invoke(threadId) ?? new ThreadEventSink(_sessionId, threadId, _threadStore, _threadAppender);
 
             await runner.RunTurnAsync(threadId, initial, WakeObserved(), cancellationToken, sink: sink).ConfigureAwait(false);
 
@@ -251,8 +254,8 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
     {
         // Persist via sink to preserve the "sink-only" invariant.
         var sink = threadId == ThreadIds.Main
-            ? (IEventSink)new MainThreadEventSink(_sessionId, _threadStore, _sessionStore, logObserved: false)
-            : new ThreadEventSink(_sessionId, threadId, _threadStore);
+            ? (IEventSink)new MainThreadEventSink(_sessionId, _threadStore, _threadAppender, _sessionStore, logObserved: false)
+            : new ThreadEventSink(_sessionId, threadId, _threadStore, _threadAppender);
 
         await sink.OnCommittedAsync(new SetModel(model), cancellationToken).ConfigureAwait(false);
     }
@@ -278,7 +281,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         // Seed child committed history from the provided parent snapshot.
         // We intentionally do NOT read from the store here, because callers may request a fork mid-turn
         // (after new commits exist in memory but before they hit the store).
-        var sink = new ThreadEventSink(_sessionId, childThreadId, _threadStore);
+        var sink = new ThreadEventSink(_sessionId, childThreadId, _threadStore, _threadAppender);
         foreach (var evt in seedCommitted)
             await sink.OnCommittedAsync(evt, cancellationToken).ConfigureAwait(false);
 
@@ -302,35 +305,32 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         if (meta?.ParentThreadId is null) return;
 
         // Only notify if truly nothing pending.
-        if (_threads.HasImmediateOrDeliverableEnqueue(threadId))
+        if (_threads.HasAnyPendingInbox(threadId))
             return;
 
         var intent = meta.Intent ?? string.Empty;
-        // Main thread is just another thread in the thread store, but only the ACP layer should
-        // project/publish main-thread committed events.
-        // So: persist the parent inbox enqueue directly to the thread store, without running the
-        // main thread inside the child-thread orchestrator.
+
+        // IMPORTANT invariant: committed events MUST only be appended from within the reducer loop.
+        // So we do not write to the parent's committed log directly here.
+        // Instead, we observe an inbox arrival for the parent and let the reducer commit it.
         var metaDict = ImmutableDictionary.CreateRange(new Dictionary<string, string>
         {
             ["childThreadId"] = threadId,
             ["lastIntent"] = intent,
         });
 
-        var enq = new ThreadInboxMessageEnqueued(
+        var arrived = new ObservedInboxMessageArrived(
             ThreadId: meta.ParentThreadId,
-            EnvelopeId: ThreadEnvelopes.NewEnvelopeId(),
             Kind: ThreadInboxMessageKind.ThreadIdleNotification,
-            Meta: metaDict,
+            Delivery: InboxDelivery.Immediate,
+            EnvelopeId: ThreadEnvelopes.NewEnvelopeId(),
+            EnqueuedAtIso: DateTimeOffset.UtcNow.ToString("O"),
             Source: "thread",
             SourceThreadId: threadId,
-            Delivery: "immediate",
-            EnqueuedAtIso: DateTimeOffset.UtcNow.ToString("O"),
-            Text: $"Child thread became idle. Last intent: {intent}");
+            Text: $"Child thread became idle. Last intent: {intent}",
+            Meta: metaDict);
 
-        _threadStore.AppendCommittedEvent(_sessionId, meta.ParentThreadId, enq);
-
-        // Ensure parent gets a chance to process the notification without user interaction.
-        ScheduleRun(meta.ParentThreadId);
+        await ObserveAsync(meta.ParentThreadId, arrived, cancellationToken).ConfigureAwait(false);
 
     }
 }

@@ -34,7 +34,7 @@ public sealed class ThreadOrchestratorConcurrencyTests
         var (o, sessionId, threadStore) = CreateOrchestrator();
         o.SetToolCatalog(ImmutableArray<ToolDefinition>.Empty);
 
-        var blocking = new BlockingSink(new ThreadEventSink(sessionId, ThreadIds.Main, threadStore));
+        var blocking = new BlockingSink(new ThreadEventSink(sessionId, ThreadIds.Main, threadStore, threadStore));
 
         o.ScheduleRun(ThreadIds.Main);
         var running = o.RunUntilQuiescentAsync(sinkFactory: _ => blocking, CancellationToken.None);
@@ -59,7 +59,7 @@ public sealed class ThreadOrchestratorConcurrencyTests
         var (o, _, threadStore) = CreateOrchestrator();
         o.SetToolCatalog(ImmutableArray<ToolDefinition>.Empty);
 
-        var blocking = new BlockingSink(new ThreadEventSink("s1", ThreadIds.Main, threadStore));
+        var blocking = new BlockingSink(new ThreadEventSink("s1", ThreadIds.Main, threadStore, threadStore));
 
         o.ScheduleRun(ThreadIds.Main);
         var running = o.RunUntilQuiescentAsync(sinkFactory: _ => blocking, CancellationToken.None);
@@ -131,6 +131,7 @@ public sealed class ThreadOrchestratorConcurrencyTests
             logLlmPrompts: false,
             sessionStore: sessionStore,
             threadStore: threadStore,
+            threadAppender: threadStore,
             threads: threads);
 
         return (o, sessionId, threadStore);

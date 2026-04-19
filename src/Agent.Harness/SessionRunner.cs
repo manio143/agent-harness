@@ -44,9 +44,9 @@ public sealed class SessionRunner
             await foreach (var o in observed.WithCancellation(cancellationToken))
                 yield return o;
 
-            // Turn stabilization is an observed marker so the reducer can drive follow-up wakes
-            // via effects (ScheduleWake) rather than outer polling loops.
-            yield return new ObservedTurnStabilized(threadId);
+            // Turn stabilization is injected by TurnRunner when the reducer/effects loop would
+            // otherwise stop. This ensures TurnEnded cannot be committed while effects (model/tools)
+            // are still pending.
         }
 
         // Run the turn as a reducer/effects loop:

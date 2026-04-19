@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 
 namespace Agent.Harness.Threads;
 
-public sealed class InMemoryThreadStore : IThreadStore
+public sealed class InMemoryThreadStore : IThreadStore, IThreadCommittedEventAppender
 {
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, ThreadMetadata>> _meta = new();
     private readonly ConcurrentDictionary<(string sessionId, string threadId), List<SessionEvent>> _events = new();

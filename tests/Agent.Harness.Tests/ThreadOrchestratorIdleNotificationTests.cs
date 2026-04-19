@@ -52,6 +52,7 @@ public sealed class ThreadOrchestratorIdleNotificationTests
             logLlmPrompts: false,
             sessionStore: sessionStore,
             threadStore: threadStore,
+            threadAppender: threadStore,
             threads: threads);
 
         orchestrator.InitializeToolCatalog(ImmutableArray.Create(

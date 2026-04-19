@@ -82,6 +82,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     // Threading engine (long-lived per HarnessAcpSessionAgent instance).
     // Invariant: threading is always enabled (JsonlSessionStore-backed).
     private readonly Agent.Harness.Threads.IThreadStore _threadStore;
+    private readonly Agent.Harness.Threads.IThreadCommittedEventAppender _threadAppender;
     private readonly Agent.Harness.Threads.ThreadManager _threads;
     private readonly Agent.Harness.Threads.ThreadOrchestrator _orchestrator;
 
@@ -150,7 +151,9 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         if (_store is not JsonlSessionStore jsonl)
             throw new InvalidOperationException("HarnessAcpSessionAgent requires JsonlSessionStore (threading is mandatory)");
 
-        _threadStore = new Agent.Harness.Threads.JsonlThreadStore(jsonl.RootDir);
+        var threadStore = new Agent.Harness.Threads.JsonlThreadStore(jsonl.RootDir);
+        _threadStore = threadStore;
+        _threadAppender = threadStore;
         _threads = new Agent.Harness.Threads.ThreadManager(_sessionId, _threadStore);
 
         _orchestrator = new Agent.Harness.Threads.ThreadOrchestrator(
@@ -164,6 +167,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             logLlmPrompts: _logLlmPrompts,
             _store,
             _threadStore,
+            _threadAppender,
             _threads,
             isKnownModel: _isKnownModel,
             modelCatalogSystemPrompt: _modelCatalogSystemPrompt);
@@ -229,7 +233,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             }
 
             // Persist via the normal observed->reduce->commit path.
-            IEventSink cmdPersist = new Agent.Harness.Threads.MainThreadEventSink(_sessionId, _threadStore, _store, logObserved: _logObservedEvents);
+            IEventSink cmdPersist = new Agent.Harness.Threads.MainThreadEventSink(_sessionId, _threadStore, _threadAppender, _store, logObserved: _logObservedEvents);
             var cmdSink = new AcpProjectingEventSink(
                 cmdPersist,
                 _coreOptions,
@@ -260,7 +264,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
 
 
         // Main thread is just another thread: persist committed events into the thread store.
-        IEventSink persist = new Agent.Harness.Threads.MainThreadEventSink(_sessionId, _threadStore, _store, logObserved: _logObservedEvents);
+        IEventSink persist = new Agent.Harness.Threads.MainThreadEventSink(_sessionId, _threadStore, _threadAppender, _store, logObserved: _logObservedEvents);
 
         var sink = new AcpProjectingEventSink(
             persist,

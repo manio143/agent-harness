@@ -52,6 +52,10 @@ public static partial class TurnRunner
         var state = initial;
         onState?.Invoke(state);
 
+        // Threading is the supported runtime shape, but many unit tests call TurnRunner directly.
+        // Default to main thread when a turn-start marker is not present in the observed stream.
+        var currentThreadId = Agent.Harness.Threads.ThreadIds.Main;
+
         sink ??= NullEventSink.Instance;
 
         var observedQueue = new Queue<ObservedChatEvent>();
@@ -86,6 +90,9 @@ public static partial class TurnRunner
             {
                 var next = observedQueue.Dequeue();
 
+                if (next is ObservedTurnStarted ts)
+                    currentThreadId = ts.ThreadId;
+
                 await sink.OnObservedAsync(next, cancellationToken).ConfigureAwait(false);
 
                 var step = ReduceOne(state, next, options);
@@ -102,11 +109,27 @@ public static partial class TurnRunner
                     pendingEffects.AddRange(step.Effects);
             }
 
-            // 3) If no pending effects, and no more external observations, we're done.
+            // 3) If no pending effects, we may be done.
+            // However, we must give the reducer a chance to stabilize the turn:
+            // - deliver enqueue inbox items "at idle"
+            // - and decide whether the turn can truly end.
+            //
+            // This must happen ONLY when the loop would otherwise stop, to avoid committing TurnEnded
+            // while model/tool effects are still pending.
             if (pendingEffects.Count == 0)
             {
                 if (externalDone)
-                    break;
+                {
+                    // If the turn has ended, we're done.
+                    if (!state.Committed.IsDefaultOrEmpty && state.Committed[^1] is TurnEnded)
+                        break;
+
+                    if (currentThreadId is null)
+                        throw new InvalidOperationException("turn_stabilization_requires_thread_id");
+
+                    observedQueue.Enqueue(new ObservedTurnStabilized(currentThreadId));
+                    continue;
+                }
 
                 // Otherwise loop back to pull more external observed items.
                 continue;

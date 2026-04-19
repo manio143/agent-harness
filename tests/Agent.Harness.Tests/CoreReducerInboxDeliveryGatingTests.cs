@@ -38,6 +38,7 @@ public sealed class CoreReducerInboxDeliveryGatingTests
         // Thread is Idle: started then ended.
         var state = SessionState.Empty with
         {
+            Buffer = TurnBuffer.Empty with { TurnStartedFromIdle = true },
             Committed = ImmutableArray.Create<SessionEvent>(
                 new TurnStarted(),
                 new TurnEnded(),

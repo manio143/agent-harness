@@ -48,6 +48,7 @@ public sealed class ThreadOrchestratorThreadStartForkMidTurnCreatesChildAndCommi
             logLlmPrompts: false,
             sessionStore: sessionStore,
             threadStore: threadStore,
+            threadAppender: threadStore,
             threads: threads);
 
         orchestrator.SetToolCatalog(ImmutableArray.Create(

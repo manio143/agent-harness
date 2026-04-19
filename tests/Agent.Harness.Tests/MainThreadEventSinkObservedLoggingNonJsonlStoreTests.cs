@@ -12,9 +12,11 @@ public sealed class MainThreadEventSinkObservedLoggingNonJsonlStoreTests
     public async Task OnObservedAsync_WhenStoreIsNotJsonl_DoesNotWriteFile()
     {
         var sessionId = "s1";
+        var threadStore = new InMemoryThreadStore();
         var sink = new MainThreadEventSink(
             sessionId,
-            threadStore: new InMemoryThreadStore(),
+            threadStore: threadStore,
+            appender: threadStore,
             sessionStore: new FakeSessionStore(),
             logObserved: true);
 

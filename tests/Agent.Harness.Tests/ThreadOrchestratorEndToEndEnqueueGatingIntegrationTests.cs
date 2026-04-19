@@ -50,6 +50,7 @@ public sealed class ThreadOrchestratorEndToEndEnqueueGatingIntegrationTests
             logLlmPrompts: false,
             sessionStore: sessionStore,
             threadStore: threadStore,
+            threadAppender: threadStore,
             threads: threads);
 
         orchestrator.InitializeToolCatalog(ImmutableArray.Create(

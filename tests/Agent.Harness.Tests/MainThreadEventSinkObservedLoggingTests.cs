@@ -18,7 +18,7 @@ public sealed class MainThreadEventSinkObservedLoggingTests
         store.CreateNew(sessionId, new SessionMetadata(sessionId, "/repo", null, "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"));
 
         var threads = new InMemoryThreadStore();
-        var sink = new MainThreadEventSink(sessionId, threads, store, logObserved: true);
+        var sink = new MainThreadEventSink(sessionId, threads, threads, store, logObserved: true);
 
         await sink.OnObservedAsync(new ObservedUserMessage("hi"));
 
@@ -42,7 +42,7 @@ public sealed class MainThreadEventSinkObservedLoggingTests
         store.CreateNew(sessionId, new SessionMetadata(sessionId, "/repo", null, "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"));
 
         var threads = new InMemoryThreadStore();
-        var sink = new MainThreadEventSink(sessionId, threads, store, logObserved: false);
+        var sink = new MainThreadEventSink(sessionId, threads, threads, store, logObserved: false);
 
         await sink.OnObservedAsync(new ObservedUserMessage("hi"));
 

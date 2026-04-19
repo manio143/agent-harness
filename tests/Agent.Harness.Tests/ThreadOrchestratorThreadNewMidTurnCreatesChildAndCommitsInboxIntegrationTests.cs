@@ -48,6 +48,7 @@ public sealed class ThreadOrchestratorThreadStartMidTurnCreatesChildAndCommitsIn
             logLlmPrompts: false,
             sessionStore: sessionStore,
             threadStore: threadStore,
+            threadAppender: threadStore,
             threads: threads);
 
         // Tool catalog must include the tools the scripted chat will call.

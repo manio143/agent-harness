@@ -11,12 +11,14 @@ public sealed class ThreadEventSink : IEventSink
     private readonly string _sessionId;
     private readonly string _threadId;
     private readonly IThreadStore _store;
+    private readonly IThreadCommittedEventAppender _appender;
 
-    public ThreadEventSink(string sessionId, string threadId, IThreadStore store)
+    public ThreadEventSink(string sessionId, string threadId, IThreadStore store, IThreadCommittedEventAppender appender)
     {
         _sessionId = sessionId;
         _threadId = threadId;
         _store = store;
+        _appender = appender;
     }
 
     public ValueTask OnObservedAsync(ObservedChatEvent evt, CancellationToken cancellationToken)
@@ -24,7 +26,7 @@ public sealed class ThreadEventSink : IEventSink
 
     public ValueTask OnCommittedAsync(SessionEvent evt, CancellationToken cancellationToken)
     {
-        _store.AppendCommittedEvent(_sessionId, _threadId, evt);
+        _appender.AppendCommittedEvent(_sessionId, _threadId, evt);
 
         // Projection: keep thread metadata in sync with model changes.
         if (evt is SetModel setModel)

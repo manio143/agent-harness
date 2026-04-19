@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace Agent.Harness.Threads;
 
-public sealed class JsonlThreadStore : IThreadStore
+public sealed class JsonlThreadStore : IThreadStore, IThreadCommittedEventAppender
 {
     private readonly string _rootDir;
 

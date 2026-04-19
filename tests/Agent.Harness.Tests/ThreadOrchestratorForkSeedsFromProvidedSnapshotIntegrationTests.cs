@@ -67,6 +67,7 @@ public sealed class ThreadOrchestratorForkSeedsFromProvidedSnapshotIntegrationTe
             logLlmPrompts: false,
             sessionStore: sessionStore,
             threadStore: threadStore,
+            threadAppender: threadStore,
             threads: threads);
 
         orch.SetToolCatalog(ImmutableArray<ToolDefinition>.Empty);
