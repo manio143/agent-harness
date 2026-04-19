@@ -49,12 +49,12 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
     private readonly ModelCatalog _modelCatalog;
     private readonly AgentServerOptions _options;
     private readonly IMcpDiscovery _mcpDiscovery;
+    private readonly McpSessionToolCache _mcpCache;
 
     // Session store is rooted at ACP client-provided CWD to align with acpx expectations.
     // We keep a per-session cache because subsequent calls like CreateSessionAgent only provide sessionId.
     private readonly Dictionary<string, ISessionStore> _storesBySessionId = new();
 
-    private readonly Dictionary<string, (ImmutableArray<ToolDefinition> Tools, IMcpToolInvoker Invoker)> _mcp = new();
 
     public AcpHarnessAgentFactory(
         Microsoft.Extensions.AI.IChatClient chat,
@@ -81,6 +81,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         _modelCatalog = modelCatalog;
         _options = options;
         _mcpDiscovery = mcpDiscovery ?? new DefaultMcpDiscovery();
+        _mcpCache = new McpSessionToolCache(_mcpDiscovery);
     }
 
     private ISessionStore CreateStoreForCwd(string cwd)
@@ -225,10 +226,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 timeout.CancelAfter(TimeSpan.FromSeconds(10));
                 var discovered = await _mcpDiscovery.DiscoverAsync(request, timeout.Token).ConfigureAwait(false);
-                lock (_mcp)
-                {
-                    _mcp[sessionId] = discovered;
-                }
+                _mcpCache.Set(sessionId, discovered);
             }
             catch (Exception ex)
             {
@@ -272,7 +270,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
 
         try
         {
-            await EnsureMcpDiscoveredOnLoadAsync(store, request.SessionId, cancellationToken).ConfigureAwait(false);
+            await _mcpCache.EnsureDiscoveredOnLoadAsync(store, request.SessionId, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -301,39 +299,6 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         return resp;
     }
 
-    private async Task EnsureMcpDiscoveredOnLoadAsync(ISessionStore store, string sessionId, CancellationToken cancellationToken)
-    {
-        // If already discovered (cached), nothing to do.
-        lock (_mcp)
-        {
-            if (_mcp.ContainsKey(sessionId))
-                return;
-        }
-
-        if (store is not JsonlSessionStore js)
-            return;
-
-        var mcpConfigPath = Path.Combine(js.RootDir, sessionId, "mcpServers.json");
-        if (!File.Exists(mcpConfigPath))
-            return;
-
-        var json = await File.ReadAllTextAsync(mcpConfigPath, cancellationToken).ConfigureAwait(false);
-        var servers = JsonSerializer.Deserialize<List<McpServer>>(json, AcpJson.Options) ?? new List<McpServer>();
-        if (servers.Count == 0)
-            return;
-
-        var metaCwd = store.TryLoadMetadata(sessionId)?.Cwd ?? "/";
-        var req = new NewSessionRequest { Cwd = metaCwd, McpServers = servers };
-
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(10));
-        var discovered = await _mcpDiscovery.DiscoverAsync(req, timeout.Token).ConfigureAwait(false);
-
-        lock (_mcp)
-        {
-            _mcp[sessionId] = discovered;
-        }
-    }
 
     public Task<ListSessionsResponse> ListSessionsAsync(ListSessionsRequest request, CancellationToken cancellationToken)
     {
@@ -393,13 +358,9 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             ? SessionState.Empty
             : new SessionState(committed, TurnBuffer.Empty, ImmutableArray<ToolDefinition>.Empty);
 
-        (ImmutableArray<ToolDefinition> Tools, IMcpToolInvoker Invoker) mcp;
-        lock (_mcp)
-        {
-            mcp = _mcp.TryGetValue(sessionId, out var v)
-                ? v
-                : (ImmutableArray<ToolDefinition>.Empty, NullMcpToolInvoker.Instance);
-        }
+        var mcp = _mcpCache.TryGet(sessionId, out var v)
+            ? v
+            : (ImmutableArray<ToolDefinition>.Empty, NullMcpToolInvoker.Instance);
 
 
         // Merge MCP tools into the session state tool catalog (built-ins are merged later per client capabilities).
