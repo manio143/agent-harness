@@ -236,12 +236,24 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             // NOTE: We intentionally run a direct "single turn" runner for the main thread here,
             // even when the threaded orchestrator is enabled, because /set-model is a local command
             // and we want deterministic persistence (no queue scheduling dependency).
-            if (_threadStore is not null)
+            if (_threadStore is not null && _orchestrator is not null)
             {
-                // Local command: persist SetModel directly into the main thread event log.
-                // (We still keep the same storage shape/projections as normal turns.)
-                var cmdPersist = new Agent.Harness.Threads.MainThreadEventSink(_sessionId, _threadStore, _store, logObserved: _logObservedEvents);
-                await cmdPersist.OnCommittedAsync(new SetModel(requestedModel), cancellationToken).ConfigureAwait(false);
+                // Threaded mode: go through the standard observed -> reduce -> commit pipeline.
+                IEventSink cmdPersist = new Agent.Harness.Threads.MainThreadEventSink(_sessionId, _threadStore, _store, logObserved: _logObservedEvents);
+                var cmdSink = new AcpProjectingEventSink(
+                    cmdPersist,
+                    _coreOptions,
+                    _publishOptions,
+                    execute: (e, ct) => ExecuteEmissionAsync(e, turn, ct));
+
+                await _orchestrator.ObserveAsync(
+                    Agent.Harness.Threads.ThreadIds.Main,
+                    new ObservedSetModel(Agent.Harness.Threads.ThreadIds.Main, requestedModel),
+                    cancellationToken).ConfigureAwait(false);
+
+                await _orchestrator.RunUntilQuiescentAsync(
+                    sinkFactory: tid => tid == Agent.Harness.Threads.ThreadIds.Main ? cmdSink : null,
+                    cancellationToken).ConfigureAwait(false);
 
                 _state = _state with
                 {

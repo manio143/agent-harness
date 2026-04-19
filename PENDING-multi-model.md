@@ -198,12 +198,12 @@ ACP command exposed by `HarnessAcpSessionAgent` command parser:
 3. Integration tests:
    - starting child with `model=granite` results in SetModel committed in child
 
-### Step 10 — `/set-model` ACP slash command
+### Step 10 — `/set-model` ACP slash command ✅
 1. Extend ACP input parsing in `HarnessAcpSessionAgent`.
 2. Tests:
    - slash command produces `ObservedSetModel(main, X)` and commits SetModel
 
-### Step 11 — External system prompt inputs: advertise model catalog
+### Step 11 — External system prompt inputs: advertise model catalog ✅
 1. Add a small system message in CallModel prompt building listing:
    - available friendly model names
    - default model
@@ -211,7 +211,7 @@ ACP command exposed by `HarnessAcpSessionAgent` command parser:
 2. Tests:
    - prompt contains the model list line(s)
 
-### Step 12 — Samples + docs
+### Step 12 — Samples + docs ✅
 1. Update samples/prompts to use `/set-model` and/or `thread_start`.
 2. Ensure `dotnet test MarianAgent.slnx -c Release` and samples run.
 
