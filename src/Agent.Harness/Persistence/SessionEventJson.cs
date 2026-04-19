@@ -225,15 +225,15 @@ public static class SessionEventJson
                 ImmutableDictionary<string, string>? meta = metaBuilder.Count == 0 ? null : metaBuilder.ToImmutable();
 
                 return new ThreadInboxMessageEnqueued(
-                    ThreadId: root.GetProperty("threadId").GetString() ?? string.Empty,
-                    EnvelopeId: root.GetProperty("envelopeId").GetString() ?? string.Empty,
+                    ThreadId: root.TryGetProperty("threadId", out var tid) ? (tid.GetString() ?? string.Empty) : string.Empty,
+                    EnvelopeId: root.TryGetProperty("envelopeId", out var eid) ? (eid.GetString() ?? string.Empty) : string.Empty,
                     Kind: kind,
                     Meta: meta,
-                    Source: root.GetProperty("source").GetString() ?? string.Empty,
-                    SourceThreadId: root.TryGetProperty("sourceThreadId", out var st) ? st.GetString() : null,
-                    Delivery: Agent.Harness.Threads.ThreadInboxDeliveryText.Normalize(root.GetProperty("delivery").GetString()),
-                    EnqueuedAtIso: root.GetProperty("enqueuedAtIso").GetString() ?? string.Empty,
-                    Text: root.GetProperty("text").GetString() ?? string.Empty);
+                    Source: root.TryGetProperty("source", out var src) ? (src.GetString() ?? string.Empty) : string.Empty,
+                    SourceThreadId: root.TryGetProperty("sourceThreadId", out var st) && st.ValueKind == JsonValueKind.String ? st.GetString() : null,
+                    Delivery: Agent.Harness.Threads.ThreadInboxDeliveryText.Normalize(root.TryGetProperty("delivery", out var del) ? del.GetString() : null),
+                    EnqueuedAtIso: root.TryGetProperty("enqueuedAtIso", out var enq) ? (enq.GetString() ?? string.Empty) : string.Empty,
+                    Text: root.TryGetProperty("text", out var txt) ? (txt.GetString() ?? string.Empty) : string.Empty);
             }
 
             case "thread_inbox_message_dequeued":

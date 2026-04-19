@@ -62,4 +62,30 @@ public sealed class SessionEventJsonTests
         enq.Kind.Should().Be(ThreadInboxMessageKind.InterThreadMessage);
         enq.Meta!.Should().ContainKey(ThreadInboxMetaKeys.UnknownInboxKind).WhoseValue.Should().Be("99");
     }
+
+    [Fact]
+    public void Deserialize_ThreadInboxMessageEnqueued_WhenDeliveryMissing_DefaultsToImmediate()
+    {
+        var json = """
+        {"type":"thread_inbox_message_enqueued","threadId":"main","envelopeId":"env1","kind":"InterThreadMessage","meta":null,"source":"thread","sourceThreadId":"thr_x","enqueuedAtIso":"t","text":"hi"}
+        """;
+
+        var evt = SessionEventJson.Deserialize(json);
+
+        var enq = evt.Should().BeOfType<ThreadInboxMessageEnqueued>().Subject;
+        enq.Delivery.Should().Be(ThreadInboxDeliveryText.Immediate);
+    }
+
+    [Fact]
+    public void Deserialize_ThreadInboxMessageEnqueued_WhenEnqueuedAtMissing_DoesNotThrow()
+    {
+        var json = """
+        {"type":"thread_inbox_message_enqueued","threadId":"main","envelopeId":"env1","kind":"InterThreadMessage","meta":null,"source":"thread","sourceThreadId":"thr_x","delivery":"immediate","text":"hi"}
+        """;
+
+        var evt = SessionEventJson.Deserialize(json);
+
+        var enq = evt.Should().BeOfType<ThreadInboxMessageEnqueued>().Subject;
+        enq.EnqueuedAtIso.Should().Be("");
+    }
 }
