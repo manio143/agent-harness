@@ -629,8 +629,8 @@ public static class Core
             .Where(e => !dq.Contains(e.EnvelopeId))
             // immediate: always promotable
             // enqueue: promotable only at the boundaries where the reducer permits it
-            .Where(e => e.Delivery == Agent.Harness.Threads.ThreadInboxDeliveryText.Immediate
-                || (allowEnqueue && e.Delivery == Agent.Harness.Threads.ThreadInboxDeliveryText.Enqueue))
+            .Where(e => Agent.Harness.Threads.ThreadInboxDeliveryText.IsImmediate(e.Delivery)
+                || (allowEnqueue && Agent.Harness.Threads.ThreadInboxDeliveryText.IsEnqueue(e.Delivery)))
             .OrderBy(e => e.EnqueuedAtIso)
             .ThenBy(e => e.EnvelopeId)
             .ToList();

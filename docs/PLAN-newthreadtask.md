@@ -52,7 +52,7 @@ Introduce a first-class **NewThreadTask** concept so that:
   - Ensured `thread_start context=fork` does not seed prior `NewThreadTask` bootstrap markers (prevents nested fork confusion)
   - Centralized NewThreadTask markup in `NewThreadTaskMarkup.Render(...)` (prompt + thread_read share the same renderer)
   - Centralized inbox meta key names in `ThreadInboxMetaKeys` (no more stringly-typed meta access)
-  - Centralized delivery string serialization/parsing in `ThreadInboxDeliveryText` (stable persisted values)
+  - Centralized delivery string serialization/parsing in `ThreadInboxDeliveryText` (stable persisted values, case-insensitive read for back-compat)
   - Added JSONL persistence for committed `NewThreadTask` events (serialize + deserialize) + JsonlThreadStore round-trip test
   - Enforced reducer invariant: only one committed `NewThreadTask` per thread (duplicates are dequeued but not re-committed)
   - Locked fallback semantics: if `NewThreadTask` meta is missing, reducer falls back to `SourceThreadId` and `IsFork=false`

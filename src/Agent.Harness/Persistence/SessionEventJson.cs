@@ -203,7 +203,7 @@ public static class SessionEventJson
                     Meta: meta,
                     Source: root.GetProperty("source").GetString() ?? string.Empty,
                     SourceThreadId: root.TryGetProperty("sourceThreadId", out var st) ? st.GetString() : null,
-                    Delivery: root.GetProperty("delivery").GetString() ?? string.Empty,
+                    Delivery: Agent.Harness.Threads.ThreadInboxDeliveryText.Normalize(root.GetProperty("delivery").GetString()),
                     EnqueuedAtIso: root.GetProperty("enqueuedAtIso").GetString() ?? string.Empty,
                     Text: root.GetProperty("text").GetString() ?? string.Empty);
             }

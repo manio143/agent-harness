@@ -14,10 +14,14 @@ public static class ThreadInboxDeliveryText
         };
 
     public static InboxDelivery Parse(string? delivery)
-        => delivery switch
-        {
-            Enqueue => InboxDelivery.Enqueue,
-            Immediate => InboxDelivery.Immediate,
-            _ => InboxDelivery.Immediate,
-        };
+        => IsEnqueue(delivery) ? InboxDelivery.Enqueue : InboxDelivery.Immediate;
+
+    public static string Normalize(string? delivery)
+        => Serialize(Parse(delivery));
+
+    public static bool IsImmediate(string? delivery)
+        => string.Equals(delivery, Immediate, StringComparison.OrdinalIgnoreCase);
+
+    public static bool IsEnqueue(string? delivery)
+        => string.Equals(delivery, Enqueue, StringComparison.OrdinalIgnoreCase);
 }
