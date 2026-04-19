@@ -305,7 +305,20 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         if (meta?.ParentThreadId is null) return;
 
         // Only notify if truly nothing pending.
+        // "Pending" includes:
+        // - committed inbox items (enqueued but not yet dequeued/promoted)
+        // - observed-but-not-yet-reduced work (queued observations / queued run)
+        //
+        // Otherwise we can incorrectly signal "idle" while there is follow-up work already scheduled.
         if (_threads.HasAnyPendingInbox(threadId))
+            return;
+
+        // If a new observation was enqueued during this thread's execution, ObserveAsync will have
+        // scheduled a follow-up run. Do not notify parent until that follow-up drains.
+        if (_queued.ContainsKey(threadId))
+            return;
+
+        if (_observedQueues.TryGetValue(threadId, out var q) && !q.IsEmpty)
             return;
 
         var intent = meta.Intent ?? string.Empty;
