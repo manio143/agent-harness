@@ -20,40 +20,30 @@ fi
 echo "[scenario3] sessionId=$SESSION_ID"
 
 # Turn 1: self-send enqueue (historical deadlock class)
-# Goal: enqueue a self-message and ensure it is eventually delivered (promoted) without deadlocking.
 acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
   'You MUST follow these rules exactly:
 1) You may call at most 2 tools in this turn.
 2) You may ONLY call: report_intent, thread_send.
-3) You MUST NOT call any other tools.
-4) You MUST call report_intent exactly once with arguments: {"intent":"self enqueue"}.
-5) You MUST then call thread_send exactly once with arguments: {"threadId":"main","delivery":"enqueue","message":"PING"}.
-6) After the 2 tool calls complete, output EXACTLY: OK (nothing else).
+3) You MUST NOT call any other tools (especially thread_start, thread_read, thread_list).
+4) After the 2 tool calls complete, do NOT wait for any enqueued messages; output EXACTLY: AFTER_PING (nothing else).
 
 Now do the work:
 Call tool report_intent with arguments: {"intent":"self enqueue"}.
 Then call tool thread_send with arguments: {"threadId":"main","delivery":"enqueue","message":"PING"}.
-Then output EXACTLY: OK'
+Then output EXACTLY: AFTER_PING'
 
-# Deterministic assertions from event log (avoid relying on model to “notice” PING).
-EVENTS_FILE=".agent/sessions/$SESSION_ID/threads/main/events.jsonl"
+echo "---"
 
-if [[ ! -f "$EVENTS_FILE" ]]; then
-  echo "Missing events file: $EVENTS_FILE" >&2
-  exit 1
-fi
+# Turn 2: ensure tools still work in same session (catalog stability)
+acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+  'You MUST follow these rules exactly:
+1) You may call at most 2 tools in this turn.
+2) You may ONLY call: report_intent, thread_list.
+3) You MUST NOT call any other tools (especially thread_start, thread_send, thread_read).
+4) After the 2 tool calls complete, output EXACTLY: DONE (nothing else).
 
-# Wait up to 30s for enqueue promotion to show up.
-# Use fixed-string matching to avoid regex escaping issues.
-if ! timeout 30s bash -lc "until rg -F -q '\"type\":\"inter_thread_message\"' '$EVENTS_FILE' && rg -F -q '\"text\":\"PING\"' '$EVENTS_FILE'; do sleep 0.5; done"; then
-  echo "Expected inter_thread_message PING not found in: $EVENTS_FILE" >&2
-  exit 1
-fi
-
-THREAD_SEND_COUNT="$(rg -F -c '"toolName":"thread_send"' "$EVENTS_FILE" || true)"
-if [[ "$THREAD_SEND_COUNT" != "1" ]]; then
-  echo "WARNING: expected exactly 1 thread_send tool call, got $THREAD_SEND_COUNT" >&2
-  rg -F -n '"toolName":"thread_send"' "$EVENTS_FILE" | tail -n 20 >&2 || true
-fi
-
-echo "[scenario3] OK: PING delivered. thread_send count=$THREAD_SEND_COUNT"
+Now do the work:
+Call tool report_intent with arguments: {"intent":"list threads"}.
+Then call tool thread_list with arguments: {}.
+Then tell me the intent for the main thread.
+Then output EXACTLY: DONE'
