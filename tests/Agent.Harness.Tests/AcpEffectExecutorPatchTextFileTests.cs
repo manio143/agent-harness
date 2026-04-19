@@ -48,7 +48,7 @@ public sealed class AcpEffectExecutorPatchTextFileTests
 
         client.Files["/cwd/demo.txt"].Should().Be("hello there");
 
-        var completed = obs.Should().ContainSingle(e => e is ObservedToolCallCompleted).Which as ObservedToolCallCompleted;
+        var completed = obs.OfType<ObservedToolCallCompleted>().Single();
         var json = (JsonElement)completed.Result;
         json.GetProperty("ok").GetBoolean().Should().BeTrue();
         json.GetProperty("beforeSha256").GetString().Should().Be(Sha256Hex("hello world"));
@@ -119,7 +119,7 @@ public sealed class AcpEffectExecutorPatchTextFileTests
             new ExecuteToolCall("call_1", "read_text_file", new { path = "demo.txt" }),
             CancellationToken.None);
 
-        var completed = obs.Should().ContainSingle(e => e is ObservedToolCallCompleted).Which as ObservedToolCallCompleted;
+        var completed = obs.OfType<ObservedToolCallCompleted>().Single();
         var json = (JsonElement)completed.Result;
 
         json.GetProperty("content").GetString().Should().Be("hello");
