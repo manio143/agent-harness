@@ -328,8 +328,8 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         // Instead, we observe an inbox arrival for the parent and let the reducer commit it.
         var metaDict = ImmutableDictionary.CreateRange(new Dictionary<string, string>
         {
-            ["childThreadId"] = threadId,
-            ["lastIntent"] = intent,
+            [ThreadInboxMetaKeys.ChildThreadId] = threadId,
+            [ThreadInboxMetaKeys.LastIntent] = intent,
         });
 
         var arrived = new ObservedInboxMessageArrived(

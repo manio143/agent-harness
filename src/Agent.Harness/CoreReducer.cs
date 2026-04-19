@@ -668,8 +668,8 @@ public static class Core
 
                 case Agent.Harness.Threads.ThreadInboxMessageKind.ThreadIdleNotification:
                 {
-                    var childId = e.Meta is not null && e.Meta.TryGetValue("childThreadId", out var c) ? c : (e.SourceThreadId ?? "");
-                    var lastIntent = e.Meta is not null && e.Meta.TryGetValue("lastIntent", out var i) ? i : "";
+                    var childId = e.Meta is not null && e.Meta.TryGetValue(Agent.Harness.Threads.ThreadInboxMetaKeys.ChildThreadId, out var c) ? c : (e.SourceThreadId ?? "");
+                    var lastIntent = e.Meta is not null && e.Meta.TryGetValue(Agent.Harness.Threads.ThreadInboxMetaKeys.LastIntent, out var i) ? i : "";
                     var idle = new ThreadIdleNotification(ChildThreadId: childId, LastIntent: lastIntent);
                     committed = committed.Add(idle);
                     builder.Add(idle);
@@ -683,12 +683,12 @@ public static class Core
                     if (hasNewThreadTask)
                         break;
 
-                    var parentId = e.Meta is not null && e.Meta.TryGetValue("parentThreadId", out var p)
+                    var parentId = e.Meta is not null && e.Meta.TryGetValue(Agent.Harness.Threads.ThreadInboxMetaKeys.ParentThreadId, out var p)
                         ? p
                         : (e.SourceThreadId ?? "");
 
                     var isFork = e.Meta is not null
-                        && e.Meta.TryGetValue("isFork", out var f)
+                        && e.Meta.TryGetValue(Agent.Harness.Threads.ThreadInboxMetaKeys.IsFork, out var f)
                         && bool.TryParse(f, out var fork)
                         && fork;
 

@@ -70,8 +70,8 @@ public sealed class ThreadOrchestratorIdleNotificationTests
             e.ThreadId == ThreadIds.Main &&
             e.Kind == ThreadInboxMessageKind.ThreadIdleNotification &&
             e.Meta != null &&
-            e.Meta["childThreadId"] == childId &&
-            e.Meta["lastIntent"] == "doing work");
+            e.Meta[ThreadInboxMetaKeys.ChildThreadId] == childId &&
+            e.Meta[ThreadInboxMetaKeys.LastIntent] == "doing work");
     }
 
     private sealed class FakeClientCaller : IAcpClientCaller

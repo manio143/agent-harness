@@ -81,7 +81,7 @@ public sealed class EngineChildThreadIdleNotificationMainLogIntegrationTests
             && enq.Kind == ThreadInboxMessageKind.ThreadIdleNotification
             && enq.SourceThreadId == childId
             && enq.Meta is not null
-            && enq.Meta.TryGetValue("childThreadId", out var tid)
+            && enq.Meta.TryGetValue(ThreadInboxMetaKeys.ChildThreadId, out var tid)
             && tid == childId);
 
         hasIdle.Should().BeTrue($"Expected a ThreadIdleNotification inbox enqueue in main log for child={childId}.\nMain committed:\n{string.Join("\n", mainCommitted.Select(e => e.ToString()))}");

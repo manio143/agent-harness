@@ -46,8 +46,8 @@ public sealed class CoreReducerInboxPromotionTests
         var now = "2026-04-15T00:00:00Z";
         var meta = ImmutableDictionary.CreateRange(new Dictionary<string, string>
         {
-            ["childThreadId"] = "thr_child",
-            ["lastIntent"] = "doing work",
+            [ThreadInboxMetaKeys.ChildThreadId] = "thr_child",
+            [ThreadInboxMetaKeys.LastIntent] = "doing work",
         });
 
         var arrived = new ObservedInboxMessageArrived(

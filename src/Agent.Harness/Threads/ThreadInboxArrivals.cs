@@ -58,8 +58,8 @@ public static class ThreadInboxArrivals
             Text: message,
             Meta: ImmutableDictionary.CreateRange(new[]
             {
-                new KeyValuePair<string, string>("parentThreadId", parentThreadId),
-                new KeyValuePair<string, string>("isFork", isFork ? "true" : "false"),
+                new KeyValuePair<string, string>(ThreadInboxMetaKeys.ParentThreadId, parentThreadId),
+                new KeyValuePair<string, string>(ThreadInboxMetaKeys.IsFork, isFork ? "true" : "false"),
             }));
 
     public static ObservedInboxMessageArrived ThreadIdleNotification(
@@ -78,7 +78,7 @@ public static class ThreadInboxArrivals
             Text: "",
             Meta: ImmutableDictionary.CreateRange(new[]
             {
-                new KeyValuePair<string, string>("childThreadId", childThreadId),
-                new KeyValuePair<string, string>("lastIntent", lastIntent),
+                new KeyValuePair<string, string>(ThreadInboxMetaKeys.ChildThreadId, childThreadId),
+                new KeyValuePair<string, string>(ThreadInboxMetaKeys.LastIntent, lastIntent),
             }));
 }

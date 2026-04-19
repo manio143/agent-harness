@@ -77,8 +77,8 @@ public sealed class ThreadOrchestratorThreadStartMidTurnCreatesChildAndCommitsIn
         var task = childCommitted.OfType<ThreadInboxMessageEnqueued>().Single(e => e.Kind == ThreadInboxMessageKind.NewThreadTask);
         task.Text.Should().Be("child hello");
         task.Meta.Should().NotBeNull();
-        task.Meta!.Should().ContainKey("parentThreadId").WhoseValue.Should().Be(ThreadIds.Main);
-        task.Meta!.Should().ContainKey("isFork").WhoseValue.Should().Be("true");
+        task.Meta!.Should().ContainKey(ThreadInboxMetaKeys.ParentThreadId).WhoseValue.Should().Be(ThreadIds.Main);
+        task.Meta!.Should().ContainKey(ThreadInboxMetaKeys.IsFork).WhoseValue.Should().Be("true");
     }
 
     private sealed class NullClientCaller : IAcpClientCaller

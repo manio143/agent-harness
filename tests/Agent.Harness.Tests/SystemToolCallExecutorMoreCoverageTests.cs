@@ -95,8 +95,8 @@ public sealed class SystemToolCallExecutorMoreCoverageTests
         arrived.Kind.Should().Be(ThreadInboxMessageKind.NewThreadTask);
         arrived.Text.Should().Be("hi");
         arrived.Meta.Should().NotBeNull();
-        arrived.Meta!.Should().ContainKey("parentThreadId").WhoseValue.Should().Be("thr_main");
-        arrived.Meta!.Should().ContainKey("isFork").WhoseValue.Should().Be("false");
+        arrived.Meta!.Should().ContainKey(ThreadInboxMetaKeys.ParentThreadId).WhoseValue.Should().Be("thr_main");
+        arrived.Meta!.Should().ContainKey(ThreadInboxMetaKeys.IsFork).WhoseValue.Should().Be("false");
     }
 
     [Fact]

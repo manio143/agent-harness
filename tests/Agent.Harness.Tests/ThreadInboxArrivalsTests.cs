@@ -56,7 +56,7 @@ public sealed class ThreadInboxArrivalsTests
         obs.SourceThreadId.Should().Be("child_1");
         obs.Text.Should().Be("");
         obs.Meta.Should().BeEquivalentTo(ImmutableDictionary<string, string>.Empty
-            .Add("childThreadId", "child_1")
-            .Add("lastIntent", "summarize"));
+            .Add(ThreadInboxMetaKeys.ChildThreadId, "child_1")
+            .Add(ThreadInboxMetaKeys.LastIntent, "summarize"));
     }
 }

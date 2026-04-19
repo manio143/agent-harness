@@ -16,8 +16,8 @@ public sealed class CoreReducerNewThreadTaskPromotionTests
 
         var meta = ImmutableDictionary.CreateRange(new Dictionary<string, string>
         {
-            ["parentThreadId"] = "main",
-            ["isFork"] = "true",
+            [ThreadInboxMetaKeys.ParentThreadId] = "main",
+            [ThreadInboxMetaKeys.IsFork] = "true",
         });
 
         var arrived = new ObservedInboxMessageArrived(
@@ -55,8 +55,8 @@ public sealed class CoreReducerNewThreadTaskPromotionTests
 
         var meta = ImmutableDictionary.CreateRange(new Dictionary<string, string>
         {
-            ["parentThreadId"] = "main",
-            ["isFork"] = "true",
+            [ThreadInboxMetaKeys.ParentThreadId] = "main",
+            [ThreadInboxMetaKeys.IsFork] = "true",
         });
 
         var arrived = new ObservedInboxMessageArrived(
