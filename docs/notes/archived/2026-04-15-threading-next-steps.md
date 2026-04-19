@@ -104,12 +104,12 @@ public async Task MultipleParents_EnqueueToSameChild_AllMessagesDelivered()
 **Still in use:**
 
 1. **CreateChildThread(parentThreadId)**
-   - Called by: `AcpEffectExecutor` for `thread_new` tool
+   - Called by: `AcpEffectExecutor` for `thread_start(context="new")` tool
    - Status: ✅ Acceptable - this is a write-side command handler
    - Creates thread metadata (JSONL write)
 
 2. **ForkChildThread(parentThreadId, parentState)**
-   - Called by: `AcpEffectExecutor` for `thread_fork` tool
+   - Called by: `AcpEffectExecutor` for `thread_start(context="fork")` tool
    - Status: ✅ Acceptable - write-side command
    - Copies committed events to new thread
 
