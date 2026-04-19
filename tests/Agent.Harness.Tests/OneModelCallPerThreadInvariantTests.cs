@@ -140,7 +140,7 @@ public sealed class OneModelCallPerThreadInvariantTests
 
             var msgText = string.Join("\n", messages.Select(Render));
 
-            bool isChildPrompt = msgText.Contains("<inter_thread", StringComparison.Ordinal) && msgText.Contains("do work", StringComparison.Ordinal);
+            bool isChildPrompt = msgText.Contains("<thread_created", StringComparison.Ordinal) && msgText.Contains("do work", StringComparison.Ordinal);
             bool isMainIdleWake = msgText.Contains("<thread_idle", StringComparison.Ordinal);
             bool isMainPrompt = !isChildPrompt && !isMainIdleWake && msgText.Contains("Hi", StringComparison.Ordinal);
 

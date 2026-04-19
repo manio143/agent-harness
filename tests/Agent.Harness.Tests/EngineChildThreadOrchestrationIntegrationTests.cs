@@ -208,7 +208,7 @@ public sealed class EngineChildThreadOrchestrationIntegrationTests
             var msgText = string.Join("\n", messages.Select(Render));
 
             bool isMainPrompt2 = msgText.Contains("Check child=", StringComparison.Ordinal);
-            bool isChildPrompt = msgText.Contains("<inter_thread", StringComparison.Ordinal) && msgText.Contains("do work", StringComparison.Ordinal);
+            bool isChildPrompt = msgText.Contains("<thread_created", StringComparison.Ordinal) && msgText.Contains("do work", StringComparison.Ordinal);
 
             // After child becomes idle, the parent may receive a <thread_idle .../> system message and
             // be woken automatically (wake is an effect). Treat this as a follow-up main prompt.

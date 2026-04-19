@@ -127,7 +127,8 @@ public sealed class ThreadOrchestratorEndToEndEnqueueGatingIntegrationTests
 
             var msgText = string.Join("\n", messages.Select(Render));
 
-            var isChildPrompt = msgText.Contains("<inter_thread", StringComparison.Ordinal);
+            var isChildPrompt = msgText.Contains("<thread_created", StringComparison.Ordinal)
+                && msgText.Contains("do work", StringComparison.Ordinal);
             var isMainPrompt2 = msgText.Contains("from child", StringComparison.Ordinal);
             var isMainPrompt1 = !isChildPrompt && !isMainPrompt2 && msgText.Contains("\nHi", StringComparison.Ordinal);
 

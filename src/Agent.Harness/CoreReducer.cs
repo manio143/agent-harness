@@ -187,7 +187,7 @@ public static class Core
                 // Design grounding: child thread completion is signaled to the parent via a
                 // ThreadIdleNotification. The parent often needs to continue without waiting
                 // for user interaction.
-                var shouldCallModel = newly.Any(e => e is UserMessage or InterThreadMessage or ThreadIdleNotification);
+                var shouldCallModel = newly.Any(e => e is UserMessage or InterThreadMessage or ThreadIdleNotification or NewThreadTask);
                 var effects = shouldCallModel ? ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next))) : ImmutableArray<Effect>.Empty;
 
                 return new ReduceResult(next, newly, effects);
@@ -258,7 +258,7 @@ public static class Core
                 //   The turn continues until the model/tool lifecycle stabilizes.
                 var (next, newly) = PromotePendingInbox(state, stabilized.ThreadId, allowEnqueue: true);
 
-                var shouldCallModel = newly.Any(e => e is UserMessage or InterThreadMessage or ThreadIdleNotification);
+                var shouldCallModel = newly.Any(e => e is UserMessage or InterThreadMessage or ThreadIdleNotification or NewThreadTask);
                 if (shouldCallModel)
                 {
                     return new ReduceResult(

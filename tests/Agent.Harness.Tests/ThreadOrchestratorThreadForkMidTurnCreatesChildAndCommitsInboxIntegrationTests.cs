@@ -68,8 +68,11 @@ public sealed class ThreadOrchestratorThreadStartForkMidTurnCreatesChildAndCommi
         childCommitted.OfType<UserMessage>()
             .Should().Contain(m => m.Text == "hi");
 
-        childCommitted.OfType<ThreadInboxMessageEnqueued>()
-            .Should().Contain(e => e.Kind == ThreadInboxMessageKind.InterThreadMessage && e.Text.Contains("child hello"));
+        var task = childCommitted.OfType<ThreadInboxMessageEnqueued>().Single(e => e.Kind == ThreadInboxMessageKind.NewThreadTask);
+        task.Text.Should().Be("child hello");
+        task.Meta.Should().NotBeNull();
+        task.Meta!.Should().ContainKey("parentThreadId").WhoseValue.Should().Be(ThreadIds.Main);
+        task.Meta!.Should().ContainKey("isFork").WhoseValue.Should().Be("true");
     }
 
     private sealed class NullClientCaller : IAcpClientCaller

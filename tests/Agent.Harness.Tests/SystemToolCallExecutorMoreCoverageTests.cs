@@ -70,6 +70,36 @@ public sealed class SystemToolCallExecutorMoreCoverageTests
     }
 
     [Fact]
+    public async Task ThreadStart_WhenSuccessful_EnqueuesNewThreadTask_InChildThread()
+    {
+        var lifecycle = new FakeLifecycle();
+        var observer = new FakeObserver();
+        var scheduler = new FakeScheduler();
+
+        var exec = new SystemToolCallExecutor(threadTools: null, observer: observer, lifecycle: lifecycle, scheduler: scheduler, isKnownModel: _ => true, threadId: "thr_main");
+
+        var obs = await exec.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t1", "thread_start", new { context = "new", message = "hi", delivery = "immediate" }), CancellationToken.None);
+
+        var completed = obs.OfType<ObservedToolCallCompleted>().Single();
+        var json = (JsonElement)completed.Result;
+        var childId = json.GetProperty("threadId").GetString();
+        childId.Should().NotBeNullOrWhiteSpace();
+
+        lifecycle.Forked.Should().BeTrue();
+        scheduler.Scheduled.Should().ContainSingle().Which.Should().Be(childId);
+
+        observer.Observed.Should().ContainSingle();
+        observer.Observed[0].threadId.Should().Be(childId);
+
+        var arrived = observer.Observed[0].observed.Should().BeOfType<ObservedInboxMessageArrived>().Subject;
+        arrived.Kind.Should().Be(ThreadInboxMessageKind.NewThreadTask);
+        arrived.Text.Should().Be("hi");
+        arrived.Meta.Should().NotBeNull();
+        arrived.Meta!.Should().ContainKey("parentThreadId").WhoseValue.Should().Be("thr_main");
+        arrived.Meta!.Should().ContainKey("isFork").WhoseValue.Should().Be("false");
+    }
+
+    [Fact]
     public async Task ThreadSend_WhenDeliveryUnknownString_FallsBackToImmediate()
     {
         var exec = new SystemToolCallExecutor(threadTools: null, observer: null, lifecycle: null, scheduler: null, isKnownModel: null, threadId: "thr_main");

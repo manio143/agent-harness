@@ -41,6 +41,27 @@ public static class ThreadInboxArrivals
             Text: text,
             Meta: meta);
 
+    public static ObservedInboxMessageArrived NewThreadTask(
+        string threadId,
+        string parentThreadId,
+        bool isFork,
+        string message,
+        InboxDelivery delivery = InboxDelivery.Immediate)
+        => new(
+            ThreadId: threadId,
+            Kind: ThreadInboxMessageKind.NewThreadTask,
+            Delivery: delivery,
+            EnvelopeId: ThreadEnvelopes.NewEnvelopeId(),
+            EnqueuedAtIso: DateTimeOffset.UtcNow.ToString("O"),
+            Source: "thread",
+            SourceThreadId: parentThreadId,
+            Text: message,
+            Meta: ImmutableDictionary.CreateRange(new[]
+            {
+                new KeyValuePair<string, string>("parentThreadId", parentThreadId),
+                new KeyValuePair<string, string>("isFork", isFork ? "true" : "false"),
+            }));
+
     public static ObservedInboxMessageArrived ThreadIdleNotification(
         string parentThreadId,
         string childThreadId,

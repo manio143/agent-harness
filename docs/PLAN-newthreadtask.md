@@ -36,7 +36,12 @@ Introduce a first-class **NewThreadTask** concept so that:
 - [x] Phase 2 — Prompt rendering
   - Renderer emits `<thread_created ... />`, optional `<notice>`, and `<task>...` for `NewThreadTask`
   - Tests: `MeaiPromptRendererNewThreadTaskTests`
-- [ ] Phase 3 — `thread_start` enqueues `NewThreadTask`
+- [x] Phase 3 — `thread_start` enqueues `NewThreadTask`
+  - `thread_start` now enqueues `ThreadInboxMessageKind.NewThreadTask` with meta `{ parentThreadId, isFork }`
+  - Added `ThreadInboxArrivals.NewThreadTask(...)`
+  - Core wake/stabilization now treats `NewThreadTask` as a model-waking committed event
+  - Updated integration tests to detect child prompts via `<thread_created` instead of `<inter_thread`
+  - Tests: `SystemToolCallExecutorMoreCoverageTests.ThreadStart_WhenSuccessful_EnqueuesNewThreadTask_InChildThread`
 - [ ] Phase 4 — `thread_read` fork window filtering
 - [ ] Phase 5 — Integration/sample updates
 

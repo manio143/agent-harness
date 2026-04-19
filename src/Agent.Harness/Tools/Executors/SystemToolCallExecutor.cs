@@ -145,11 +145,11 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
 
                     await _observer.ObserveAsync(
                         id,
-                        Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
+                        Agent.Harness.Threads.ThreadInboxArrivals.NewThreadTask(
                             threadId: id,
-                            text: message,
-                            sourceThreadId: _threadId,
-                            source: "thread",
+                            parentThreadId: _threadId,
+                            isFork: string.Equals(context, "fork", StringComparison.Ordinal),
+                            message: message,
                             delivery: delivery),
                         cancellationToken).ConfigureAwait(false);
 
