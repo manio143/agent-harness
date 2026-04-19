@@ -49,6 +49,8 @@ Introduce a first-class **NewThreadTask** concept so that:
 - [x] Phase 5 — Integration/sample updates
   - Updated integration tests that identify child prompts to key off `<thread_created` instead of `<inter_thread`
   - Documented the new prompt markup in `samples/Threading.Scenarios/README.md`
+  - Ensured `thread_start context=fork` does not seed prior `NewThreadTask` bootstrap markers (prevents nested fork confusion)
+  - Centralized NewThreadTask markup in `NewThreadTaskMarkup.Render(...)` (prompt + thread_read share the same renderer)
 
 1. Every newly created thread (including forks created via `thread_start` + `context`) receives **exactly one** `NewThreadTask` delivered via the inbox pipeline.
 2. The task is **rendered into the model prompt** in a stable, explicit format that includes the **new thread id**, **parent id**, and the **task message**.

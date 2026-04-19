@@ -119,7 +119,9 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
                     ImmutableArray<SessionEvent> seed = context switch
                     {
                         "new" => ImmutableArray<SessionEvent>.Empty,
-                        "fork" => state.Committed,
+                        // Forking should carry over historical context, but must not copy prior thread bootstrap markers
+                        // (e.g., parent's NewThreadTask) into the child.
+                        "fork" => state.Committed.Where(e => e is not NewThreadTask).ToImmutableArray(),
                         _ => throw new InvalidOperationException("thread_start.invalid_context"),
                     };
 

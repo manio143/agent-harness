@@ -87,21 +87,12 @@ public sealed class ThreadManager : IThreadTools
                 AssistantMessage a => new[] { new ThreadMessage("assistant", a.Text) },
                 NewThreadTask t => new[]
                 {
-                    new ThreadMessage("system", RenderNewThreadTask(t)),
+                    new ThreadMessage("system", NewThreadTaskMarkup.Render(t)),
                 },
                 _ => Array.Empty<ThreadMessage>(),
             })
             .ToImmutableArray();
 
-        static string RenderNewThreadTask(NewThreadTask t)
-        {
-            var created = $"<thread_created id=\"{t.ThreadId}\" parent_id=\"{t.ParentThreadId}\" />";
-            var notice = t.IsFork
-                ? "\n<notice>This is a forked thread with historical context that should be used when completing the task.</notice>"
-                : "";
-            var task = $"\n<task>{t.Message}</task>";
-            return created + notice + task;
-        }
     }
 
     public void ReportIntent(string threadId, string intent)

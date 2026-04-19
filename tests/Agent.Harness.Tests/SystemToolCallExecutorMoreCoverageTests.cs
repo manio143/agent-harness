@@ -100,6 +100,30 @@ public sealed class SystemToolCallExecutorMoreCoverageTests
     }
 
     [Fact]
+    public async Task ThreadStart_WhenContextFork_DoesNotSeedPriorNewThreadTaskMarkers()
+    {
+        var lifecycle = new FakeLifecycle();
+        var observer = new FakeObserver();
+        var scheduler = new FakeScheduler();
+
+        var exec = new SystemToolCallExecutor(threadTools: null, observer: observer, lifecycle: lifecycle, scheduler: scheduler, isKnownModel: _ => true, threadId: "thr_parent");
+
+        var state = SessionState.Empty with
+        {
+            Committed = ImmutableArray.Create<SessionEvent>(
+                new UserMessage("history"),
+                new NewThreadTask(ThreadId: "thr_parent", ParentThreadId: "main", IsFork: false, Message: "bootstrap"))
+        };
+
+        var obs = await exec.ExecuteAsync(state, new ExecuteToolCall("t1", "thread_start", new { context = "fork", message = "child task" }), CancellationToken.None);
+
+        obs.OfType<ObservedToolCallCompleted>().Single();
+
+        lifecycle.Seed.Should().ContainSingle(e => e is UserMessage);
+        lifecycle.Seed.Should().NotContain(e => e is NewThreadTask);
+    }
+
+    [Fact]
     public async Task ThreadSend_WhenDeliveryUnknownString_FallsBackToImmediate()
     {
         var exec = new SystemToolCallExecutor(threadTools: null, observer: null, lifecycle: null, scheduler: null, isKnownModel: null, threadId: "thr_main");
@@ -165,10 +189,12 @@ public sealed class SystemToolCallExecutorMoreCoverageTests
     private sealed class FakeLifecycle : IThreadLifecycle
     {
         public bool Forked { get; private set; }
+        public ImmutableArray<SessionEvent> Seed { get; private set; } = ImmutableArray<SessionEvent>.Empty;
 
         public Task RequestForkChildThreadAsync(string parentThreadId, string childThreadId, ImmutableArray<SessionEvent> seedCommitted, CancellationToken cancellationToken = default)
         {
             Forked = true;
+            Seed = seedCommitted;
             return Task.CompletedTask;
         }
 

@@ -68,12 +68,7 @@ public static class MeaiPromptRenderer
 
                 case NewThreadTask t:
                 {
-                    var created = $"<thread_created id=\"{t.ThreadId}\" parent_id=\"{t.ParentThreadId}\" />";
-                    var notice = t.IsFork
-                        ? "\n<notice>This is a forked thread with historical context that should be used when completing the task.</notice>"
-                        : "";
-                    var task = $"\n<task>{t.Message}</task>";
-                    messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.System, created + notice + task));
+                    messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.System, Agent.Harness.Threads.NewThreadTaskMarkup.Render(t)));
                     break;
                 }
 
