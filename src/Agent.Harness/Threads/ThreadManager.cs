@@ -68,14 +68,40 @@ public sealed class ThreadManager : IThreadTools
     {
         var evts = _store.LoadCommittedEvents(_sessionId, threadId);
 
-        return evts.SelectMany(e => e switch
+        // Fork read-window: only show messages from the fork point onward.
+        // Fork point is defined as the first committed NewThreadTask marker in the child.
+        var startIndex = 0;
+        for (var i = 0; i < evts.Length; i++)
+        {
+            if (evts[i] is not NewThreadTask t) continue;
+            if (t.IsFork) startIndex = i;
+            break;
+        }
+
+        return evts
+            .Skip(startIndex)
+            .SelectMany(e => e switch
             {
                 UserMessage u => new[] { new ThreadMessage("user", u.Text) },
                 InterThreadMessage it => new[] { new ThreadMessage("inter_thread", it.Text) },
                 AssistantMessage a => new[] { new ThreadMessage("assistant", a.Text) },
+                NewThreadTask t => new[]
+                {
+                    new ThreadMessage("system", RenderNewThreadTask(t)),
+                },
                 _ => Array.Empty<ThreadMessage>(),
             })
             .ToImmutableArray();
+
+        static string RenderNewThreadTask(NewThreadTask t)
+        {
+            var created = $"<thread_created id=\"{t.ThreadId}\" parent_id=\"{t.ParentThreadId}\" />";
+            var notice = t.IsFork
+                ? "\n<notice>This is a forked thread with historical context that should be used when completing the task.</notice>"
+                : "";
+            var task = $"\n<task>{t.Message}</task>";
+            return created + notice + task;
+        }
     }
 
     public void ReportIntent(string threadId, string intent)

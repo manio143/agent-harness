@@ -42,7 +42,10 @@ Introduce a first-class **NewThreadTask** concept so that:
   - Core wake/stabilization now treats `NewThreadTask` as a model-waking committed event
   - Updated integration tests to detect child prompts via `<thread_created` instead of `<inter_thread`
   - Tests: `SystemToolCallExecutorMoreCoverageTests.ThreadStart_WhenSuccessful_EnqueuesNewThreadTask_InChildThread`
-- [ ] Phase 4 — `thread_read` fork window filtering
+- [x] Phase 4 — `thread_read` fork window filtering
+  - `ThreadManager.ReadThreadMessages` now filters to the first `NewThreadTask` marker when `IsFork==true`
+  - `thread_read` includes a `system` message for `NewThreadTask` with the same markup used in prompts
+  - Tests: `ThreadReadForkWindowTests`
 - [ ] Phase 5 — Integration/sample updates
 
 1. Every newly created thread (including forks created via `thread_start` + `context`) receives **exactly one** `NewThreadTask` delivered via the inbox pipeline.
