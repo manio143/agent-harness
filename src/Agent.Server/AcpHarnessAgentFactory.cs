@@ -259,7 +259,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         return resp;
     }
 
-    public async Task<LoadSessionResponse>? LoadSessionAsync(LoadSessionRequest request, CancellationToken cancellationToken)
+    public async Task<LoadSessionResponse> LoadSessionAsync(LoadSessionRequest request, CancellationToken cancellationToken)
     {
         var store = GetOrCreateSessionStore(request.SessionId, request.Cwd);
 
@@ -335,7 +335,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         }
     }
 
-    public Task<ListSessionsResponse>? ListSessionsAsync(ListSessionsRequest request, CancellationToken cancellationToken)
+    public Task<ListSessionsResponse> ListSessionsAsync(ListSessionsRequest request, CancellationToken cancellationToken)
     {
         // List sessions relative to the agent process cwd. In practice, acpx runs the agent with `--cwd`
         // set to the workspace it cares about.

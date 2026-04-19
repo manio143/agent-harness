@@ -33,17 +33,21 @@ public sealed class AcpMcpRehydrateFailureSurfacedTests
         // New factory simulates a new process. Rehydrate occurs during session/load (async),
         // so CreateSessionAgent remains non-blocking.
         var factory2 = new AcpHarnessAgentFactory(new EmptyStreamingChatClient(), opts, new ThrowingMcpDiscovery());
-        await factory2.LoadSessionAsync(new LoadSessionRequest { SessionId = ses.SessionId, Cwd = cwd, McpServers = new List<McpServer>() }, CancellationToken.None);
+        Assert.False(string.IsNullOrWhiteSpace(ses.SessionId));
+        var sessionId = ses.SessionId!;
 
-        var ex = Record.Exception(() => factory2.CreateSessionAgent(ses.SessionId, new NullClientCaller(), new NullSessionEvents()));
+        await factory2!.LoadSessionAsync(new LoadSessionRequest { SessionId = sessionId, Cwd = cwd, McpServers = new List<McpServer>() }, CancellationToken.None);
+
+        var ex = Record.Exception(() => factory2.CreateSessionAgent(sessionId, new NullClientCaller(), new NullSessionEvents()));
         Assert.Null(ex);
 
-        var errPath = Path.Combine(cwd, ".agent/sessions", ses.SessionId, "mcp.errors.jsonl");
+        var errPath = Path.Combine(cwd, ".agent/sessions", sessionId, "mcp.errors.jsonl");
         Assert.True(File.Exists(errPath));
 
-        var last = File.ReadLines(errPath).Last();
-        Assert.Contains("session_load", last);
-        Assert.Contains("boom", last);
+        var last = File.ReadLines(errPath).LastOrDefault();
+        Assert.NotNull(last);
+        Assert.Contains("session_load", last!);
+        Assert.Contains("boom", last!);
     }
 
     private sealed class NoopMcpDiscovery : IMcpDiscovery

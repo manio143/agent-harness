@@ -39,26 +39,30 @@ public sealed class AcpMcpRehydrateCacheTests
         var chat2 = new EmptyStreamingChatClient();
         var factory2 = new AcpHarnessAgentFactory(chat2, new FixedChatClientFactory(chat2), FixedModelCatalog(), opts, discovery);
 
-        await factory2.LoadSessionAsync(new LoadSessionRequest { SessionId = ses.SessionId, Cwd = cwd, McpServers = new List<McpServer>() }, CancellationToken.None);
+        Assert.False(string.IsNullOrWhiteSpace(ses.SessionId));
+        var sessionId = ses.SessionId!;
+
+        await factory2!.LoadSessionAsync(new LoadSessionRequest { SessionId = sessionId, Cwd = cwd, McpServers = new List<McpServer>() }, CancellationToken.None);
 
         // Rehydrate now occurs during session/load (async).
         Assert.Single(discovery.Calls);
 
         // Agent creation + prompt should NOT rediscover.
-        var agent1 = factory2.CreateSessionAgent(ses.SessionId, new NullClientCaller(), new NullSessionEvents());
-        await agent1.PromptAsync(new PromptRequest { SessionId = ses.SessionId, Prompt = new List<ContentBlock> { new TextContent { Text = "hi" } } }, new NullPromptTurn(), CancellationToken.None);
+        var agent1 = factory2.CreateSessionAgent(sessionId, new NullClientCaller(), new NullSessionEvents());
+        await agent1.PromptAsync(new PromptRequest { SessionId = sessionId, Prompt = new List<ContentBlock> { new TextContent { Text = "hi" } } }, new NullPromptTurn(), CancellationToken.None);
 
         // Second agent creation should also NOT rediscover.
-        var agent2 = factory2.CreateSessionAgent(ses.SessionId, new NullClientCaller(), new NullSessionEvents());
-        await agent2.PromptAsync(new PromptRequest { SessionId = ses.SessionId, Prompt = new List<ContentBlock> { new TextContent { Text = "hi" } } }, new NullPromptTurn(), CancellationToken.None);
+        var agent2 = factory2.CreateSessionAgent(sessionId, new NullClientCaller(), new NullSessionEvents());
+        await agent2.PromptAsync(new PromptRequest { SessionId = sessionId, Prompt = new List<ContentBlock> { new TextContent { Text = "hi" } } }, new NullPromptTurn(), CancellationToken.None);
 
         Assert.Single(discovery.Calls);
 
-        var promptPath = Path.Combine(cwd, ".agent/sessions", ses.SessionId, "llm.prompt.jsonl");
+        var promptPath = Path.Combine(cwd, ".agent/sessions", sessionId, "llm.prompt.jsonl");
         Assert.True(File.Exists(promptPath));
 
-        var last = File.ReadLines(promptPath).Last();
-        Assert.Contains("fake_mcp_server__echo", last);
+        var last = File.ReadLines(promptPath).LastOrDefault();
+        Assert.NotNull(last);
+        Assert.Contains("fake_mcp_server__echo", last!);
     }
 
     private static ModelCatalog FixedModelCatalog()

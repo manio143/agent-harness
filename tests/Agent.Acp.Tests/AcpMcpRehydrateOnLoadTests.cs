@@ -45,10 +45,13 @@ public sealed class AcpMcpRehydrateOnLoadTests
         var chat2 = new EmptyStreamingChatClient();
         var factory2 = new AcpHarnessAgentFactory(chat2, new FixedChatClientFactory(chat2), FixedModelCatalog(), opts, discovery2);
 
+        Assert.False(string.IsNullOrWhiteSpace(newSession.SessionId));
+        var sessionId = newSession.SessionId!;
+
         // session/load gives cwd again (ACP contract)
-        await factory2.LoadSessionAsync(new LoadSessionRequest
+        await factory2!.LoadSessionAsync(new LoadSessionRequest
         {
-            SessionId = newSession.SessionId,
+            SessionId = sessionId,
             Cwd = cwd,
             McpServers = new List<McpServer>(),
         }, CancellationToken.None);
@@ -58,20 +61,21 @@ public sealed class AcpMcpRehydrateOnLoadTests
 
         // Create agent and force a model call (prompt). This should advertise the MCP tool
         // in the MEAI tool declarations without rediscovering.
-        var agent = factory2.CreateSessionAgent(newSession.SessionId, new NullClientCaller(), new NullSessionEvents());
+        var agent = factory2.CreateSessionAgent(sessionId, new NullClientCaller(), new NullSessionEvents());
 
         await agent.PromptAsync(
-            new PromptRequest { SessionId = newSession.SessionId, Prompt = new List<ContentBlock> { new TextContent { Text = "hi" } } },
+            new PromptRequest { SessionId = sessionId, Prompt = new List<ContentBlock> { new TextContent { Text = "hi" } } },
             new NullPromptTurn(),
             CancellationToken.None);
 
         Assert.Single(discovery2.Calls);
 
-        var promptPath = Path.Combine(cwd, ".agent/sessions", newSession.SessionId, "llm.prompt.jsonl");
+        var promptPath = Path.Combine(cwd, ".agent/sessions", sessionId, "llm.prompt.jsonl");
         Assert.True(File.Exists(promptPath), "prompt log should exist");
 
-        var last = File.ReadLines(promptPath).Last();
-        Assert.Contains("fake_mcp_server__echo", last);
+        var last = File.ReadLines(promptPath).LastOrDefault();
+        Assert.NotNull(last);
+        Assert.Contains("fake_mcp_server__echo", last!);
     }
 
     private static ModelCatalog FixedModelCatalog()
