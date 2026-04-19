@@ -20,17 +20,36 @@ fi
 echo "[scenario3] sessionId=$SESSION_ID"
 
 # Turn 1: self-send enqueue (historical deadlock class)
+# NOTE: A single `acpx prompt` request may invoke the model multiple times as the harness drains work.
+# This prompt intentionally handles that multi-invocation behavior.
 acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
-  'You MUST follow these rules exactly:
-1) You may call at most 2 tools in this turn.
-2) You may ONLY call: report_intent, thread_send.
-3) You MUST NOT call any other tools (especially thread_start, thread_read, thread_list).
-4) After the 2 tool calls complete, do NOT wait for any enqueued messages; output EXACTLY: AFTER_PING (nothing else).
+  'You MUST follow these rules exactly.
 
-Now do the work:
-Call tool report_intent with arguments: {"intent":"self enqueue"}.
-Then call tool thread_send with arguments: {"threadId":"main","delivery":"enqueue","message":"PING"}.
-Then output EXACTLY: AFTER_PING'
+This single request may invoke you MULTIPLE TIMES. Each time you are invoked, inspect the conversation history and follow the FIRST matching rule.
+
+Allowed tools: report_intent, thread_send.
+Tool rules:
+- You may call at most 2 tools per invocation.
+- If you call any tools, you MUST call report_intent first, then thread_send.
+- Do NOT simulate tool calls as text/JSON — you MUST actually call the tools.
+
+Rules (apply in order):
+1) If the history contains <inter_thread ...>PING</inter_thread>:
+   - You MUST NOT call any tools.
+   - Output EXACTLY: PING
+   - Then output EXACTLY: AFTER_PING
+   - Stop.
+
+2) Else if the history already contains a tool result for thread_send (i.e. you have already called thread_send in this request):
+   - You MUST NOT call any tools.
+   - Output EXACTLY: WAITING
+   - Stop.
+
+3) Else (first invocation, PING not yet delivered):
+   - Call tool report_intent with arguments: {"intent":"self enqueue"}.
+   - Then call tool thread_send with arguments: {"threadId":"main","delivery":"enqueue","message":"PING"}.
+   - Then output EXACTLY: WAITING
+   - Stop.'
 
 echo "---"
 
