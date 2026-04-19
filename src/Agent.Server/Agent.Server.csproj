@@ -26,4 +26,8 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Agent.Server.Tests" />
+  </ItemGroup>
+
 </Project>

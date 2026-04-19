@@ -12,12 +12,16 @@ namespace Agent.Server;
 
 internal static class McpDiscovery
 {
-    public static async Task<(ImmutableArray<ToolDefinition> Tools, IMcpToolInvoker Invoker)> DiscoverAsync(
-        NewSessionRequest request,
-        CancellationToken cancellationToken)
+    internal sealed record ParsedMcpStdioServer(
+        string ServerId,
+        string Command,
+        ImmutableArray<string> Arguments,
+        IDictionary<string, string?> Env,
+        string WorkingDirectory);
+
+    internal static ImmutableArray<ParsedMcpStdioServer> ParseStdioServers(NewSessionRequest request)
     {
-        var tools = ImmutableArray.CreateBuilder<ToolDefinition>();
-        var invokerTools = new Dictionary<string, McpClientTool>(StringComparer.Ordinal);
+        var parsed = ImmutableArray.CreateBuilder<ParsedMcpStdioServer>();
 
         for (var i = 0; i < request.McpServers.Count; i++)
         {
@@ -40,13 +44,17 @@ internal static class McpDiscovery
             if (string.IsNullOrWhiteSpace(command))
                 throw new AcpJsonRpcException(-32602, "invalid mcp stdio config: missing command");
 
-            var args = new List<string>();
+            var args = ImmutableArray.CreateBuilder<string>();
             if (stdio.TryGetProperty("args", out var argsEl) && argsEl.ValueKind == JsonValueKind.Array)
-                args.AddRange(argsEl.EnumerateArray()
-                    .Where(a => a.ValueKind == JsonValueKind.String)
-                    .Select(a => a.GetString())
-                    .Where(s => !string.IsNullOrWhiteSpace(s))
-                    .Select(s => s!));
+            {
+                foreach (var a in argsEl.EnumerateArray())
+                {
+                    if (a.ValueKind != JsonValueKind.String) continue;
+                    var s = a.GetString();
+                    if (string.IsNullOrWhiteSpace(s)) continue;
+                    args.Add(s);
+                }
+            }
 
             // Prefer explicit name if present; otherwise derive from command.
             var name = stdio.TryGetProperty("name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String
@@ -69,14 +77,37 @@ internal static class McpDiscovery
                 }
             }
 
+            parsed.Add(new ParsedMcpStdioServer(
+                ServerId: serverId,
+                Command: command,
+                Arguments: args.ToImmutable(),
+                Env: env,
+                WorkingDirectory: request.Cwd));
+        }
+
+        return parsed.ToImmutable();
+    }
+
+    public static async Task<(ImmutableArray<ToolDefinition> Tools, IMcpToolInvoker Invoker)> DiscoverAsync(
+        NewSessionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var tools = ImmutableArray.CreateBuilder<ToolDefinition>();
+        var invokerTools = new Dictionary<string, McpClientTool>(StringComparer.Ordinal);
+
+        var servers = ParseStdioServers(request);
+
+        foreach (var s in servers)
+        {
             var transportOptions = new StdioClientTransportOptions
             {
-                Name = serverId,
-                Command = command,
-                WorkingDirectory = request.Cwd,
-                EnvironmentVariables = env,
-                Arguments = args,
+                Name = s.ServerId,
+                Command = s.Command,
+                WorkingDirectory = s.WorkingDirectory,
+                EnvironmentVariables = s.Env,
+                Arguments = s.Arguments,
             };
+
             var clientTransport = new StdioClientTransport(transportOptions);
             var mcp = await McpClient.CreateAsync(clientTransport, new McpClientOptions(), NullLoggerFactory.Instance, cancellationToken)
                 .ConfigureAwait(false);
@@ -92,7 +123,7 @@ internal static class McpDiscovery
                 if (string.IsNullOrWhiteSpace(toolId))
                     continue;
 
-                var exposed = $"{serverId}__{toolId}";
+                var exposed = $"{s.ServerId}__{toolId}";
 
                 tools.Add(new ToolDefinition(exposed, t.Description, t.JsonSchema));
                 invokerTools[exposed] = t;
