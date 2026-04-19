@@ -342,17 +342,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         var publishOptions = new AcpPublishOptions(PublishReasoning: _options.Acp.PublishReasoning);
 
         // Main thread is just another thread: load committed from the thread store when available.
-        ImmutableArray<SessionEvent> committed;
-
-        if (store is JsonlSessionStore js)
-        {
-            var threadStore = new Agent.Harness.Threads.JsonlThreadStore(js.RootDir);
-            committed = threadStore.LoadCommittedEvents(sessionId, Agent.Harness.Threads.ThreadIds.Main);
-        }
-        else
-        {
-            committed = store.LoadCommitted(sessionId);
-        }
+        var committed = MainThreadCommittedEvents.Load(store, sessionId);
 
         var initial = committed.IsDefaultOrEmpty
             ? SessionState.Empty
@@ -391,16 +381,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             return;
 
         // Main thread is just another thread: replay committed from the main thread log when available.
-        ImmutableArray<SessionEvent> committed;
-        if (store is JsonlSessionStore js)
-        {
-            var threadStore = new Agent.Harness.Threads.JsonlThreadStore(js.RootDir);
-            committed = threadStore.LoadCommittedEvents(sessionId, Agent.Harness.Threads.ThreadIds.Main);
-        }
-        else
-        {
-            committed = store.LoadCommitted(sessionId);
-        }
+        var committed = MainThreadCommittedEvents.Load(store, sessionId);
 
         // Replay stable history: full user/assistant messages only.
         foreach (var evt in committed)
