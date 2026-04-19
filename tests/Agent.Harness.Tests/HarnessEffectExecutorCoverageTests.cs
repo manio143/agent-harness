@@ -46,7 +46,7 @@ public sealed class HarnessEffectExecutorCoverageTests
     }
 
     [Fact]
-    public async Task CallModel_WhenLogPromptsEnabled_WritesPromptLog_AndUsesModelSelector()
+    public async Task CallModel_WhenLogPromptsEnabled_WritesPromptLog_AndUsesModelSelector_AndWritesConsolePrompt_AndHandlesEmptyTools()
     {
         var root = Path.Combine(Path.GetTempPath(), "heec", Guid.NewGuid().ToString("N"));
         var store = new JsonlSessionStore(root);
@@ -67,7 +67,7 @@ public sealed class HarnessEffectExecutorCoverageTests
         var state = SessionState.Empty with
         {
             Committed = ImmutableArray.Create<SessionEvent>(new SetModel("alt")),
-            Tools = ImmutableArray.Create<ToolDefinition>(ToolSchemas.ReportIntent),
+            Tools = ImmutableArray<ToolDefinition>.Empty,
         };
 
         // Use CallModel with explicit model to exercise chatByModel selection.

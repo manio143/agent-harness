@@ -222,14 +222,11 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
             TryAppendPromptLog(promptPayload);
         }
 
-            var chat = _chatByModel is null ? _chat : _chatByModel(call.Model);
-            var updates = chat.GetStreamingResponseAsync(meaiMessages, options, cancellationToken);
+        var chat = _chatByModel is null ? _chat : _chatByModel(call.Model);
+        var updates = chat.GetStreamingResponseAsync(meaiMessages, options, cancellationToken);
 
-            await foreach (var o in MeaiObservedEventSource.FromStreamingResponse(updates, cancellationToken).ConfigureAwait(false))
-                yield return o;
-        }
-        finally
-        {
+        await foreach (var o in MeaiObservedEventSource.FromStreamingResponse(updates, cancellationToken).ConfigureAwait(false))
+            yield return o;
         }
     }
 
