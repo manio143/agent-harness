@@ -101,5 +101,45 @@ public sealed class SessionEventJsonTests
         var deq = evt.Should().BeOfType<ThreadInboxMessageDequeued>().Subject;
         deq.DequeuedAtIso.Should().Be("");
     }
+
+    [Fact]
+    public void Deserialize_ThreadInboxMessageDequeued_WhenThreadIdMissing_DoesNotThrow()
+    {
+        var json = """
+        {"type":"thread_inbox_message_dequeued","envelopeId":"env1","dequeuedAtIso":"t"}
+        """;
+
+        var evt = SessionEventJson.Deserialize(json);
+
+        var deq = evt.Should().BeOfType<ThreadInboxMessageDequeued>().Subject;
+        deq.ThreadId.Should().Be("");
+        deq.EnvelopeId.Should().Be("env1");
+    }
+
+    [Fact]
+    public void Deserialize_ThreadInboxMessageDrainedForPrompt_WhenTimestampMissing_DoesNotThrow()
+    {
+        var json = """
+        {"type":"thread_inbox_message_drained_for_prompt","threadId":"main","envelopeId":"env1"}
+        """;
+
+        var evt = SessionEventJson.Deserialize(json);
+
+        var deq = evt.Should().BeOfType<ThreadInboxMessageDequeued>().Subject;
+        deq.DequeuedAtIso.Should().Be("");
+    }
+
+    [Fact]
+    public void Deserialize_ThreadInboxMessageDeliveredToLlm_WhenTimestampMissing_DoesNotThrow()
+    {
+        var json = """
+        {"type":"thread_inbox_message_delivered_to_llm","threadId":"main","envelopeId":"env1"}
+        """;
+
+        var evt = SessionEventJson.Deserialize(json);
+
+        var deq = evt.Should().BeOfType<ThreadInboxMessageDequeued>().Subject;
+        deq.DequeuedAtIso.Should().Be("");
+    }
 }
 
