@@ -79,4 +79,31 @@ public sealed class CoreReducerNewThreadTaskPromotionTests
         // Still only the original marker.
         r2.Next.Committed.OfType<NewThreadTask>().Should().ContainSingle().Which.Message.Should().Be("first");
     }
+
+    [Fact]
+    public void ObservedInboxArrived_NewThreadTask_WhenMetaMissing_FallsBackToSourceThreadId_AndNotFork()
+    {
+        var state = SessionState.Empty;
+
+        var envId = ThreadEnvelopes.NewEnvelopeId();
+        var now = "2026-04-19T00:00:00Z";
+
+        var arrived = new ObservedInboxMessageArrived(
+            ThreadId: "thr_child",
+            Kind: ThreadInboxMessageKind.NewThreadTask,
+            Delivery: InboxDelivery.Immediate,
+            EnvelopeId: envId,
+            EnqueuedAtIso: now,
+            Source: "thread",
+            SourceThreadId: "main",
+            Text: "do work",
+            Meta: null);
+
+        var r1 = Core.Reduce(state, arrived);
+        var r2 = Core.Reduce(r1.Next, new ObservedWakeModel("thr_child"));
+
+        var task = r2.NewlyCommitted.OfType<NewThreadTask>().Single();
+        task.ParentThreadId.Should().Be("main");
+        task.IsFork.Should().BeFalse();
+    }
 }
