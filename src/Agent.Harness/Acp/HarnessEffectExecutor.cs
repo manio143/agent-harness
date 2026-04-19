@@ -228,6 +228,9 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         await foreach (var o in MeaiObservedEventSource.FromStreamingResponse(updates, cancellationToken).ConfigureAwait(false))
             yield return o;
         }
+        finally
+        {
+        }
     }
 
     private void TryAppendPromptLog(object promptPayload)
