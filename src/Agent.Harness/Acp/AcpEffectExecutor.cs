@@ -27,6 +27,8 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
     private readonly Agent.Harness.Threads.IThreadScheduler? _scheduler;
     private readonly string _threadId;
 
+    private readonly ToolCallRouter _toolRouter;
+
     public AcpEffectExecutor(
         string sessionId,
         IAcpClientCaller client,
@@ -59,6 +61,13 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         _lifecycle = lifecycle;
         _scheduler = scheduler;
         _threadId = threadId;
+
+        _toolRouter = new ToolCallRouter(new IToolCallExecutor[]
+        {
+            new SystemToolCallExecutor(_threadTools, _observer, _lifecycle, _scheduler, _isKnownModel, _threadId),
+            new McpToolCallExecutor(_mcp),
+            new AcpHostToolCallExecutor(_sessionId, _client, sessionCwd: _sessionCwd, store: _store),
+        });
     }
 
     public async Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
@@ -90,9 +99,12 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                 yield break;
 
             case ExecuteToolCall t:
-                foreach (var o in await ExecuteToolAsync(state, t, cancellationToken).ConfigureAwait(false))
+            {
+                var observations = await _toolRouter.ExecuteAsync(state, t, cancellationToken).ConfigureAwait(false);
+                foreach (var o in observations)
                     yield return o;
                 yield break;
+            }
 
             default:
                 yield break;
