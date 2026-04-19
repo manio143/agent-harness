@@ -1,51 +1,131 @@
 using System.Collections.Immutable;
-using Agent.Harness.Persistence;
 using Agent.Harness.Threads;
 using FluentAssertions;
+using Xunit;
 
 namespace Agent.Harness.Tests;
 
 public sealed class ThreadManagerTests
 {
     [Fact]
-    public void List_Includes_Main_And_ChildThreads_FromMetadata()
+    public void HasImmediateOrDeliverableEnqueue_WhenImmediateItemPending_ReturnsTrue()
     {
-        var threadStore = new InMemoryThreadStore();
-        var mgr = new ThreadManager("s1", threadStore);
+        var store = new InMemoryThreadStore();
+        var mgr = new ThreadManager("s1", store);
 
-        // Create child metadata directly in store (thread lifecycle owned by orchestrator).
-        var childId = "thr_test";
-        threadStore.CreateThread("s1", new ThreadMetadata(
-            ThreadId: childId,
-            ParentThreadId: ThreadIds.Main,
-            Intent: null,
-            CreatedAtIso: "t0",
-            UpdatedAtIso: "t0",
-            Model: null));
+        store.AppendCommittedEvent("s1", "t1", new ThreadInboxMessageEnqueued(
+            ThreadId: "t1",
+            EnvelopeId: "e1",
+            Kind: ThreadInboxMessageKind.UserPrompt,
+            Meta: null,
+            Source: "cli",
+            SourceThreadId: null,
+            Delivery: "immediate",
+            EnqueuedAtIso: "2026-01-01T00:00:00Z",
+            Text: "hi"));
 
-        var threads = mgr.List();
-        threads.Should().Contain(t => t.ThreadId == ThreadIds.Main);
-        threads.Should().Contain(t => t.ThreadId == childId && t.ParentThreadId == ThreadIds.Main);
+        mgr.HasImmediateOrDeliverableEnqueue("t1").Should().BeTrue();
     }
-
-    // Forking is now owned by ThreadOrchestrator and tested via:
-    // - ThreadOrchestratorRequestForkChildThreadIntegrationTests
-    // - HarnessEffectExecutorThreadStartUsesOrchestratorForkTests
 
     [Fact]
-    public void ReportIntent_Persists_Metadata()
+    public void HasImmediateOrDeliverableEnqueue_WhenOnlyEnqueueDeliveryAndIdle_ReturnsTrue()
     {
-        var threadStore = new InMemoryThreadStore();
-        var mgr = new ThreadManager("s1", threadStore);
+        var store = new InMemoryThreadStore();
+        var mgr = new ThreadManager("s1", store);
 
-        mgr.ReportIntent(ThreadIds.Main, "do stuff");
+        store.AppendCommittedEvent("s1", "t1", new ThreadInboxMessageEnqueued(
+            ThreadId: "t1",
+            EnvelopeId: "e1",
+            Kind: ThreadInboxMessageKind.UserPrompt,
+            Meta: null,
+            Source: "cli",
+            SourceThreadId: null,
+            Delivery: "enqueue",
+            EnqueuedAtIso: "2026-01-01T00:00:00Z",
+            Text: "hi"));
 
-        var meta = threadStore.TryLoadThreadMetadata("s1", ThreadIds.Main);
-        meta!.Intent.Should().Be("do stuff");
-        
-        // Note: ThreadIntentReported is NOT committed directly by ReportIntent.
-        // It's emitted by the reducer when report_intent tool completes.
-        // See ReportIntentSinkRoutingIntegrationTests for that behavior.
+        mgr.HasImmediateOrDeliverableEnqueue("t1").Should().BeTrue();
+        mgr.HasDeliverableEnqueueNow("t1").Should().BeTrue();
     }
 
+    [Fact]
+    public void HasDeliverableEnqueueNow_WhenThreadNotIdle_ReturnsFalse()
+    {
+        var store = new InMemoryThreadStore();
+        var mgr = new ThreadManager("s1", store);
+
+        store.AppendCommittedEvent("s1", "t1", new TurnStarted()); // thread is Running
+        store.AppendCommittedEvent("s1", "t1", new ThreadInboxMessageEnqueued(
+            ThreadId: "t1",
+            EnvelopeId: "e1",
+            Kind: ThreadInboxMessageKind.UserPrompt,
+            Meta: null,
+            Source: "cli",
+            SourceThreadId: null,
+            Delivery: "enqueue",
+            EnqueuedAtIso: "2026-01-01T00:00:00Z",
+            Text: "hi"));
+
+        mgr.HasDeliverableEnqueueNow("t1").Should().BeFalse();
+    }
+
+    [Fact]
+    public void ReportIntent_WhenThreadUnknown_Throws()
+    {
+        var store = new InMemoryThreadStore();
+        var mgr = new ThreadManager("s1", store);
+
+        var act = () => mgr.ReportIntent("missing", "do stuff");
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("unknown_thread:missing");
+    }
+
+    [Fact]
+    public void GetModel_WhenThreadUnknown_Throws()
+    {
+        var store = new InMemoryThreadStore();
+        var mgr = new ThreadManager("s1", store);
+
+        var act = () => mgr.GetModel("missing");
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("unknown_thread:missing");
+    }
+
+    [Fact]
+    public void ReadThreadMessages_ProjectsOnlyKnownMessageTypes()
+    {
+        var store = new InMemoryThreadStore();
+        var mgr = new ThreadManager("s1", store);
+
+        store.AppendCommittedEvent("s1", "t1", new UserMessage("u"));
+        store.AppendCommittedEvent("s1", "t1", new AssistantMessage("a"));
+        store.AppendCommittedEvent("s1", "t1", new ThreadInboxMessageDequeued("t1", "e1", "2026-01-01T00:00:00Z"));
+        store.AppendCommittedEvent("s1", "t1", new InterThreadMessage("from", "it"));
+
+        mgr.ReadThreadMessages("t1").Should().BeEquivalentTo(new[]
+        {
+            new ThreadMessage("user", "u"),
+            new ThreadMessage("assistant", "a"),
+            new ThreadMessage("inter_thread", "it"),
+        });
+    }
+
+    [Fact]
+    public void List_DefaultsBlankModelToDefault()
+    {
+        var store = new InMemoryThreadStore();
+
+        // main already exists from CreateMainIfMissing; overwrite metadata with explicit blanks to cover projection.
+        store.SaveThreadMetadata("s1", new ThreadMetadata(
+            ThreadId: ThreadIds.Main,
+            ParentThreadId: null,
+            Intent: null,
+            CreatedAtIso: "2026-01-01T00:00:00Z",
+            UpdatedAtIso: "2026-01-01T00:00:00Z",
+            Model: ""));
+
+        var mgr = new ThreadManager("s1", store);
+
+        mgr.List().Single(t => t.ThreadId == ThreadIds.Main).Model.Should().Be("default");
+    }
 }
