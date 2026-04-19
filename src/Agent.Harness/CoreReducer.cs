@@ -675,6 +675,23 @@ public static class Core
                     break;
                 }
 
+                case Agent.Harness.Threads.ThreadInboxMessageKind.NewThreadTask:
+                {
+                    var parentId = e.Meta is not null && e.Meta.TryGetValue("parentThreadId", out var p)
+                        ? p
+                        : (e.SourceThreadId ?? "");
+
+                    var isFork = e.Meta is not null
+                        && e.Meta.TryGetValue("isFork", out var f)
+                        && bool.TryParse(f, out var fork)
+                        && fork;
+
+                    var task = new NewThreadTask(ThreadId: e.ThreadId, ParentThreadId: parentId, IsFork: isFork, Message: e.Text);
+                    committed = committed.Add(task);
+                    builder.Add(task);
+                    break;
+                }
+
                 default:
                     // Unknown kind: treat as inter-thread system message for now.
                     var fallback = new InterThreadMessage(FromThreadId: e.SourceThreadId ?? "", Text: e.Text);

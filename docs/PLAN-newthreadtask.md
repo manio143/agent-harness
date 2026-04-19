@@ -27,6 +27,19 @@
 ## Goal
 Introduce a first-class **NewThreadTask** concept so that:
 
+## Progress (live)
+- [x] Phase 1 — Domain types + reducer promotion
+  - Added `ThreadInboxMessageKind.NewThreadTask`
+  - Added committed event `NewThreadTask(ThreadId, ParentThreadId, IsFork, Message)`
+  - Reducer promotes inbox kind → committed `NewThreadTask`
+  - Tests: `CoreReducerNewThreadTaskPromotionTests`
+- [x] Phase 2 — Prompt rendering
+  - Renderer emits `<thread_created ... />`, optional `<notice>`, and `<task>...` for `NewThreadTask`
+  - Tests: `MeaiPromptRendererNewThreadTaskTests`
+- [ ] Phase 3 — `thread_start` enqueues `NewThreadTask`
+- [ ] Phase 4 — `thread_read` fork window filtering
+- [ ] Phase 5 — Integration/sample updates
+
 1. Every newly created thread (including forks created via `thread_start` + `context`) receives **exactly one** `NewThreadTask` delivered via the inbox pipeline.
 2. The task is **rendered into the model prompt** in a stable, explicit format that includes the **new thread id**, **parent id**, and the **task message**.
 3. If the thread is a **fork**, `thread_read` for the parent (or anyone) returns only messages **from the fork point onward**, where the **fork point** is the committed `NewThreadTask` event.

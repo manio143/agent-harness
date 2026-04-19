@@ -66,6 +66,17 @@ public static class MeaiPromptRenderer
                     messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.System, $"<thread_idle child=\"{n.ChildThreadId}\" intent=\"{n.LastIntent}\" />"));
                     break;
 
+                case NewThreadTask t:
+                {
+                    var created = $"<thread_created id=\"{t.ThreadId}\" parent_id=\"{t.ParentThreadId}\" />";
+                    var notice = t.IsFork
+                        ? "\n<notice>This is a forked thread with historical context that should be used when completing the task.</notice>"
+                        : "";
+                    var task = $"\n<task>{t.Message}</task>";
+                    messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.System, created + notice + task));
+                    break;
+                }
+
                 case ToolCallRequested t:
                 {
                     var fc = MeaiFunctionContentFactory.CreateFunctionCall(t.ToolId, t.ToolName, t.Args);

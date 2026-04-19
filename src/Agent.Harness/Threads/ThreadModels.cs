@@ -30,6 +30,7 @@ public enum ThreadInboxMessageKind
     UserPrompt = 0,
     InterThreadMessage = 1,
     ThreadIdleNotification = 2,
+    NewThreadTask = 3,
 }
 
 

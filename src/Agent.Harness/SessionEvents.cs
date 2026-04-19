@@ -27,6 +27,14 @@ public sealed record InterThreadMessage(string FromThreadId, string Text) : Sess
 /// Renderer maps this to a system message.
 /// </summary>
 public sealed record ThreadIdleNotification(string ChildThreadId, string LastIntent) : SessionEvent;
+
+/// <summary>
+/// First-class "thread created" task message for a newly created thread.
+/// This is committed when a <see cref="ThreadInboxMessageKind.NewThreadTask"/> inbox envelope is promoted.
+/// Renderer maps this to system markup (<thread_created/> + <task/>).
+/// </summary>
+public sealed record NewThreadTask(string ThreadId, string ParentThreadId, bool IsFork, string Message) : SessionEvent;
+
 public sealed record ReasoningMessage(string Text) : SessionEvent;
 
 /// <summary>
