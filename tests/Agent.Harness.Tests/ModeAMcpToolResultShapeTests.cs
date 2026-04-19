@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Text.Json;
+using System;
 using Agent.Acp.Acp;
 using Agent.Acp.Schema;
 using Agent.Harness.Acp;
@@ -22,7 +23,8 @@ public sealed class ModeAMcpToolResultShapeTests
     [Fact]
     public async Task ModeA_WhenMcpToolCompletes_CommitsStableResultShape()
     {
-        var store = new InMemorySessionStore();
+        var root = Path.Combine(Path.GetTempPath(), "harness-modea-mcp-shape", Guid.NewGuid().ToString("N"));
+        var store = new JsonlSessionStore(root);
         store.CreateNew("s1", new SessionMetadata(
             SessionId: "s1",
             Cwd: "/tmp",
@@ -69,7 +71,8 @@ public sealed class ModeAMcpToolResultShapeTests
 
         resp.StopReason.Value.Should().Be(StopReason.EndTurn);
 
-        var committed = store.LoadCommitted("s1");
+        var threadStore = new Agent.Harness.Threads.JsonlThreadStore(root);
+        var committed = threadStore.LoadCommittedEvents("s1", Agent.Harness.Threads.ThreadIds.Main);
         var completed = committed.OfType<ToolCallCompleted>().Single(c => c.ToolId == "call_1");
 
         completed.Result.TryGetProperty("isError", out var isError).Should().BeTrue();

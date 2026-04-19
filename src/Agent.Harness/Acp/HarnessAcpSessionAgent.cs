@@ -79,10 +79,11 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         return string.IsNullOrWhiteSpace(last) ? "all" : last;
     }
 
-    // Threading engine (long-lived per HarnessAcpSessionAgent instance when backing store supports threads).
-    private readonly Agent.Harness.Threads.IThreadStore? _threadStore;
-    private readonly Agent.Harness.Threads.ThreadManager? _threads;
-    private readonly Agent.Harness.Threads.ThreadOrchestrator? _orchestrator;
+    // Threading engine (long-lived per HarnessAcpSessionAgent instance).
+    // Invariant: threading is always enabled (JsonlSessionStore-backed).
+    private readonly Agent.Harness.Threads.IThreadStore _threadStore;
+    private readonly Agent.Harness.Threads.ThreadManager _threads;
+    private readonly Agent.Harness.Threads.ThreadOrchestrator _orchestrator;
 
     private readonly Dictionary<string, IAcpToolCall> _toolCalls = new();
 
@@ -125,18 +126,13 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         // Anything present in the catalog must be runnable.
 
         // Always-available harness-internal tools.
-        var internalTools = ImmutableArray.Create<ToolDefinition>(ToolSchemas.ReportIntent);
-
-        // Thread tools are runnable only when backed by a thread store (JsonlSessionStore).
-        if (_store is JsonlSessionStore)
-        {
-            internalTools = ClientToolCatalog.Merge(internalTools, ImmutableArray.Create(
-                ToolSchemas.ThreadList,
-                ToolSchemas.ThreadConfig,
-                ToolSchemas.ThreadStart,
-                ToolSchemas.ThreadSend,
-                ToolSchemas.ThreadRead));
-        }
+        var internalTools = ImmutableArray.Create<ToolDefinition>(
+            ToolSchemas.ReportIntent,
+            ToolSchemas.ThreadList,
+            ToolSchemas.ThreadConfig,
+            ToolSchemas.ThreadStart,
+            ToolSchemas.ThreadSend,
+            ToolSchemas.ThreadRead);
 
         // Capability-gated built-ins derived from negotiated client capabilities.
         var builtins = ClientToolCatalog.BuildBuiltins(_client.ClientCapabilities);
@@ -151,29 +147,29 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         _state = _state with { Tools = ApplyToolAllowlist(_state.Tools, _toolAllowlist) };
 
         // Initialize thread engine once per session agent.
-        if (_store is JsonlSessionStore jsonl)
-        {
-            _threadStore = new Agent.Harness.Threads.JsonlThreadStore(jsonl.RootDir);
-            _threads = new Agent.Harness.Threads.ThreadManager(_sessionId, _threadStore);
+        if (_store is not JsonlSessionStore jsonl)
+            throw new InvalidOperationException("HarnessAcpSessionAgent requires JsonlSessionStore (threading is mandatory)");
 
-            _orchestrator = new Agent.Harness.Threads.ThreadOrchestrator(
-                _sessionId,
-                _client,
-                _chat,
-                _chatByModel,
-                _quickWorkModel,
-                _mcp,
-                _coreOptions,
-                logLlmPrompts: _logLlmPrompts,
-                _store,
-                _threadStore,
-                _threads,
-                isKnownModel: _isKnownModel,
-                modelCatalogSystemPrompt: _modelCatalogSystemPrompt);
+        _threadStore = new Agent.Harness.Threads.JsonlThreadStore(jsonl.RootDir);
+        _threads = new Agent.Harness.Threads.ThreadManager(_sessionId, _threadStore);
 
-            // Catalog == runnable/permission surface, and must be consistent across all threads.
-            _orchestrator.InitializeToolCatalog(_state.Tools);
-        }
+        _orchestrator = new Agent.Harness.Threads.ThreadOrchestrator(
+            _sessionId,
+            _client,
+            _chat,
+            _chatByModel,
+            _quickWorkModel,
+            _mcp,
+            _coreOptions,
+            logLlmPrompts: _logLlmPrompts,
+            _store,
+            _threadStore,
+            _threads,
+            isKnownModel: _isKnownModel,
+            modelCatalogSystemPrompt: _modelCatalogSystemPrompt);
+
+        // Catalog == runnable/permission surface, and must be consistent across all threads.
+        _orchestrator.InitializeToolCatalog(_state.Tools);
     }
 
     public Task<SetSessionConfigOptionResponse>? SetSessionConfigOptionAsync(SetSessionConfigOptionRequest request, CancellationToken cancellationToken)
@@ -187,7 +183,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
 
             // Update tool catalog immediately: permission boundary == declared tools.
             _state = _state with { Tools = ApplyToolAllowlist(_state.Tools, _toolAllowlist) };
-            _orchestrator?.SetToolCatalog(_state.Tools);
+            _orchestrator.SetToolCatalog(_state.Tools);
 
             return Task.FromResult(new SetSessionConfigOptionResponse
             {
@@ -232,74 +228,28 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                 return new PromptResponse { StopReason = StopReason.EndTurn };
             }
 
-            // Persist via normal observed->reduce->commit path.
-            // NOTE: We intentionally run a direct "single turn" runner for the main thread here,
-            // even when the threaded orchestrator is enabled, because /set-model is a local command
-            // and we want deterministic persistence (no queue scheduling dependency).
-            if (_threadStore is not null && _orchestrator is not null)
+            // Persist via the normal observed->reduce->commit path.
+            IEventSink cmdPersist = new Agent.Harness.Threads.MainThreadEventSink(_sessionId, _threadStore, _store, logObserved: _logObservedEvents);
+            var cmdSink = new AcpProjectingEventSink(
+                cmdPersist,
+                _coreOptions,
+                _publishOptions,
+                execute: (e, ct) => ExecuteEmissionAsync(e, turn, ct));
+
+            await _orchestrator.ObserveAsync(
+                Agent.Harness.Threads.ThreadIds.Main,
+                new ObservedSetModel(Agent.Harness.Threads.ThreadIds.Main, requestedModel),
+                cancellationToken).ConfigureAwait(false);
+
+            await _orchestrator.RunUntilQuiescentAsync(
+                sinkFactory: tid => tid == Agent.Harness.Threads.ThreadIds.Main ? cmdSink : null,
+                cancellationToken).ConfigureAwait(false);
+
+            _state = _state with
             {
-                // Threaded mode: go through the standard observed -> reduce -> commit pipeline.
-                IEventSink cmdPersist = new Agent.Harness.Threads.MainThreadEventSink(_sessionId, _threadStore, _store, logObserved: _logObservedEvents);
-                var cmdSink = new AcpProjectingEventSink(
-                    cmdPersist,
-                    _coreOptions,
-                    _publishOptions,
-                    execute: (e, ct) => ExecuteEmissionAsync(e, turn, ct));
-
-                await _orchestrator.ObserveAsync(
-                    Agent.Harness.Threads.ThreadIds.Main,
-                    new ObservedSetModel(Agent.Harness.Threads.ThreadIds.Main, requestedModel),
-                    cancellationToken).ConfigureAwait(false);
-
-                await _orchestrator.RunUntilQuiescentAsync(
-                    sinkFactory: tid => tid == Agent.Harness.Threads.ThreadIds.Main ? cmdSink : null,
-                    cancellationToken).ConfigureAwait(false);
-
-                _state = _state with
-                {
-                    Committed = _threadStore.LoadCommittedEvents(_sessionId, Agent.Harness.Threads.ThreadIds.Main),
-                    Buffer = TurnBuffer.Empty,
-                };
-            }
-            else
-            {
-                static async IAsyncEnumerable<ObservedChatEvent> ObserveSetModel(string model)
-                {
-                    yield return new ObservedSetModel(Agent.Harness.Threads.ThreadIds.Main, model);
-                    await Task.CompletedTask;
-                }
-
-                var cmdTitleGen = new SessionTitleGenerator(_chatByModel(_quickWorkModel));
-                var cmdSessionCwd = _store.TryLoadMetadata(_sessionId)?.Cwd;
-
-                var cmdEffects = new AcpEffectExecutor(
-                    _sessionId,
-                    _client,
-                    _chat,
-                    chatByModel: _chatByModel,
-                    isKnownModel: _isKnownModel,
-                    _mcp,
-                    _logLlmPrompts,
-                    sessionCwd: cmdSessionCwd,
-                    store: _store,
-                    modelCatalogSystemPrompt: _modelCatalogSystemPrompt,
-                    threadTools: _orchestrator,
-                    observer: _orchestrator,
-                    lifecycle: _orchestrator,
-                    scheduler: _orchestrator,
-                    threadId: Agent.Harness.Threads.ThreadIds.Main);
-
-                var cmdRunner = new SessionRunner(_coreOptions, cmdTitleGen, cmdEffects);
-                var cmdSink = new AcpProjectingEventSink(
-                    new Agent.Harness.Persistence.JsonlEventSink(_sessionId, _store, logObserved: _logObservedEvents),
-                    _coreOptions,
-                    _publishOptions,
-                    execute: (e, ct) => ExecuteEmissionAsync(e, turn, ct));
-
-                var result = await cmdRunner.RunTurnAsync(Agent.Harness.Threads.ThreadIds.Main, _state, ObserveSetModel(requestedModel), cancellationToken, sink: cmdSink).ConfigureAwait(false);
-                _state = result.Next;
-            }
-
+                Committed = _threadStore.LoadCommittedEvents(_sessionId, Agent.Harness.Threads.ThreadIds.Main),
+                Buffer = TurnBuffer.Empty,
+            };
             await _events.SendSessionUpdateAsync(new AgentMessageChunk
             {
                 Content = new Agent.Acp.Schema.TextContent { Text = $"Inference model set to: {requestedModel}." },
@@ -308,50 +258,9 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             return new PromptResponse { StopReason = StopReason.EndTurn };
         }
 
-        static async IAsyncEnumerable<ObservedChatEvent> ObservePromptAndWake(string text)
-        {
-            // Universal intake: user prompt enters the main thread inbox as an observed event.
-            yield return Agent.Harness.Threads.ThreadInboxArrivals.UserPrompt(
-                threadId: Agent.Harness.Threads.ThreadIds.Main,
-                text: text,
-                source: "user");
 
-            // Turn boundary wake: gives the reducer a chance to dequeue+promote inbox items
-            // into first-class prompt events before the next CallModel.
-            yield return new ObservedWakeModel(Agent.Harness.Threads.ThreadIds.Main);
-        }
-
-        var titleGen = new SessionTitleGenerator(_chatByModel(_quickWorkModel));
-        var sessionCwd = _store.TryLoadMetadata(_sessionId)?.Cwd;
-
-        var effects = new AcpEffectExecutor(
-            _sessionId,
-            _client,
-            _chat,
-            chatByModel: _chatByModel,
-            isKnownModel: _isKnownModel,
-            _mcp,
-            _logLlmPrompts,
-            sessionCwd: sessionCwd,
-            store: _store,
-            modelCatalogSystemPrompt: _modelCatalogSystemPrompt,
-            threadTools: _orchestrator,
-            observer: _orchestrator,
-            lifecycle: _orchestrator,
-            scheduler: _orchestrator,
-            threadId: Agent.Harness.Threads.ThreadIds.Main);
-        var runner = new SessionRunner(_coreOptions, titleGen, effects);
-
-        // Main thread is just another thread: persist committed events into the thread store when available.
-        IEventSink persist;
-        if (_threadStore is not null)
-        {
-            persist = new Agent.Harness.Threads.MainThreadEventSink(_sessionId, _threadStore, _store, logObserved: _logObservedEvents);
-        }
-        else
-        {
-            persist = new Agent.Harness.Persistence.JsonlEventSink(_sessionId, _store, logObserved: _logObservedEvents);
-        }
+        // Main thread is just another thread: persist committed events into the thread store.
+        IEventSink persist = new Agent.Harness.Threads.MainThreadEventSink(_sessionId, _threadStore, _store, logObserved: _logObservedEvents);
 
         var sink = new AcpProjectingEventSink(
             persist,
@@ -359,13 +268,6 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             _publishOptions,
             execute: (e, ct) => ExecuteEmissionAsync(e, turn, ct));
 
-        // If threads aren't enabled (e.g. InMemory session store), fall back to the single-thread runner.
-        if (_orchestrator is null || _threadStore is null)
-        {
-            var result = await runner.RunTurnAsync(Agent.Harness.Threads.ThreadIds.Main, _state, ObservePromptAndWake(userText), cancellationToken, sink: sink).ConfigureAwait(false);
-            _state = result.Next;
-            return new PromptResponse { StopReason = StopReason.EndTurn };
-        }
 
         // Single processing loop: delegate all thread execution (main + children) to the thread orchestrator.
         // Main thread is just another thread; the only special-casing is projection/publishing to ACP.
