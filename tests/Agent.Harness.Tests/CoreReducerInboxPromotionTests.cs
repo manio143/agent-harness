@@ -30,7 +30,8 @@ public sealed class CoreReducerInboxPromotionTests
             Meta: meta);
 
         var r1 = Core.Reduce(state, arrived);
-        r1.NewlyCommitted.Should().ContainSingle(e => e is ThreadInboxMessageEnqueued);
+        var enq = r1.NewlyCommitted.OfType<ThreadInboxMessageEnqueued>().Single();
+        enq.Delivery.Should().Be(ThreadInboxDeliveryText.Immediate);
 
         var r2 = Core.Reduce(r1.Next, new ObservedWakeModel(ThreadIds.Main));
         r2.NewlyCommitted.Any(e => e is ThreadInboxMessageDequeued d && d.EnvelopeId == envId).Should().BeTrue();

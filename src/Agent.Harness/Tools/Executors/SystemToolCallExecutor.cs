@@ -214,12 +214,7 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
             return Agent.Harness.Threads.InboxDelivery.Immediate;
 
         var v = el.GetString();
-        return v switch
-        {
-            "enqueue" => Agent.Harness.Threads.InboxDelivery.Enqueue,
-            "immediate" => Agent.Harness.Threads.InboxDelivery.Immediate,
-            _ => Agent.Harness.Threads.InboxDelivery.Immediate,
-        };
+        return Agent.Harness.Threads.ThreadInboxDeliveryText.Parse(v);
     }
 
     private static string GetRequiredString(Dictionary<string, JsonElement> obj, string name)

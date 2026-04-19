@@ -151,7 +151,7 @@ public static class Core
                     Meta: arrived.Meta,
                     Source: arrived.Source,
                     SourceThreadId: arrived.SourceThreadId,
-                    Delivery: arrived.Delivery.ToString().ToLowerInvariant(),
+                    Delivery: Agent.Harness.Threads.ThreadInboxDeliveryText.Serialize(arrived.Delivery),
                     EnqueuedAtIso: arrived.EnqueuedAtIso,
                     Text: arrived.Text);
 
@@ -629,7 +629,8 @@ public static class Core
             .Where(e => !dq.Contains(e.EnvelopeId))
             // immediate: always promotable
             // enqueue: promotable only at the boundaries where the reducer permits it
-            .Where(e => e.Delivery == "immediate" || (allowEnqueue && e.Delivery == "enqueue"))
+            .Where(e => e.Delivery == Agent.Harness.Threads.ThreadInboxDeliveryText.Immediate
+                || (allowEnqueue && e.Delivery == Agent.Harness.Threads.ThreadInboxDeliveryText.Enqueue))
             .OrderBy(e => e.EnqueuedAtIso)
             .ThenBy(e => e.EnvelopeId)
             .ToList();

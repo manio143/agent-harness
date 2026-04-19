@@ -17,7 +17,7 @@ public sealed class ThreadManager : IThreadTools
             return false;
 
         var items = LoadPendingInbox(threadId);
-        return items.Any(e => e.Delivery == "enqueue");
+        return items.Any(e => e.Delivery == ThreadInboxDeliveryText.Enqueue);
     }
 
     public bool HasImmediateOrDeliverableEnqueue(string threadId)
@@ -25,7 +25,7 @@ public sealed class ThreadManager : IThreadTools
         var items = LoadPendingInbox(threadId);
         if (items.IsDefaultOrEmpty) return false;
 
-        if (items.Any(i => i.Delivery == "immediate"))
+        if (items.Any(i => i.Delivery == ThreadInboxDeliveryText.Immediate))
             return true;
 
         return HasDeliverableEnqueueNow(threadId);
