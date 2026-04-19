@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Text.Json;
 using Agent.Acp.Acp;
+using Agent.Harness.Tools.Executors;
 
 namespace Agent.Harness.Acp;
 
@@ -29,7 +30,7 @@ public sealed class AcpHostToolCallExecutor : IToolCallExecutor
     {
         try
         {
-            var args = AsJsonDictionary(tool.Args);
+            var args = Agent.Harness.Tools.ToolArgs.Normalize(tool.Args);
 
             switch (tool.ToolName)
             {
@@ -199,18 +200,6 @@ public sealed class AcpHostToolCallExecutor : IToolCallExecutor
         return Path.IsPathRooted(rawPath)
             ? Path.GetFullPath(rawPath)
             : Path.GetFullPath(Path.Combine(cwd, rawPath));
-    }
-
-    private static Dictionary<string, JsonElement> AsJsonDictionary(object args)
-    {
-        if (args is JsonElement je && je.ValueKind == JsonValueKind.Object)
-            return je.EnumerateObject().ToDictionary(p => p.Name, p => p.Value, StringComparer.OrdinalIgnoreCase);
-
-        var parsed = JsonSerializer.SerializeToElement(args, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-        if (parsed.ValueKind != JsonValueKind.Object)
-            return new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
-
-        return parsed.EnumerateObject().ToDictionary(p => p.Name, p => p.Value, StringComparer.OrdinalIgnoreCase);
     }
 
     private static string GetRequiredString(Dictionary<string, JsonElement> obj, string name)

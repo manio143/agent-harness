@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Text.Json;
 using Agent.Acp.Acp;
 using Agent.Harness.Llm;
+using Agent.Harness.Tools.Executors;
 
 using MeaiIChatClient = Microsoft.Extensions.AI.IChatClient;
 using MeaiChatMessage = Microsoft.Extensions.AI.ChatMessage;

@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using System.Text.Json;
 
-namespace Agent.Harness.Acp;
+namespace Agent.Harness.Tools.Executors;
 
 public sealed class SystemToolCallExecutor : IToolCallExecutor
 {
@@ -35,7 +35,7 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
     {
         try
         {
-            var args = AsJsonDictionary(tool.Args);
+            var args = Agent.Harness.Tools.ToolArgs.Normalize(tool.Args);
 
             switch (tool.ToolName)
             {
@@ -218,18 +218,6 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
             "immediate" => Agent.Harness.Threads.InboxDelivery.Immediate,
             _ => Agent.Harness.Threads.InboxDelivery.Immediate,
         };
-    }
-
-    private static Dictionary<string, JsonElement> AsJsonDictionary(object args)
-    {
-        if (args is JsonElement je && je.ValueKind == JsonValueKind.Object)
-            return je.EnumerateObject().ToDictionary(p => p.Name, p => p.Value, StringComparer.OrdinalIgnoreCase);
-
-        var parsed = JsonSerializer.SerializeToElement(args, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-        if (parsed.ValueKind != JsonValueKind.Object)
-            return new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
-
-        return parsed.EnumerateObject().ToDictionary(p => p.Name, p => p.Value, StringComparer.OrdinalIgnoreCase);
     }
 
     private static string GetRequiredString(Dictionary<string, JsonElement> obj, string name)

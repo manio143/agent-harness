@@ -4,6 +4,7 @@ using System.Linq;
 using Agent.Acp.Acp;
 using Agent.Acp.Schema;
 using Agent.Harness.Acp;
+using Agent.Harness.Tools.Executors;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 

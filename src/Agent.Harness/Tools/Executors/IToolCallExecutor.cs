@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-namespace Agent.Harness.Acp;
+namespace Agent.Harness.Tools.Executors;
 
 /// <summary>
 /// Executes a specific subset of tool calls.

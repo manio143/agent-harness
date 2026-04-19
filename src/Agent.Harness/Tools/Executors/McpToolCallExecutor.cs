@@ -1,7 +1,8 @@
 using System.Collections.Immutable;
 using System.Text.Json;
+using Agent.Harness.Acp;
 
-namespace Agent.Harness.Acp;
+namespace Agent.Harness.Tools.Executors;
 
 public sealed class McpToolCallExecutor : IToolCallExecutor
 {
