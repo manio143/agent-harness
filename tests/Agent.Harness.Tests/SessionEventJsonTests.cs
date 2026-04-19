@@ -88,4 +88,18 @@ public sealed class SessionEventJsonTests
         var enq = evt.Should().BeOfType<ThreadInboxMessageEnqueued>().Subject;
         enq.EnqueuedAtIso.Should().Be("");
     }
+
+    [Fact]
+    public void Deserialize_ThreadInboxMessageDequeued_WhenTimestampMissing_DoesNotThrow()
+    {
+        var json = """
+        {"type":"thread_inbox_message_dequeued","threadId":"main","envelopeId":"env1"}
+        """;
+
+        var evt = SessionEventJson.Deserialize(json);
+
+        var deq = evt.Should().BeOfType<ThreadInboxMessageDequeued>().Subject;
+        deq.DequeuedAtIso.Should().Be("");
+    }
 }
+

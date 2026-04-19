@@ -182,6 +182,18 @@ public static class SessionEventJson
 
             case "thread_inbox_message_enqueued":
             {
+                static string GetStringOrEmpty(JsonElement root, string name)
+                {
+                    if (!root.TryGetProperty(name, out var el)) return string.Empty;
+                    return el.ValueKind == JsonValueKind.String ? (el.GetString() ?? string.Empty) : el.ToString();
+                }
+
+                static string? GetOptionalString(JsonElement root, string name)
+                {
+                    if (!root.TryGetProperty(name, out var el) || el.ValueKind != JsonValueKind.String) return null;
+                    return el.GetString();
+                }
+
                 string? kindStr = null;
                 var kindOk = false;
                 Agent.Harness.Threads.ThreadInboxMessageKind parsed = default;
@@ -225,36 +237,36 @@ public static class SessionEventJson
                 ImmutableDictionary<string, string>? meta = metaBuilder.Count == 0 ? null : metaBuilder.ToImmutable();
 
                 return new ThreadInboxMessageEnqueued(
-                    ThreadId: root.TryGetProperty("threadId", out var tid) ? (tid.GetString() ?? string.Empty) : string.Empty,
-                    EnvelopeId: root.TryGetProperty("envelopeId", out var eid) ? (eid.GetString() ?? string.Empty) : string.Empty,
+                    ThreadId: GetStringOrEmpty(root, "threadId"),
+                    EnvelopeId: GetStringOrEmpty(root, "envelopeId"),
                     Kind: kind,
                     Meta: meta,
-                    Source: root.TryGetProperty("source", out var src) ? (src.GetString() ?? string.Empty) : string.Empty,
-                    SourceThreadId: root.TryGetProperty("sourceThreadId", out var st) && st.ValueKind == JsonValueKind.String ? st.GetString() : null,
-                    Delivery: Agent.Harness.Threads.ThreadInboxDeliveryText.Normalize(root.TryGetProperty("delivery", out var del) ? del.GetString() : null),
-                    EnqueuedAtIso: root.TryGetProperty("enqueuedAtIso", out var enq) ? (enq.GetString() ?? string.Empty) : string.Empty,
-                    Text: root.TryGetProperty("text", out var txt) ? (txt.GetString() ?? string.Empty) : string.Empty);
+                    Source: GetStringOrEmpty(root, "source"),
+                    SourceThreadId: GetOptionalString(root, "sourceThreadId"),
+                    Delivery: Agent.Harness.Threads.ThreadInboxDeliveryText.Normalize(GetOptionalString(root, "delivery")),
+                    EnqueuedAtIso: GetStringOrEmpty(root, "enqueuedAtIso"),
+                    Text: GetStringOrEmpty(root, "text"));
             }
 
             case "thread_inbox_message_dequeued":
                 return new ThreadInboxMessageDequeued(
-                    ThreadId: root.GetProperty("threadId").GetString() ?? string.Empty,
-                    EnvelopeId: root.GetProperty("envelopeId").GetString() ?? string.Empty,
-                    DequeuedAtIso: root.GetProperty("dequeuedAtIso").GetString() ?? string.Empty);
+                    ThreadId: root.TryGetProperty("threadId", out var tid1) ? (tid1.GetString() ?? string.Empty) : string.Empty,
+                    EnvelopeId: root.TryGetProperty("envelopeId", out var eid1) ? (eid1.GetString() ?? string.Empty) : string.Empty,
+                    DequeuedAtIso: root.TryGetProperty("dequeuedAtIso", out var ts1) ? (ts1.GetString() ?? string.Empty) : string.Empty);
 
             // Back-compat: older name
             case "thread_inbox_message_drained_for_prompt":
                 return new ThreadInboxMessageDequeued(
-                    ThreadId: root.GetProperty("threadId").GetString() ?? string.Empty,
-                    EnvelopeId: root.GetProperty("envelopeId").GetString() ?? string.Empty,
-                    DequeuedAtIso: root.GetProperty("drainedAtIso").GetString() ?? string.Empty);
+                    ThreadId: root.TryGetProperty("threadId", out var tid2) ? (tid2.GetString() ?? string.Empty) : string.Empty,
+                    EnvelopeId: root.TryGetProperty("envelopeId", out var eid2) ? (eid2.GetString() ?? string.Empty) : string.Empty,
+                    DequeuedAtIso: root.TryGetProperty("drainedAtIso", out var ts2) ? (ts2.GetString() ?? string.Empty) : string.Empty);
 
             // Back-compat: older name
             case "thread_inbox_message_delivered_to_llm":
                 return new ThreadInboxMessageDequeued(
-                    ThreadId: root.GetProperty("threadId").GetString() ?? string.Empty,
-                    EnvelopeId: root.GetProperty("envelopeId").GetString() ?? string.Empty,
-                    DequeuedAtIso: root.GetProperty("deliveredAtIso").GetString() ?? string.Empty);
+                    ThreadId: root.TryGetProperty("threadId", out var tid3) ? (tid3.GetString() ?? string.Empty) : string.Empty,
+                    EnvelopeId: root.TryGetProperty("envelopeId", out var eid3) ? (eid3.GetString() ?? string.Empty) : string.Empty,
+                    DequeuedAtIso: root.TryGetProperty("deliveredAtIso", out var ts3) ? (ts3.GetString() ?? string.Empty) : string.Empty);
 
             default:
                 throw new InvalidOperationException($"unknown_event_type:{type}");
