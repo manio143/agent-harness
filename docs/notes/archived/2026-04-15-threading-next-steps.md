@@ -249,17 +249,17 @@ These are the next most valuable items because they lock the “wire contract”
 **Run all tests:**
 ```bash
 cd /home/node/.openclaw/workspace/marian-agent
-dotnet test MarianAgent.slnx -c Release
+dotnet test Agent.slnx -c Release
 ```
 
 **Run thread-related tests only:**
 ```bash
-dotnet test MarianAgent.slnx -c Release --filter "FullyQualifiedName~Thread"
+dotnet test Agent.slnx -c Release --filter "FullyQualifiedName~Thread"
 ```
 
 **Check for compilation warnings:**
 ```bash
-dotnet build MarianAgent.slnx -c Release -warnaserror
+dotnet build Agent.slnx -c Release -warnaserror
 ```
 
 ---

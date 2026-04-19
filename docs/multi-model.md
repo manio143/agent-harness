@@ -213,7 +213,7 @@ ACP command exposed by `HarnessAcpSessionAgent` command parser:
 
 ### Step 12 — Samples + docs ✅
 1. Update samples/prompts to use `/set-model` and/or `thread_start`.
-2. Ensure `dotnet test MarianAgent.slnx -c Release` and samples run.
+2. Ensure `dotnet test Agent.slnx -c Release` and samples run.
 
 ---
 
