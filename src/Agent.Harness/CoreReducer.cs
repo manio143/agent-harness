@@ -639,6 +639,7 @@ public static class Core
 
         var builder = ImmutableArray.CreateBuilder<SessionEvent>();
         var committed = state.Committed;
+        var hasNewThreadTask = committed.Any(e => e is NewThreadTask);
 
         foreach (var e in pending)
         {
@@ -677,6 +678,11 @@ public static class Core
 
                 case Agent.Harness.Threads.ThreadInboxMessageKind.NewThreadTask:
                 {
+                    // Invariant: a thread should have exactly one NewThreadTask bootstrap marker.
+                    // If a duplicate arrives (e.g., replay/bug), dequeue it but do not commit a second marker.
+                    if (hasNewThreadTask)
+                        break;
+
                     var parentId = e.Meta is not null && e.Meta.TryGetValue("parentThreadId", out var p)
                         ? p
                         : (e.SourceThreadId ?? "");
@@ -689,6 +695,7 @@ public static class Core
                     var task = new NewThreadTask(ThreadId: e.ThreadId, ParentThreadId: parentId, IsFork: isFork, Message: e.Text);
                     committed = committed.Add(task);
                     builder.Add(task);
+                    hasNewThreadTask = true;
                     break;
                 }
 
