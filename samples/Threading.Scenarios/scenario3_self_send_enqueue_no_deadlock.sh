@@ -25,7 +25,7 @@ acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --tim
 1) You may call at most 2 tools in this turn.
 2) You may ONLY call: report_intent, thread_send.
 3) You MUST NOT call any other tools (especially thread_start, thread_read, thread_list).
-4) After the 2 tool calls complete, output EXACTLY: AFTER_PING (nothing else).
+4) After the 2 tool calls complete, do NOT wait for any enqueued messages; output EXACTLY: AFTER_PING (nothing else).
 
 Now do the work:
 Call tool report_intent with arguments: {"intent":"self enqueue"}.
