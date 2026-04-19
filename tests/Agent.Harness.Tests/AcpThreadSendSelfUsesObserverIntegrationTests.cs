@@ -35,7 +35,7 @@ public sealed class AcpThreadSendSelfUsesObserverIntegrationTests
         };
 
         // No observer/lifecycle/scheduler provided.
-        var exec = new AcpEffectExecutor(
+        var exec = new HarnessEffectExecutor(
             sessionId,
             client: new FakeCaller(),
             chat: new NoopChatClient(),

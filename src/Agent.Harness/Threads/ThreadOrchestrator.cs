@@ -201,7 +201,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
             var titleGen = new SessionTitleGenerator(_chatByModel(_quickWorkModel));
             var acpClient = threadId == ThreadIds.Main ? _client : NullAcpClientCaller.Instance;
 
-            var effects = new AcpEffectExecutor(
+            var effects = new HarnessEffectExecutor(
                 _sessionId,
                 acpClient,
                 _chat,

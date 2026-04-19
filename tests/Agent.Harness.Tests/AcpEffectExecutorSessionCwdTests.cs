@@ -9,14 +9,14 @@ using FluentAssertions;
 
 namespace Agent.Harness.Tests;
 
-public sealed class AcpEffectExecutorSessionCwdTests
+public sealed class HarnessEffectExecutorSessionCwdTests
 {
     [Fact]
     public async Task WhenSessionCwdProvided_DoesNotReadMetadataForFsNormalization()
     {
         var store = new ThrowingMetadataStore();
         var client = new CapturingClientCaller();
-        var exec = new AcpEffectExecutor(
+        var exec = new HarnessEffectExecutor(
             sessionId: "s1",
             client: client,
             chat: new ThrowingChatClient(),

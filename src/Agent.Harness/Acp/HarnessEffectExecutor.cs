@@ -10,7 +10,7 @@ using MeaiChatRole = Microsoft.Extensions.AI.ChatRole;
 
 namespace Agent.Harness.Acp;
 
-public sealed class AcpEffectExecutor : IStreamingEffectExecutor
+public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
 {
     private readonly string _sessionId;
     private readonly IAcpClientCaller _client;
@@ -30,7 +30,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
 
     private readonly ToolCallRouter _toolRouter;
 
-    public AcpEffectExecutor(
+    public HarnessEffectExecutor(
         string sessionId,
         IAcpClientCaller client,
         MeaiIChatClient chat,

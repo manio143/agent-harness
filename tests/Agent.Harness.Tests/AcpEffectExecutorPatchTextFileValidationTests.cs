@@ -7,7 +7,7 @@ using FluentAssertions;
 
 namespace Agent.Harness.Tests;
 
-public sealed class AcpEffectExecutorPatchTextFileValidationTests
+public sealed class HarnessEffectExecutorPatchTextFileValidationTests
 {
     [Fact]
     public async Task PatchTextFile_InvalidExpectedSha256Format_IsInvalidArgs()
@@ -19,7 +19,7 @@ public sealed class AcpEffectExecutorPatchTextFileValidationTests
 
         client.Files["/cwd/demo.txt"] = "hello world";
 
-        var exec = new AcpEffectExecutor(
+        var exec = new HarnessEffectExecutor(
             sessionId: "sess1",
             client: client,
             chat: new NullMeaiChatClient(),
@@ -57,7 +57,7 @@ public sealed class AcpEffectExecutorPatchTextFileValidationTests
 
         client.Files["/cwd/demo.txt"] = "hello";
 
-        var exec = new AcpEffectExecutor(
+        var exec = new HarnessEffectExecutor(
             sessionId: "sess1",
             client: client,
             chat: new NullMeaiChatClient(),
@@ -93,7 +93,7 @@ public sealed class AcpEffectExecutorPatchTextFileValidationTests
 
         client.Files["/cwd/demo.txt"] = "hello";
 
-        var exec = new AcpEffectExecutor(
+        var exec = new HarnessEffectExecutor(
             sessionId: "sess1",
             client: client,
             chat: new NullMeaiChatClient(),

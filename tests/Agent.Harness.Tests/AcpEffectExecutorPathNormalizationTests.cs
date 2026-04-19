@@ -10,7 +10,7 @@ using Microsoft.Extensions.AI;
 
 namespace Agent.Harness.Tests;
 
-public sealed class AcpEffectExecutorPathNormalizationTests
+public sealed class HarnessEffectExecutorPathNormalizationTests
 {
     [Fact]
     public async Task WriteTextFile_WhenPathIsRelative_NormalizesToAbsoluteUsingSessionCwd()
@@ -25,7 +25,7 @@ public sealed class AcpEffectExecutorPathNormalizationTests
 
         var client = new CapturingClientCaller();
         var chat = new ThrowingChatClient();
-        var exec = new AcpEffectExecutor("s1", client, chat, store: store);
+        var exec = new HarnessEffectExecutor("s1", client, chat, store: store);
 
         var obs = await exec.ExecuteAsync(
             SessionState.Empty,
@@ -50,7 +50,7 @@ public sealed class AcpEffectExecutorPathNormalizationTests
 
         var client = new CapturingClientCaller { ReadResponse = new ReadTextFileResponse { Content = "x" } };
         var chat = new ThrowingChatClient();
-        var exec = new AcpEffectExecutor("s1", client, chat, store: store);
+        var exec = new HarnessEffectExecutor("s1", client, chat, store: store);
 
         var abs = "/repo/cwd/demo.txt";
 

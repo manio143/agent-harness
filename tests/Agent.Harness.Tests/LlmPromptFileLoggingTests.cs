@@ -28,7 +28,7 @@ public sealed class LlmPromptFileLoggingTests
         var client = new NullClientCaller();
         var chat = new EmptyStreamingChatClient();
 
-        var exec = new AcpEffectExecutor(
+        var exec = new HarnessEffectExecutor(
             sessionId: "s1",
             client: client,
             chat: chat,

@@ -7,7 +7,7 @@ using FluentAssertions;
 
 namespace Agent.Harness.Tests;
 
-public sealed class AcpEffectExecutorPatchTextFileEdgeCasesTests
+public sealed class HarnessEffectExecutorPatchTextFileEdgeCasesTests
 {
     [Fact]
     public async Task PatchTextFile_ReplaceExact_MultipleMatchesWithoutOccurrence_Fails()
@@ -19,7 +19,7 @@ public sealed class AcpEffectExecutorPatchTextFileEdgeCasesTests
 
         client.Files["/cwd/demo.txt"] = "x x x";
 
-        var exec = new AcpEffectExecutor(
+        var exec = new HarnessEffectExecutor(
             sessionId: "sess1",
             client: client,
             chat: new NullMeaiChatClient(),
@@ -59,7 +59,7 @@ public sealed class AcpEffectExecutorPatchTextFileEdgeCasesTests
 
         client.Files["/cwd/demo.txt"] = "hello";
 
-        var exec = new AcpEffectExecutor(
+        var exec = new HarnessEffectExecutor(
             sessionId: "sess1",
             client: client,
             chat: new NullMeaiChatClient(),
@@ -99,7 +99,7 @@ public sealed class AcpEffectExecutorPatchTextFileEdgeCasesTests
 
         client.Files["/cwd/demo.txt"] = "a a";
 
-        var exec = new AcpEffectExecutor(
+        var exec = new HarnessEffectExecutor(
             sessionId: "sess1",
             client: client,
             chat: new NullMeaiChatClient(),

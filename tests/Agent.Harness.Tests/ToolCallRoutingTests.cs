@@ -15,7 +15,7 @@ public sealed class ToolCallRoutingTests
     [Fact]
     public async Task ExecuteToolCall_thread_list_IsHandledBySystemExecutor()
     {
-        var exec = new AcpEffectExecutor(
+        var exec = new HarnessEffectExecutor(
             sessionId: "s1",
             client: new NullAcpClientCaller(new ClientCapabilities()),
             chat: new NullMeaiChatClient());
@@ -38,7 +38,7 @@ public sealed class ToolCallRoutingTests
     {
         var mcp = new CapturingMcpInvoker();
 
-        var exec = new AcpEffectExecutor(
+        var exec = new HarnessEffectExecutor(
             sessionId: "s1",
             client: new NullAcpClientCaller(new ClientCapabilities()),
             chat: new NullMeaiChatClient(),

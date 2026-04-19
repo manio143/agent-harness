@@ -7,7 +7,7 @@ using Microsoft.Extensions.AI;
 
 namespace Agent.Harness.Tests;
 
-public sealed class AcpEffectExecutorExecuteCommandTests
+public sealed class HarnessEffectExecutorExecuteCommandTests
 {
     [Fact]
     public async Task ExecuteToolCall_execute_command_UsesCommandAndArgsFields_AndCallsTerminalCreate()
@@ -23,7 +23,7 @@ public sealed class AcpEffectExecutorExecuteCommandTests
             },
         };
 
-        var exec = new AcpEffectExecutor(
+        var exec = new HarnessEffectExecutor(
             sessionId: "sess1",
             client: client,
             chat: new NullMeaiChatClient());

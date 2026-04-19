@@ -9,7 +9,7 @@ using FluentAssertions;
 
 namespace Agent.Harness.Tests;
 
-public sealed class AcpEffectExecutorPathNormalizationFailureMessageTests
+public sealed class HarnessEffectExecutorPathNormalizationFailureMessageTests
 {
     [Fact]
     public async Task WhenFsToolFails_ErrorIncludesNormalizedPath()
@@ -23,7 +23,7 @@ public sealed class AcpEffectExecutorPathNormalizationFailureMessageTests
             UpdatedAtIso: "2026-01-01T00:00:00.0000000+00:00"));
 
         var client = new ThrowingFsClientCaller();
-        var exec = new AcpEffectExecutor("s1", client, new ThrowingChatClient(), store: store);
+        var exec = new HarnessEffectExecutor("s1", client, new ThrowingChatClient(), store: store);
 
         var obs = await exec.ExecuteAsync(
             SessionState.Empty,

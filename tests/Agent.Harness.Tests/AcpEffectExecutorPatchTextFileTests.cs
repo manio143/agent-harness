@@ -9,7 +9,7 @@ using FluentAssertions;
 
 namespace Agent.Harness.Tests;
 
-public sealed class AcpEffectExecutorPatchTextFileTests
+public sealed class HarnessEffectExecutorPatchTextFileTests
 {
     [Fact]
     public async Task PatchTextFile_ReplaceExact_WritesUpdatedContent_AndReturnsHashes()
@@ -22,7 +22,7 @@ public sealed class AcpEffectExecutorPatchTextFileTests
 
         client.Files["/cwd/demo.txt"] = "hello world";
 
-        var exec = new AcpEffectExecutor(
+        var exec = new HarnessEffectExecutor(
             sessionId: "sess1",
             client: client,
             chat: new NullMeaiChatClient(),
@@ -65,7 +65,7 @@ public sealed class AcpEffectExecutorPatchTextFileTests
 
         client.Files["/cwd/demo.txt"] = "hello";
 
-        var exec = new AcpEffectExecutor(
+        var exec = new HarnessEffectExecutor(
             sessionId: "sess1",
             client: client,
             chat: new NullMeaiChatClient(),
@@ -105,7 +105,7 @@ public sealed class AcpEffectExecutorPatchTextFileTests
 
         client.Files["/cwd/demo.txt"] = "hello";
 
-        var exec = new AcpEffectExecutor(
+        var exec = new HarnessEffectExecutor(
             sessionId: "sess1",
             client: client,
             chat: new NullMeaiChatClient(),

@@ -30,7 +30,7 @@ public sealed class ThreadManagerTests
 
     // Forking is now owned by ThreadOrchestrator and tested via:
     // - ThreadOrchestratorRequestForkChildThreadIntegrationTests
-    // - AcpEffectExecutorThreadStartUsesOrchestratorForkTests
+    // - HarnessEffectExecutorThreadStartUsesOrchestratorForkTests
 
     [Fact]
     public void ReportIntent_Persists_Metadata()

@@ -7,7 +7,7 @@ using FluentAssertions;
 
 namespace Agent.Harness.Tests;
 
-public sealed class AcpEffectExecutorThreadToolRequiresOrchestratorTests
+public sealed class HarnessEffectExecutorThreadToolRequiresOrchestratorTests
 {
     [Fact]
     public async Task ThreadSend_WhenSchedulerIsMissing_FailsWithThreadToolsRequireOrchestrator()
@@ -34,7 +34,7 @@ public sealed class AcpEffectExecutorThreadToolRequiresOrchestratorTests
         var threads = new ThreadManager("s1", new InMemoryThreadStore());
 
         // Intentionally omit scheduler/orchestrator to verify we don't fall back to ThreadManager.Send.
-        var exec = new AcpEffectExecutor("s1", new FakeCaller(), new NoopChatClient(), store: store, threadTools: threads, scheduler: null);
+        var exec = new HarnessEffectExecutor("s1", new FakeCaller(), new NoopChatClient(), store: store, threadTools: threads, scheduler: null);
 
         var call = new ExecuteToolCall(
             ToolId: "call_0",

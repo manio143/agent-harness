@@ -25,7 +25,7 @@ public sealed class EffectExecutorExecuteAsyncMatchesStreamingContractTests
         var threadStore = new InMemoryThreadStore();
         var threads = new ThreadManager(sessionId, threadStore);
 
-        var exec = new AcpEffectExecutor(
+        var exec = new HarnessEffectExecutor(
             sessionId,
             client: new FakeCaller(),
             chat: new NoopChatClient(),

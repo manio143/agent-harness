@@ -29,7 +29,7 @@ public sealed class ThreadConfigToolEmitsSetModelReducerTests
             TurnBuffer.Empty,
             tools);
 
-        var exec = new AcpEffectExecutor(
+        var exec = new HarnessEffectExecutor(
             sessionId,
             client: new NullClientCaller(),
             chat: new NullChatClient(),

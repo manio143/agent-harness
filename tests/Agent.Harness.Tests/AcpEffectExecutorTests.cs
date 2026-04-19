@@ -9,7 +9,7 @@ using MeaiIChatClient = Microsoft.Extensions.AI.IChatClient;
 
 namespace Agent.Harness.Tests;
 
-public sealed class AcpEffectExecutorTests
+public sealed class HarnessEffectExecutorTests
 {
     [Fact]
     public async Task CallModel_RendersPromptViaMeaiPromptRenderer_AndCallsChatClientWithRenderedMessages()
@@ -31,7 +31,7 @@ public sealed class AcpEffectExecutorTests
             CreatedAtIso: "t0",
             UpdatedAtIso: "t1"));
 
-        var exec = new AcpEffectExecutor("sess1", new FakeClientCaller(), chat, store: store);
+        var exec = new HarnessEffectExecutor("sess1", new FakeClientCaller(), chat, store: store);
 
         var observed = await exec.ExecuteAsync(state, new CallModel("default"), CancellationToken.None);
         observed.Should().NotBeNull();
