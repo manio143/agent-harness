@@ -43,6 +43,8 @@ public sealed class ThreadOrchestratorEndToEndEnqueueGatingIntegrationTests
             sessionId,
             client: new FakeCaller(),
             chat: chat,
+            chatByModel: _ => chat,
+            quickWorkModel: "default",
             mcp: NullMcpToolInvoker.Instance,
             coreOptions: coreOptions,
             logLlmPrompts: false,
@@ -53,8 +55,7 @@ public sealed class ThreadOrchestratorEndToEndEnqueueGatingIntegrationTests
         orchestrator.InitializeToolCatalog(ImmutableArray.Create(
             ToolSchemas.ReportIntent,
             ToolSchemas.ThreadList,
-            ToolSchemas.ThreadNew,
-            ToolSchemas.ThreadFork,
+            ToolSchemas.ThreadStart,
             ToolSchemas.ThreadSend,
             ToolSchemas.ThreadRead));
 
@@ -157,7 +158,7 @@ public sealed class ThreadOrchestratorEndToEndEnqueueGatingIntegrationTests
                     Contents = new List<MeaiAIContent>
                     {
                         new MeaiFunctionCallContent("call_m1_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "create child" }),
-                        new MeaiFunctionCallContent("call_m1_1", "thread_new", new Dictionary<string, object?> { ["message"] = "do work", ["delivery"] = "immediate" }),
+                        new MeaiFunctionCallContent("call_m1_1", "thread_start", new Dictionary<string, object?> { ["context"] = "fork", ["message"] = "do work", ["delivery"] = "immediate" }),
                     }
                 };
             }

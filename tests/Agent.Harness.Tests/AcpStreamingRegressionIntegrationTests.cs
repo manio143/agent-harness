@@ -146,7 +146,7 @@ public sealed class AcpStreamingRegressionIntegrationTests
             };
 
             // Title generation unused here.
-            return new HarnessAcpSessionAgent(sessionId, client, chat, events, coreOptions, publishOptions, store, initialState);
+            return new HarnessAcpSessionAgent(sessionId, client, chat, _ => chat, "default", events, coreOptions, publishOptions, store, initialState);
         }
     }
 

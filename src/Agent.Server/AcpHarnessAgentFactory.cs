@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 using System.Text.Json;
 using Agent.Acp.Acp;
 using Agent.Acp.Protocol;
@@ -31,12 +32,21 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             Options = new SessionConfigSelectOptions
             {
                 new() { Value = "all", Name = "All tools" },
-                new() { Value = "threading_no_fork", Name = "Threading (no fork tool)" },
             },
         };
     }
 
+    private static string BuildModelCatalogSystemPrompt(ModelCatalog catalog)
+    {
+        var names = catalog.Models.Keys.OrderBy(x => x, StringComparer.Ordinal).ToArray();
+        var list = names.Length == 0 ? "(none)" : string.Join(", ", names);
+
+        return $"Available inference models: {list}. Default: {catalog.DefaultModel}. Quick-work: {catalog.QuickWorkModel}.";
+    }
+
     private readonly Microsoft.Extensions.AI.IChatClient _chat;
+    private readonly IChatClientFactory _chatFactory;
+    private readonly ModelCatalog _modelCatalog;
     private readonly AgentServerOptions _options;
     private readonly IMcpDiscovery _mcpDiscovery;
 
@@ -46,9 +56,29 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
 
     private readonly Dictionary<string, (ImmutableArray<ToolDefinition> Tools, IMcpToolInvoker Invoker)> _mcp = new();
 
-    public AcpHarnessAgentFactory(Microsoft.Extensions.AI.IChatClient chat, AgentServerOptions options, IMcpDiscovery? mcpDiscovery = null)
+    public AcpHarnessAgentFactory(
+        Microsoft.Extensions.AI.IChatClient chat,
+        AgentServerOptions options,
+        IMcpDiscovery? mcpDiscovery = null)
+        : this(
+            chat,
+            new OpenAiChatClientFactory(ModelCatalog.FromOptions(options)),
+            ModelCatalog.FromOptions(options),
+            options,
+            mcpDiscovery)
+    {
+    }
+
+    public AcpHarnessAgentFactory(
+        Microsoft.Extensions.AI.IChatClient chat,
+        IChatClientFactory chatFactory,
+        ModelCatalog modelCatalog,
+        AgentServerOptions options,
+        IMcpDiscovery? mcpDiscovery = null)
     {
         _chat = chat;
+        _chatFactory = chatFactory;
+        _modelCatalog = modelCatalog;
         _options = options;
         _mcpDiscovery = mcpDiscovery ?? new DefaultMcpDiscovery();
     }
@@ -379,6 +409,8 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             sessionId,
             client,
             _chat,
+            _chatFactory.Get,
+            _modelCatalog.QuickWorkModel,
             events,
             coreOptions,
             publishOptions,
@@ -386,7 +418,9 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             initial,
             mcp.Invoker,
             logLlmPrompts: _options.Logging.LogLlmPrompts,
-            logObservedEvents: _options.Logging.LogObservedEvents);
+            logObservedEvents: _options.Logging.LogObservedEvents,
+            isKnownModel: _modelCatalog.IsKnownModel,
+            modelCatalogSystemPrompt: BuildModelCatalogSystemPrompt(_modelCatalog));
     }
 
     public async Task ReplaySessionAsync(string sessionId, IAcpSessionEvents events, CancellationToken cancellationToken)

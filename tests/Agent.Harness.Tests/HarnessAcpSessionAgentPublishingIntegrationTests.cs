@@ -136,7 +136,7 @@ public sealed class HarnessAcpSessionAgentPublishingIntegrationTests
                 Tools = ImmutableArray.Create(ToolSchemas.ReadTextFile),
             };
 
-            return new HarnessAcpSessionAgent(sessionId, client, chat, events, coreOptions, publishOptions, store, initialState);
+            return new HarnessAcpSessionAgent(sessionId, client, chat, _ => chat, "default", events, coreOptions, publishOptions, store, initialState);
         }
     }
 

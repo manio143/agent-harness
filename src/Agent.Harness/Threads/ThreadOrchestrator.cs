@@ -35,10 +35,14 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
     private readonly string _sessionId;
     private readonly IAcpClientCaller _client;
     private readonly Microsoft.Extensions.AI.IChatClient _chat;
+    private readonly Func<string, Microsoft.Extensions.AI.IChatClient> _chatByModel;
+    private readonly string _quickWorkModel;
+    private readonly Func<string, bool>? _isKnownModel;
     private readonly IMcpToolInvoker _mcp;
     private readonly CoreOptions _coreOptions;
     private readonly bool _logLlmPrompts;
     private readonly ISessionStore _sessionStore;
+    private readonly string? _modelCatalogSystemPrompt;
 
     private bool _toolsInitialized;
     private ImmutableArray<ToolDefinition> _toolCatalog;
@@ -53,20 +57,28 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         string sessionId,
         IAcpClientCaller client,
         Microsoft.Extensions.AI.IChatClient chat,
+        Func<string, Microsoft.Extensions.AI.IChatClient> chatByModel,
+        string quickWorkModel,
         IMcpToolInvoker mcp,
         CoreOptions coreOptions,
         bool logLlmPrompts,
         ISessionStore sessionStore,
         IThreadStore threadStore,
-        ThreadManager threads)
+        ThreadManager threads,
+        Func<string, bool>? isKnownModel = null,
+        string? modelCatalogSystemPrompt = null)
     {
         _sessionId = sessionId;
         _client = client;
         _chat = chat;
+        _chatByModel = chatByModel;
+        _quickWorkModel = quickWorkModel;
+        _isKnownModel = isKnownModel;
         _mcp = mcp;
         _coreOptions = coreOptions;
         _logLlmPrompts = logLlmPrompts;
         _sessionStore = sessionStore;
+        _modelCatalogSystemPrompt = modelCatalogSystemPrompt;
 
         _toolsInitialized = false;
         _toolCatalog = ImmutableArray<ToolDefinition>.Empty;
@@ -186,17 +198,20 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 yield return new ObservedWakeModel(threadId);
             }
 
-            var titleGen = new SessionTitleGenerator(_chat);
+            var titleGen = new SessionTitleGenerator(_chatByModel(_quickWorkModel));
             var acpClient = threadId == ThreadIds.Main ? _client : NullAcpClientCaller.Instance;
 
             var effects = new AcpEffectExecutor(
                 _sessionId,
                 acpClient,
                 _chat,
+                chatByModel: _chatByModel,
+                isKnownModel: _isKnownModel,
                 _mcp,
                 logLlmPrompts: threadId == ThreadIds.Main && _logLlmPrompts,
                 sessionCwd: _sessionStore.TryLoadMetadata(_sessionId)?.Cwd,
                 store: _sessionStore,
+                modelCatalogSystemPrompt: _modelCatalogSystemPrompt,
                 threadTools: this,
                 observer: this,
                 lifecycle: this,
@@ -229,6 +244,19 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         return ForkChildThreadAsync(parentThreadId, childThreadId, seedCommitted, cancellationToken);
     }
 
+    public async Task RequestSetThreadModelAsync(
+        string threadId,
+        string model,
+        CancellationToken cancellationToken = default)
+    {
+        // Persist via sink to preserve the "sink-only" invariant.
+        var sink = threadId == ThreadIds.Main
+            ? (IEventSink)new MainThreadEventSink(_sessionId, _threadStore, _sessionStore, logObserved: false)
+            : new ThreadEventSink(_sessionId, threadId, _threadStore);
+
+        await sink.OnCommittedAsync(new SetModel(model), cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task ForkChildThreadAsync(
         string parentThreadId,
         string childThreadId,
@@ -242,7 +270,8 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
             ParentThreadId: parentThreadId,
             Intent: null,
             CreatedAtIso: now,
-            UpdatedAtIso: now);
+            UpdatedAtIso: now,
+            Model: ResolveModelFromCommitted(seedCommitted));
 
         _threadStore.CreateThread(_sessionId, meta);
 
@@ -256,11 +285,16 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         // New thread may have work to do if follow-up observations arrive; schedule is observation-driven.
     }
 
+    private static string ResolveModelFromCommitted(ImmutableArray<SessionEvent> committed)
+        => committed.OfType<SetModel>().Select(m => m.Model).LastOrDefault() ?? "default";
+
     public ImmutableArray<ThreadInfo> List() => _threads.List();
 
     public ImmutableArray<ThreadMessage> ReadThreadMessages(string threadId) => _threads.ReadThreadMessages(threadId);
 
     public void ReportIntent(string threadId, string intent) => _threads.ReportIntent(threadId, intent);
+
+    public string GetModel(string threadId) => _threads.GetModel(threadId);
 
     private async Task NotifyParentIfChildFullyIdleAsync(string threadId, CancellationToken cancellationToken)
     {

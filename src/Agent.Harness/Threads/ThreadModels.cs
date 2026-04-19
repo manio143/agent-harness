@@ -22,7 +22,8 @@ public sealed record ThreadMetadata(
     string? ParentThreadId,
     string? Intent,
     string CreatedAtIso,
-    string UpdatedAtIso);
+    string UpdatedAtIso,
+    string? Model);
 
 public enum ThreadInboxMessageKind
 {
@@ -42,7 +43,8 @@ public sealed record ThreadInfo(
     string ThreadId,
     string? ParentThreadId,
     ThreadStatus Status,
-    string? Intent);
+    string? Intent,
+    string Model);
 
 public sealed record ThreadMessage(
     string Role,

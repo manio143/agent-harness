@@ -45,12 +45,14 @@ public sealed class HarnessAcpSessionAgentLoadsCommittedFromThreadStoreTests
 
         var agent = new HarnessAcpSessionAgent(
             sessionId,
-            client,
-            chat,
-            events,
+            client: client,
+            chat: chat,
+            chatByModel: _ => chat,
+            quickWorkModel: "default",
+            events: events,
             coreOptions: new CoreOptions { CommitAssistantTextDeltas = true },
             publishOptions: new AcpPublishOptions(PublishReasoning: false),
-            store,
+            store: store,
             initialState: SessionState.Empty);
 
         await agent.PromptAsync(

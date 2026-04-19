@@ -25,7 +25,7 @@ namespace Agent.Harness.Tests;
 public sealed class EngineChildThreadOrchestrationIntegrationTests
 {
     [Fact]
-    public async Task ThreadNew_Immediate_RunsChild_AndThreadReadReturnsChildAssistantMessages()
+    public async Task ThreadStart_fork_Immediate_RunsChild_AndThreadReadReturnsChildAssistantMessages()
     {
         var sessionId = "ses_child_orch";
         var root = Path.Combine(Path.GetTempPath(), "harness-engine-child-orch-tests", Guid.NewGuid().ToString("N"));
@@ -42,11 +42,13 @@ public sealed class EngineChildThreadOrchestrationIntegrationTests
         var agent = new HarnessAcpSessionAgent(
             sessionId,
             client: new AcpTwoPromptSameSessionLongLivedOrchestratorIntegrationTests.NullClientCaller(),
-            chat,
+            chat: chat,
+            chatByModel: _ => chat,
+            quickWorkModel: "default",
             events: new AcpTwoPromptSameSessionLongLivedOrchestratorIntegrationTests.NullSessionEvents(),
             coreOptions: new Agent.Harness.CoreOptions { CommitAssistantTextDeltas = true },
             publishOptions: new Agent.Harness.Acp.AcpPublishOptions(PublishReasoning: false),
-            store,
+            store: store,
             initialState: Agent.Harness.SessionState.Empty);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -66,11 +68,11 @@ public sealed class EngineChildThreadOrchestrationIntegrationTests
         await Task.Delay(250, cts.Token);
 
         var childId = turn1.CompletedRawOutputs
-            .Where(x => x.ToolName == "thread_new")
+            .Where(x => x.ToolName == "thread_start")
             .Select(x => ExtractThreadId(x.RawOutput))
             .FirstOrDefault(x => x is not null);
 
-        childId.Should().NotBeNull("expected thread_new to return a threadId rawOutput");
+        childId.Should().NotBeNull("expected thread_start to return a threadId rawOutput");
         childId!.Should().StartWith("thr_");
 
         var childEventsPath = Path.Combine(root, sessionId, "threads", childId!, "events.jsonl");
@@ -222,7 +224,7 @@ public sealed class EngineChildThreadOrchestrationIntegrationTests
                     Contents = new List<MeaiAIContent>
                     {
                         new MeaiFunctionCallContent("call_m1_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "create child" }),
-                        new MeaiFunctionCallContent("call_m1_1", "thread_new", new Dictionary<string, object?> { ["message"] = "do work", ["delivery"] = "immediate" }),
+                        new MeaiFunctionCallContent("call_m1_1", "thread_start", new Dictionary<string, object?> { ["context"] = "fork", ["message"] = "do work", ["delivery"] = "immediate" }),
                     }
                 };
                 await Task.CompletedTask;

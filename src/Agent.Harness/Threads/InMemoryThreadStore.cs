@@ -16,7 +16,8 @@ public sealed class InMemoryThreadStore : IThreadStore
             ParentThreadId: null,
             Intent: null,
             CreatedAtIso: DateTimeOffset.UtcNow.ToString("O"),
-            UpdatedAtIso: DateTimeOffset.UtcNow.ToString("O")));
+            UpdatedAtIso: DateTimeOffset.UtcNow.ToString("O"),
+            Model: null));
     }
 
     public ThreadMetadata? TryLoadThreadMetadata(string sessionId, string threadId)

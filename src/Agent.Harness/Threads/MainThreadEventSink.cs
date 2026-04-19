@@ -41,15 +41,33 @@ public sealed class MainThreadEventSink : IEventSink
     {
         _threadStore.AppendCommittedEvent(_sessionId, ThreadIds.Main, committed);
 
+        // Best-effort thread metadata projection (main thread).
+        if (committed is SetModel set)
+        {
+            var now = DateTimeOffset.UtcNow.ToString("O");
+            var meta = _threadStore.TryLoadThreadMetadata(_sessionId, ThreadIds.Main);
+            var next = meta is null
+                ? new ThreadMetadata(
+                    ThreadId: ThreadIds.Main,
+                    ParentThreadId: null,
+                    Intent: null,
+                    CreatedAtIso: now,
+                    UpdatedAtIso: now,
+                    Model: set.Model)
+                : meta with { Model = set.Model, UpdatedAtIso = now };
+
+            _threadStore.SaveThreadMetadata(_sessionId, next);
+        }
+
         // Best-effort session metadata projection.
-        var meta = _sessionStore.TryLoadMetadata(_sessionId);
-        if (meta is not null)
+        var sessionMeta = _sessionStore.TryLoadMetadata(_sessionId);
+        if (sessionMeta is not null)
         {
             var now = DateTimeOffset.UtcNow.ToString("O");
             var projected = committed switch
             {
-                SessionTitleSet t => meta with { Title = t.Title, UpdatedAtIso = now },
-                _ => meta with { UpdatedAtIso = now },
+                SessionTitleSet t => sessionMeta with { Title = t.Title, UpdatedAtIso = now },
+                _ => sessionMeta with { UpdatedAtIso = now },
             };
 
             _sessionStore.UpdateMetadata(_sessionId, projected);

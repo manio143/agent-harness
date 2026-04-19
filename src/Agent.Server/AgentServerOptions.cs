@@ -2,13 +2,39 @@ namespace Agent.Server;
 
 public sealed class AgentServerOptions
 {
+    // Back-compat: original single OpenAI-compatible model block.
+    // New code should use Models + friendly names.
     public OpenAiOptions OpenAI { get; set; } = new();
+
+    public ModelsOptions Models { get; set; } = new();
+
     public SessionStoreOptions Sessions { get; set; } = new();
     public LoggingOptions Logging { get; set; } = new();
     public CoreOptions Core { get; set; } = new();
     public AcpOptions Acp { get; set; } = new();
 
-    public sealed class OpenAiOptions
+    public sealed class ModelsOptions
+    {
+        /// <summary>
+        /// Friendly-name model catalog.
+        /// Example: "granite" -> { baseUrl, apiKey, model }
+        /// </summary>
+        public Dictionary<string, OpenAiModelOptions> Catalog { get; set; } = new();
+
+        /// <summary>
+        /// Friendly name used when no thread-specific model is configured.
+        /// Defaults to "default".
+        /// </summary>
+        public string DefaultModel { get; set; } = "default";
+
+        /// <summary>
+        /// Friendly name used for quick work outside main thread turns (e.g. title generation).
+        /// Defaults to DefaultModel.
+        /// </summary>
+        public string QuickWorkModel { get; set; } = "default";
+    }
+
+    public class OpenAiModelOptions
     {
         public string BaseUrl { get; set; } = "http://ollama-api:11434/v1";
         public string Model { get; set; } = "qwen2.5:3b";
@@ -19,6 +45,10 @@ public sealed class AgentServerOptions
         /// Default is left null to use library defaults.
         /// </summary>
         public int? NetworkTimeoutSeconds { get; set; }
+    }
+
+    public sealed class OpenAiOptions : OpenAiModelOptions
+    {
     }
 
     public sealed class SessionStoreOptions

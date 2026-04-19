@@ -133,36 +133,24 @@ public static class ToolSchemas
 
     public static ToolDefinition ThreadList { get; } = new(
         Name: "thread_list",
-        Description: "List threads in the current session, including their current intent and status.",
+        Description: "List threads in the current session, including their current intent, status, and model.",
         InputSchema: ParseSchema("""
         { "type": "object", "properties": { }, "required": [ ] }
         """));
 
-    public static ToolDefinition ThreadNew { get; } = new(
-        Name: "thread_new",
-        Description: "Create a new empty child thread and attach an initial message from the parent.",
+    public static ToolDefinition ThreadStart { get; } = new(
+        Name: "thread_start",
+        Description: "Start a child thread (new or fork from current thread) and attach an initial message. Optional: set the child's model.",
         InputSchema: ParseSchema("""
         {
           "type": "object",
           "properties": {
-            "message": { "type": "string", "description": "Initial message to attach to the new thread" },
-            "delivery": { "type": "string", "enum": ["enqueue", "immediate"], "description": "Whether the message should be delivered immediately or enqueued until idle" }
-          },
-          "required": ["message"]
-        }
-        """));
-
-    public static ToolDefinition ThreadFork { get; } = new(
-        Name: "thread_fork",
-        Description: "Fork the current thread into a child thread by cloning state and attaching an initial message.",
-        InputSchema: ParseSchema("""
-        {
-          "type": "object",
-          "properties": {
+            "context": { "type": "string", "enum": ["new", "fork"], "description": "Whether to start from empty state or fork the current thread" },
             "message": { "type": "string", "description": "Initial message to attach to the child thread" },
-            "delivery": { "type": "string", "enum": ["enqueue", "immediate"], "description": "Whether the message should be delivered immediately or enqueued until idle" }
+            "delivery": { "type": "string", "enum": ["enqueue", "immediate"], "description": "Whether the message should be delivered immediately or enqueued until idle" },
+            "model": { "type": "string", "description": "Optional model friendly name for the child thread (or 'default')" }
           },
-          "required": ["message"]
+          "required": ["context", "message"]
         }
         """));
 
@@ -191,6 +179,20 @@ public static class ToolSchemas
             "threadId": { "type": "string", "description": "Thread id to read from" }
           },
           "required": ["threadId"]
+        }
+        """));
+
+    public static ToolDefinition ThreadConfig { get; } = new(
+        Name: "thread_config",
+        Description: "Get or set thread configuration (currently: model).",
+        InputSchema: ParseSchema("""
+        {
+          "type": "object",
+          "properties": {
+            "threadId": { "type": "string", "description": "Thread id (defaults to current thread)" },
+            "model": { "type": "string", "description": "Model friendly name to use for this thread (or 'default')" }
+          },
+          "required": [ ]
         }
         """));
 

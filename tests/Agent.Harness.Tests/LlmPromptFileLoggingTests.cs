@@ -47,7 +47,7 @@ public sealed class LlmPromptFileLoggingTests
                 JsonSerializer.SerializeToElement(new { type = "object" }))),
         };
 
-        await exec.ExecuteAsync(state, new CallModel(), CancellationToken.None);
+        await exec.ExecuteAsync(state, new CallModel("default"), CancellationToken.None);
 
         var promptPath = Path.Combine(root, "s1", "llm.prompt.jsonl");
         File.Exists(promptPath).Should().BeTrue();

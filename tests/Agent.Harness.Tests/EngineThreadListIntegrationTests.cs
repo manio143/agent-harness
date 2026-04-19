@@ -40,11 +40,13 @@ public sealed class EngineThreadListIntegrationTests
         var agent = new HarnessAcpSessionAgent(
             sessionId,
             client: new AcpTwoPromptSameSessionLongLivedOrchestratorIntegrationTests.NullClientCaller(),
-            chat,
+            chat: chat,
+            chatByModel: _ => chat,
+            quickWorkModel: "default",
             events: new AcpTwoPromptSameSessionLongLivedOrchestratorIntegrationTests.NullSessionEvents(),
             coreOptions: new Agent.Harness.CoreOptions { CommitAssistantTextDeltas = true },
             publishOptions: new Agent.Harness.Acp.AcpPublishOptions(PublishReasoning: false),
-            store,
+            store: store,
             initialState: Agent.Harness.SessionState.Empty);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -78,6 +80,7 @@ public sealed class EngineThreadListIntegrationTests
 
         var main = threads.EnumerateArray().First(t => GetString(t, "threadId", "ThreadId") == "main");
         GetString(main, "intent", "Intent").Should().Be("list threads");
+        GetString(main, "model", "Model").Should().Be("default");
     }
 
     private sealed class ScriptedMeaiChatClient : MeaiIChatClient

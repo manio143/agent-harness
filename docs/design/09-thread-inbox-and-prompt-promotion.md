@@ -24,7 +24,7 @@ This document specifies:
 
 Every inbound message first becomes an inbox envelope:
 - ACP user prompts
-- inter-thread messages (`thread_send`, initial messages from `thread_new` / `thread_fork`)
+- inter-thread messages (`thread_send`, initial messages from `thread_start`)
 - internal notifications (e.g., child became idle)
 
 The inbox is modeled as committed events and is replayable/deterministic.

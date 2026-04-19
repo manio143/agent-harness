@@ -37,12 +37,16 @@ public sealed class ThreadOrchestratorIdleNotificationTests
             ParentThreadId: ThreadIds.Main,
             Intent: "doing work",
             CreatedAtIso: now,
-            UpdatedAtIso: now));
+            UpdatedAtIso: now,
+            Model: null));
 
+        var chat = new MinimalChatClient();
         var orchestrator = new ThreadOrchestrator(
             sessionId: sessionId,
             client: new FakeClientCaller(),
-            chat: new MinimalChatClient(),
+            chat: chat,
+            chatByModel: _ => chat,
+            quickWorkModel: "default",
             mcp: NullMcpToolInvoker.Instance,
             coreOptions: new CoreOptions(),
             logLlmPrompts: false,
@@ -53,8 +57,7 @@ public sealed class ThreadOrchestratorIdleNotificationTests
         orchestrator.InitializeToolCatalog(ImmutableArray.Create(
             ToolSchemas.ReportIntent,
             ToolSchemas.ThreadList,
-            ToolSchemas.ThreadNew,
-            ToolSchemas.ThreadFork,
+            ToolSchemas.ThreadStart,
             ToolSchemas.ThreadSend,
             ToolSchemas.ThreadRead));
 

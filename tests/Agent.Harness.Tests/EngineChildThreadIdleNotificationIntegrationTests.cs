@@ -45,11 +45,13 @@ public sealed class EngineChildThreadIdleNotificationIntegrationTests
         var agent = new HarnessAcpSessionAgent(
             sessionId,
             client: new AcpTwoPromptSameSessionLongLivedOrchestratorIntegrationTests.NullClientCaller(),
-            chat,
+            chat: chat,
+            chatByModel: _ => chat,
+            quickWorkModel: "default",
             events: new AcpTwoPromptSameSessionLongLivedOrchestratorIntegrationTests.NullSessionEvents(),
             coreOptions: new Agent.Harness.CoreOptions { CommitAssistantTextDeltas = true },
             publishOptions: new Agent.Harness.Acp.AcpPublishOptions(PublishReasoning: false),
-            store,
+            store: store,
             initialState: Agent.Harness.SessionState.Empty);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -120,7 +122,7 @@ public sealed class EngineChildThreadIdleNotificationIntegrationTests
                     Contents = new List<MeaiAIContent>
                     {
                         new MeaiFunctionCallContent("call_mhi_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "create child" }),
-                        new MeaiFunctionCallContent("call_mhi_1", "thread_new", new Dictionary<string, object?> { ["message"] = "do work", ["delivery"] = "immediate" }),
+                        new MeaiFunctionCallContent("call_mhi_1", "thread_start", new Dictionary<string, object?> { ["context"] = "fork", ["message"] = "do work", ["delivery"] = "immediate" }),
                     }
                 };
                 await Task.CompletedTask;

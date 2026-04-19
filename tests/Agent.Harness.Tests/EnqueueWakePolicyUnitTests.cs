@@ -54,7 +54,8 @@ public sealed class EnqueueWakePolicyUnitTests
             ParentThreadId: ThreadIds.Main,
             Intent: null,
             CreatedAtIso: "t0",
-            UpdatedAtIso: "t0"));
+            UpdatedAtIso: "t0",
+            Model: null));
 
         threadStore.AppendCommittedEvent("s1", child, new ThreadInboxMessageEnqueued(
             ThreadId: child,

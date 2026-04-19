@@ -14,10 +14,13 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
     private readonly string _sessionId;
     private readonly IAcpClientCaller _client;
     private readonly MeaiIChatClient _chat;
+    private readonly Func<string, MeaiIChatClient>? _chatByModel;
+    private readonly Func<string, bool>? _isKnownModel;
     private readonly IMcpToolInvoker _mcp;
     private readonly bool _logLlmPrompts;
     private readonly string? _sessionCwd;
     private readonly Agent.Harness.Persistence.ISessionStore? _store;
+    private readonly string? _modelCatalogSystemPrompt;
     private readonly Agent.Harness.Threads.IThreadTools? _threadTools;
     private readonly Agent.Harness.Threads.IThreadObserver? _observer;
     private readonly Agent.Harness.Threads.IThreadLifecycle? _lifecycle;
@@ -28,10 +31,13 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         string sessionId,
         IAcpClientCaller client,
         MeaiIChatClient chat,
+        Func<string, MeaiIChatClient>? chatByModel = null,
+        Func<string, bool>? isKnownModel = null,
         IMcpToolInvoker? mcp = null,
         bool logLlmPrompts = false,
         string? sessionCwd = null,
         Agent.Harness.Persistence.ISessionStore? store = null,
+        string? modelCatalogSystemPrompt = null,
         Agent.Harness.Threads.IThreadTools? threadTools = null,
         Agent.Harness.Threads.IThreadObserver? observer = null,
         Agent.Harness.Threads.IThreadLifecycle? lifecycle = null,
@@ -41,10 +47,13 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         _sessionId = sessionId;
         _client = client;
         _chat = chat;
+        _chatByModel = chatByModel;
+        _isKnownModel = isKnownModel;
         _mcp = mcp ?? NullMcpToolInvoker.Instance;
         _logLlmPrompts = logLlmPrompts;
         _sessionCwd = sessionCwd;
         _store = store;
+        _modelCatalogSystemPrompt = modelCatalogSystemPrompt;
         _threadTools = threadTools;
         _observer = observer;
         _lifecycle = lifecycle;
@@ -66,8 +75,8 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
     {
         switch (effect)
         {
-            case CallModel:
-                await foreach (var o in CallModelStreamingAsync(state, cancellationToken).ConfigureAwait(false))
+            case CallModel call:
+                await foreach (var o in CallModelStreamingAsync(state, call, cancellationToken).ConfigureAwait(false))
                     yield return o;
                 yield break;
 
@@ -101,7 +110,7 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         return ImmutableArray.Create<ObservedChatEvent>(new ObservedPermissionApproved(p.ToolId, "tool_in_catalog"));
     }
 
-    private async IAsyncEnumerable<ObservedChatEvent> CallModelStreamingAsync(SessionState state, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    private async IAsyncEnumerable<ObservedChatEvent> CallModelStreamingAsync(SessionState state, CallModel call, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
         try
         {
@@ -119,6 +128,9 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
             }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
             meaiMessages.Insert(0, new MeaiChatMessage(MeaiChatRole.System, $"<session>{sessionPayload}</session>"));
+
+            if (!string.IsNullOrWhiteSpace(_modelCatalogSystemPrompt))
+                meaiMessages.Insert(0, new MeaiChatMessage(MeaiChatRole.System, _modelCatalogSystemPrompt));
 
 
         var options = new Microsoft.Extensions.AI.ChatOptions
@@ -197,7 +209,8 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
             TryAppendPromptLog(promptPayload);
         }
 
-            var updates = _chat.GetStreamingResponseAsync(meaiMessages, options, cancellationToken);
+            var chat = _chatByModel is null ? _chat : _chatByModel(call.Model);
+            var updates = chat.GetStreamingResponseAsync(meaiMessages, options, cancellationToken);
 
             await foreach (var o in MeaiObservedEventSource.FromStreamingResponse(updates, cancellationToken).ConfigureAwait(false))
                 yield return o;
@@ -206,6 +219,9 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
         {
         }
     }
+
+    private static string ResolveModelFromCommitted(ImmutableArray<SessionEvent> committed)
+        => committed.OfType<SetModel>().Select(m => m.Model).LastOrDefault() ?? "default";
 
     private async Task<ImmutableArray<ObservedChatEvent>> ExecuteToolAsync(SessionState state, ExecuteToolCall t, CancellationToken cancellationToken)
     {
@@ -244,25 +260,88 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                         JsonSerializer.SerializeToElement(new { messages })));
                 }
 
-                case "thread_new":
+                case "thread_config":
                 {
+                    var threadId = args.TryGetValue("threadId", out var tidVal) && tidVal.ValueKind == JsonValueKind.String
+                        ? tidVal.GetString()!
+                        : _threadId;
+
+                    // Read-only: return current projected model.
+                    if (!args.TryGetValue("model", out var modelVal) || modelVal.ValueKind != JsonValueKind.String)
+                    {
+                        var current = threadId == _threadId
+                            ? ResolveModelFromCommitted(state.Committed)
+                            : _threadTools?.GetModel(threadId) ?? "default";
+
+                        return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
+                            t.ToolId,
+                            JsonSerializer.SerializeToElement(new { threadId, model = current })));
+                    }
+
+                    var model = modelVal.GetString()!;
+                    if (string.IsNullOrWhiteSpace(model))
+                        throw new InvalidOperationException("thread_config.model_required");
+
+                    // Validation rule: model must be 'default' or a known friendly name.
+                    if (!string.Equals(model, "default", StringComparison.OrdinalIgnoreCase) && _isKnownModel is not null && !_isKnownModel(model))
+                        throw new InvalidOperationException("thread_config.unknown_model");
+
+                    // Cross-thread: persist immediately via orchestrator lifecycle.
+                    if (threadId != _threadId)
+                    {
+                        if (_lifecycle is null)
+                            throw new InvalidOperationException("thread_tools_require_orchestrator");
+
+                        await _lifecycle.RequestSetThreadModelAsync(threadId, model, cancellationToken).ConfigureAwait(false);
+
+                        return ImmutableArray.Create<ObservedChatEvent>(
+                            new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { ok = true, threadId, model })));
+                    }
+
+                    // Current thread: emit an observed set-model event so reducer commits SetModel before tool completes.
+                    return ImmutableArray.Create<ObservedChatEvent>(
+                        new ObservedSetModel(threadId, model),
+                        new ObservedToolCallCompleted(t.ToolId, JsonSerializer.SerializeToElement(new { ok = true, threadId, model })));
+                }
+
+
+                case "thread_start":
+                {
+                    var context = GetRequiredString(args, "context");
                     var message = GetRequiredString(args, "message");
                     var delivery = ParseDelivery(args);
 
                     if (_lifecycle is null || _observer is null || _scheduler is null)
                         throw new InvalidOperationException("thread_tools_require_orchestrator");
 
-                    // Unified model: thread lifecycle is owned by the orchestrator.
-                    // We must return a threadId synchronously, so we preallocate it.
+                    ImmutableArray<SessionEvent> seed = context switch
+                    {
+                        "new" => ImmutableArray<SessionEvent>.Empty,
+                        "fork" => state.Committed,
+                        _ => throw new InvalidOperationException("thread_start.invalid_context"),
+                    };
+
                     var id = "thr_" + Guid.NewGuid().ToString("N")[..12];
 
                     await _lifecycle.RequestForkChildThreadAsync(
                         _threadId,
                         id,
-                        state.Committed,
+                        seed,
                         cancellationToken).ConfigureAwait(false);
 
-                    // Universal intake: express initial message as observed inbox arrival to the child thread.
+                    // Optional: set model before any prompt processing.
+                    if (args.TryGetValue("model", out var modelVal) && modelVal.ValueKind == JsonValueKind.String)
+                    {
+                        var model = modelVal.GetString()!;
+                        if (string.IsNullOrWhiteSpace(model))
+                            throw new InvalidOperationException("thread_start.model_required");
+
+                        if (!string.Equals(model, "default", StringComparison.OrdinalIgnoreCase) && _isKnownModel is not null && !_isKnownModel(model))
+                            throw new InvalidOperationException("thread_start.unknown_model");
+
+                        await _observer.ObserveAsync(id, new ObservedSetModel(id, model), cancellationToken).ConfigureAwait(false);
+                    }
+
                     await _observer.ObserveAsync(
                         id,
                         Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
@@ -274,51 +353,13 @@ public sealed class AcpEffectExecutor : IStreamingEffectExecutor
                         cancellationToken).ConfigureAwait(false);
 
                     if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
-                    {
                         _scheduler.ScheduleRun(id);
-                    }
 
                     return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
                         t.ToolId,
                         JsonSerializer.SerializeToElement(new { threadId = id })));
                 }
 
-                case "thread_fork":
-                {
-                    var message = GetRequiredString(args, "message");
-                    var delivery = ParseDelivery(args);
-
-                    if (_lifecycle is null || _observer is null || _scheduler is null)
-                        throw new InvalidOperationException("thread_tools_require_orchestrator");
-
-                    // Unified model: thread lifecycle is owned by the orchestrator.
-                    var id = "thr_" + Guid.NewGuid().ToString("N")[..12];
-
-                    await _lifecycle.RequestForkChildThreadAsync(
-                        _threadId,
-                        id,
-                        state.Committed,
-                        cancellationToken).ConfigureAwait(false);
-
-                    await _observer.ObserveAsync(
-                        id,
-                        Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
-                            threadId: id,
-                            text: message,
-                            sourceThreadId: _threadId,
-                            source: "thread",
-                            delivery: delivery),
-                        cancellationToken).ConfigureAwait(false);
-
-                    if (delivery == Agent.Harness.Threads.InboxDelivery.Immediate)
-                    {
-                        _scheduler.ScheduleRun(id);
-                    }
-
-                    return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(
-                        t.ToolId,
-                        JsonSerializer.SerializeToElement(new { threadId = id })));
-                }
 
                 case "thread_send":
                 {

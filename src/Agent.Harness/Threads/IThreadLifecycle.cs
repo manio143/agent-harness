@@ -9,4 +9,9 @@ public interface IThreadLifecycle
         string childThreadId,
         ImmutableArray<SessionEvent> seedCommitted,
         CancellationToken cancellationToken = default);
+
+    Task RequestSetThreadModelAsync(
+        string threadId,
+        string model,
+        CancellationToken cancellationToken = default);
 }

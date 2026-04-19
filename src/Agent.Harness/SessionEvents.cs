@@ -142,6 +142,11 @@ public sealed record ThreadInboxMessageDequeued(
     string EnvelopeId,
     string DequeuedAtIso) : SessionEvent;
 
+/// <summary>
+/// Change the inference model for this thread. Last SetModel wins.
+/// </summary>
+public sealed record SetModel(string Model) : SessionEvent;
+
 public enum ChatRole
 {
     System,

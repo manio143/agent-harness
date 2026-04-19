@@ -47,6 +47,8 @@ public sealed class ModeAMcpToolResultShapeTests
             sessionId: "s1",
             client: new NullClientCaller(),
             chat: chat,
+            chatByModel: _ => chat,
+            quickWorkModel: "default",
             events: new NullSessionEvents(),
             coreOptions: new CoreOptions(),
             publishOptions: new AcpPublishOptions(PublishReasoning: false),

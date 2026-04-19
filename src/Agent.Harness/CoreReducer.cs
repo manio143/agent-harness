@@ -22,6 +22,14 @@ public sealed record CoreOptions(
 /// </summary>
 public static class Core
 {
+    private static string ResolveModel(SessionState state)
+    {
+        // Projection: last SetModel wins.
+        // If none exists, we use "default" which will be resolved by the imperative shell.
+        var last = state.Committed.OfType<SetModel>().LastOrDefault();
+        return last?.Model ?? "default";
+    }
+
     private static bool HasPendingEnqueuedInbox(ImmutableArray<SessionEvent> committed)
     {
         if (committed.IsDefaultOrEmpty) return false;
@@ -114,10 +122,11 @@ public static class Core
         // Harness-internal tools (always available)
         builder.Add(ToolSchemas.ReportIntent);
         builder.Add(ToolSchemas.ThreadList);
-        builder.Add(ToolSchemas.ThreadNew);
-        builder.Add(ToolSchemas.ThreadFork);
+        builder.Add(ToolSchemas.ThreadStart);
+        builder.Add(ToolSchemas.ThreadStart);
         builder.Add(ToolSchemas.ThreadSend);
         builder.Add(ToolSchemas.ThreadRead);
+        builder.Add(ToolSchemas.ThreadConfig);
 
         return builder.ToImmutable();
     }
@@ -144,7 +153,7 @@ public static class Core
                 return new ReduceResult(
                     next,
                     ImmutableArray.Create<SessionEvent>(msgEvt),
-                    ImmutableArray.Create<Effect>(new CallModel()));
+                    ImmutableArray.Create<Effect>(new CallModel(ResolveModel(state))));
             }
 
             case ObservedInboxMessageArrived arrived:
@@ -189,7 +198,7 @@ public static class Core
                 // ThreadIdleNotification. The parent often needs to continue without waiting
                 // for user interaction.
                 var shouldCallModel = newly.Any(e => e is UserMessage or InterThreadMessage or ThreadIdleNotification);
-                var effects = shouldCallModel ? ImmutableArray.Create<Effect>(new CallModel()) : ImmutableArray<Effect>.Empty;
+                var effects = shouldCallModel ? ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next))) : ImmutableArray<Effect>.Empty;
 
                 return new ReduceResult(next, newly, effects);
             }
@@ -285,7 +294,7 @@ public static class Core
                     return new ReduceResult(
                         nextRej,
                         ImmutableArray.Create<SessionEvent>(rejected),
-                        ImmutableArray.Create<Effect>(new CallModel()));
+                        ImmutableArray.Create<Effect>(new CallModel(ResolveModel(nextRej))));
                 }
 
                 // Early rejection: unknown tool / invalid args
@@ -298,7 +307,7 @@ public static class Core
                     return new ReduceResult(
                         nextRej,
                         ImmutableArray.Create<SessionEvent>(rejected),
-                        ImmutableArray.Create<Effect>(new CallModel()));
+                        ImmutableArray.Create<Effect>(new CallModel(ResolveModel(nextRej))));
                 }
 
                 var errors = ToolArgValidator.Validate(tool.InputSchema, detected.Args);
@@ -310,7 +319,7 @@ public static class Core
                     return new ReduceResult(
                         nextRej,
                         ImmutableArray.Create<SessionEvent>(rejected),
-                        ImmutableArray.Create<Effect>(new CallModel()));
+                        ImmutableArray.Create<Effect>(new CallModel(ResolveModel(nextRej))));
                 }
 
                 // Commit ToolCallRequested and emit CheckPermission effect
@@ -376,7 +385,7 @@ public static class Core
                 return new ReduceResult(
                     next,
                     ImmutableArray.Create<SessionEvent>(deniedEvt, rejected),
-                    ImmutableArray.Create<Effect>(new CallModel()));
+                    ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next))));
             }
 
             case ObservedToolCallProgressUpdate progress:
@@ -451,7 +460,7 @@ public static class Core
 
                 var effects = (isReportIntent && hasOtherOpen)
                     ? ImmutableArray<Effect>.Empty
-                    : ImmutableArray.Create<Effect>(new CallModel());
+                    : ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next)));
 
                 return new ReduceResult(
                     next,
@@ -472,7 +481,7 @@ public static class Core
                 return new ReduceResult(
                     next,
                     ImmutableArray.Create<SessionEvent>(failedEvent),
-                    ImmutableArray.Create<Effect>(new CallModel()));
+                    ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next))));
             }
 
             case ObservedToolCallCancelled cancelled:
@@ -488,7 +497,15 @@ public static class Core
                 return new ReduceResult(
                     next,
                     ImmutableArray.Create<SessionEvent>(cancelledEvent),
-                    ImmutableArray.Create<Effect>(new CallModel()));
+                    ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next))));
+            }
+
+            case ObservedSetModel set:
+            {
+                var evtSet = new SetModel(set.Model);
+                var committed = state.Committed.Add(evtSet);
+                var next = state with { Committed = committed };
+                return new ReduceResult(next, ImmutableArray.Create<SessionEvent>(evtSet), ImmutableArray<Effect>.Empty);
             }
 
             default:
@@ -564,6 +581,12 @@ public static class Core
                 {
                     var payload = JsonSerializer.Serialize(new { toolId = c.ToolId, outcome = "cancelled" }, json);
                     builder.Add(new ChatMessage(ChatRole.Tool, payload));
+                    break;
+                }
+
+                case SetModel m:
+                {
+                    builder.Add(new ChatMessage(ChatRole.System, $"Inference model has been set to: {m.Model}."));
                     break;
                 }
 

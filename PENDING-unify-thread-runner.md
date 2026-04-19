@@ -12,7 +12,7 @@ Unify main-thread vs child-thread execution so that the *only* difference is sin
   - child threads use `ThreadEventSink`
 - Harness + ACP test suites are green (Release):
   - Agent.Acp.Tests: 74 passed
-  - Agent.Harness.Tests: 154 passed
+  - Agent.Harness.Tests: 160 passed
 
 ## MVP / non-negotiable behaviors (tests exist) ✅
 These contract tests already exist and are passing:
@@ -31,6 +31,9 @@ These contract tests already exist and are passing:
 - ✅ **At most one model call in-flight per thread** (hard invariant).
   - Per-thread `SemaphoreSlim` gate in `ThreadOrchestrator._gates` enforces this.
   - `ThreadSendSelfEnqueueDoesNotDeadlockIntegrationTests` validates no re-entrancy deadlock.
+- ✅ **Effect ordering is sequential for dependent tools within a turn**.
+  - Turn runner must reduce observations produced by a tool effect *before* executing the next tool effect.
+  - Reason: tool calls can be causally dependent in one streamed update (e.g., `thread_config` emits `ObservedSetModel` which must commit `SetModel` before `thread_list` runs).
 
 ## Notes
 - Contract tests exist and pass:
@@ -48,4 +51,6 @@ Now that the two-lane model is in place (observations via `ObserveAsync`, lifecy
 - [ ] Consider whether `_states` cache in `ThreadOrchestrator` is still needed or can be reduced/removed (since committed state is reloaded from store per wake).
 - [ ] Add/adjust integration tests where they meaningfully reduce future regressions (esp. around tool catalog changes + quiescence scheduling).
 
-## Status: 🚧 IN PROGRESS
+## Status: ✅ COMPLETE (2026-04-19)
+
+All invariants listed above hold, contract tests are green, and the remaining bullets are optional cleanup only.

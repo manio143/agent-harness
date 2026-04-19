@@ -17,12 +17,12 @@ using MeaiTextContent = Microsoft.Extensions.AI.TextContent;
 
 namespace Agent.Harness.Tests;
 
-public sealed class ThreadOrchestratorThreadNewMidTurnCreatesChildAndCommitsInboxIntegrationTests
+public sealed class ThreadOrchestratorThreadStartMidTurnCreatesChildAndCommitsInboxIntegrationTests
 {
     [Fact]
-    public async Task ThreadNew_called_during_main_turn_creates_child_and_commits_child_inbox_message()
+    public async Task ThreadStart_called_during_main_turn_creates_child_and_commits_child_inbox_message()
     {
-        var sessionId = "sess_midturn_thread_new";
+        var sessionId = "sess_midturn_thread_start";
         var root = Path.Combine(Path.GetTempPath(), "harness-midturn-thread-new", Guid.NewGuid().ToString("N"));
 
         var sessionStore = new JsonlSessionStore(root);
@@ -36,11 +36,13 @@ public sealed class ThreadOrchestratorThreadNewMidTurnCreatesChildAndCommitsInbo
         var threadStore = new JsonlThreadStore(root);
         var threads = new ThreadManager(sessionId, threadStore);
 
-        var chat = new ThreadNewChatClient();
+        var chat = new ThreadStartChatClient();
         var orchestrator = new ThreadOrchestrator(
             sessionId: sessionId,
             client: new NullClientCaller(),
             chat: chat,
+            chatByModel: _ => chat,
+            quickWorkModel: "default",
             mcp: NullMcpToolInvoker.Instance,
             coreOptions: new CoreOptions { CommitAssistantTextDeltas = true },
             logLlmPrompts: false,
@@ -51,12 +53,12 @@ public sealed class ThreadOrchestratorThreadNewMidTurnCreatesChildAndCommitsInbo
         // Tool catalog must include the tools the scripted chat will call.
         orchestrator.SetToolCatalog(ImmutableArray.Create(
             ToolSchemas.ReportIntent,
-            ToolSchemas.ThreadNew));
+            ToolSchemas.ThreadStart));
 
-        // Kick off a main-thread turn that will call thread_new mid-turn.
+        // Kick off a main-thread turn that will call thread_start mid-turn.
         await orchestrator.ObserveAsync(ThreadIds.Main, new ObservedUserMessage("hi"));
 
-        // This should not deadlock (ObserveAsync is re-entrant-safe and thread_new schedules the child).
+        // This should not deadlock (ObserveAsync is re-entrant-safe and thread_start schedules the child).
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await orchestrator.RunUntilQuiescentAsync(cts.Token);
 
@@ -83,7 +85,7 @@ public sealed class ThreadOrchestratorThreadNewMidTurnCreatesChildAndCommitsInbo
             => throw new InvalidOperationException("ACP client should not be used in this test");
     }
 
-    private sealed class ThreadNewChatClient : MeaiIChatClient
+    private sealed class ThreadStartChatClient : MeaiIChatClient
     {
         private bool _toolsDone;
 
@@ -104,8 +106,9 @@ public sealed class ThreadOrchestratorThreadNewMidTurnCreatesChildAndCommitsInbo
                     Contents = new List<MeaiAIContent>
                     {
                         new MeaiFunctionCallContent("call_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "thread new" }),
-                        new MeaiFunctionCallContent("call_1", "thread_new", new Dictionary<string, object?>
+                        new MeaiFunctionCallContent("call_1", "thread_start", new Dictionary<string, object?>
                         {
+                            ["context"] = "fork",
                             ["message"] = "child hello",
                             ["delivery"] = "immediate",
                         }),

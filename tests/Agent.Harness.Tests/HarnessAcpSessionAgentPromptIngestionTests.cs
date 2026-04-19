@@ -106,7 +106,7 @@ public sealed class HarnessAcpSessionAgentPromptIngestionTests
             // Tool catalog is irrelevant for this test.
             var initialState = SessionState.Empty with { Tools = ImmutableArray<ToolDefinition>.Empty };
 
-            return new HarnessAcpSessionAgent(sessionId, client, _chat, events, coreOptions, publishOptions, store, initialState);
+            return new HarnessAcpSessionAgent(sessionId, client, _chat, _ => _chat, "default", events, coreOptions, publishOptions, store, initialState);
         }
 
         public object? GetService(Type serviceType, object? serviceKey = null) => null;

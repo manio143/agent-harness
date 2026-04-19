@@ -103,13 +103,12 @@ public sealed class OneModelCallPerThreadInvariantTests
                 Tools = ImmutableArray.Create(
                     ToolSchemas.ReportIntent,
                     ToolSchemas.ThreadList,
-                    ToolSchemas.ThreadNew,
-                    ToolSchemas.ThreadFork,
+                    ToolSchemas.ThreadStart,
                     ToolSchemas.ThreadSend,
                     ToolSchemas.ThreadRead),
             };
 
-            return new HarnessAcpSessionAgent(sessionId, client, Chat, events, coreOptions, publishOptions, store, initialState);
+            return new HarnessAcpSessionAgent(sessionId, client, Chat, _ => Chat, "default", events, coreOptions, publishOptions, store, initialState);
         }
     }
 
@@ -161,7 +160,7 @@ public sealed class OneModelCallPerThreadInvariantTests
                         Contents = new List<MeaiAIContent>
                         {
                             new MeaiFunctionCallContent("call_m_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "spawn" }),
-                            new MeaiFunctionCallContent("call_m_1", "thread_new", new Dictionary<string, object?> { ["message"] = "do work", ["delivery"] = "immediate" }),
+                            new MeaiFunctionCallContent("call_m_1", "thread_start", new Dictionary<string, object?> { ["context"] = "fork", ["message"] = "do work", ["delivery"] = "immediate" }),
                         }
                     };
                 }

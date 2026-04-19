@@ -105,7 +105,7 @@ public sealed class CapabilityGatingIntegrationTests
                 Tools = ImmutableArray<ToolDefinition>.Empty,
             };
 
-            return new HarnessAcpSessionAgent(sessionId, client, chat, events, coreOptions, publishOptions, store, initialState);
+            return new HarnessAcpSessionAgent(sessionId, client, chat, _ => chat, "default", events, coreOptions, publishOptions, store, initialState);
         }
     }
 

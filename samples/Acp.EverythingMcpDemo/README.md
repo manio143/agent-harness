@@ -31,7 +31,8 @@ npx -y acpx@latest --cwd . prompt --session demo "Hello"
 
 Suggested prompt for a full demo:
 
-> Create an **absolute** path under this sample's cwd (e.g. `/home/node/.openclaw/workspace/marian-agent/samples/Acp.EverythingMcpDemo/demo.txt`) with "hello" (relative paths like `./demo.txt` also work; agent normalizes them). Read it back. Run `uname -a`. Then call an MCP tool from the everything server.
+> First, switch inference model with `/set-model default` (or another configured friendly name).
+> Then: Create an **absolute** path under this sample's cwd (e.g. `/home/node/.openclaw/workspace/marian-agent/samples/Acp.EverythingMcpDemo/demo.txt`) with "hello" (relative paths like `./demo.txt` also work; agent normalizes them). Read it back. Run `uname -a`. Then call an MCP tool from the everything server.
 >
 > For example: call `everything__get_sum` with `{ "a": 40, "b": 2 }` and summarize the result.
 

@@ -159,7 +159,7 @@ public sealed class ReasoningPublishingModeTests
             var chat = new ScriptedReasoningMeaiChatClient();
             var initialState = SessionState.Empty;
 
-            return new HarnessAcpSessionAgent(sessionId, client, chat, events, coreOptions, publishOptions, store, initialState);
+            return new HarnessAcpSessionAgent(sessionId, client, chat, _ => chat, "default", events, coreOptions, publishOptions, store, initialState);
         }
     }
 

@@ -92,11 +92,13 @@ public sealed class AcpTwoPromptSameSessionLongLivedOrchestratorIntegrationTests
         var agent = new HarnessAcpSessionAgent(
             sessionId,
             client: new NullClientCaller(),
-            chat,
+            chat: chat,
+            chatByModel: _ => chat,
+            quickWorkModel: "default",
             events: new NullSessionEvents(),
             coreOptions: new Agent.Harness.CoreOptions { CommitAssistantTextDeltas = true },
             publishOptions: new Agent.Harness.Acp.AcpPublishOptions(PublishReasoning: false),
-            store,
+            store: store,
             initialState: Agent.Harness.SessionState.Empty);
 
         await agent.PromptAsync(

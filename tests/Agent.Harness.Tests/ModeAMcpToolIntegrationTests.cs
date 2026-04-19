@@ -133,7 +133,7 @@ public sealed class ModeAMcpToolIntegrationTests
 
             var chat = new ToolThenAnswerChatClient(exposedName);
 
-            return new HarnessAcpSessionAgent(sessionId, client, chat, events, coreOptions, publishOptions, store, initialState, invoker);
+            return new HarnessAcpSessionAgent(sessionId, client, chat, _ => chat, "default", events, coreOptions, publishOptions, store, initialState, invoker);
         }
     }
 

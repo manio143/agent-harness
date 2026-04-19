@@ -24,7 +24,6 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     {
         return allowlist switch
         {
-            "threading_no_fork" => tools.Where(t => t.Name != ToolSchemas.ThreadFork.Name).ToImmutableArray(),
             _ => tools,
         };
     }
@@ -47,7 +46,6 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                 Options = new SessionConfigSelectOptions
                 {
                     new() { Value = "all", Name = "All tools" },
-                    new() { Value = "threading_no_fork", Name = "Threading (no fork tool)" },
                 },
             },
         };
@@ -56,6 +54,9 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     private readonly string _sessionId;
     private readonly IAcpClientCaller _client;
     private readonly MeaiIChatClient _chat;
+    private readonly Func<string, MeaiIChatClient> _chatByModel;
+    private readonly string _quickWorkModel;
+    private readonly Func<string, bool>? _isKnownModel;
     private readonly IAcpSessionEvents _events;
     private readonly CoreOptions _coreOptions;
     private readonly AcpPublishOptions _publishOptions;
@@ -63,6 +64,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     private readonly IMcpToolInvoker _mcp;
     private readonly bool _logLlmPrompts;
     private readonly bool _logObservedEvents;
+    private readonly string? _modelCatalogSystemPrompt;
 
     private SessionState _state;
     private string _toolAllowlist = "all";
@@ -88,6 +90,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         string sessionId,
         IAcpClientCaller client,
         MeaiIChatClient chat,
+        Func<string, MeaiIChatClient> chatByModel,
+        string quickWorkModel,
         IAcpSessionEvents events,
         CoreOptions coreOptions,
         AcpPublishOptions publishOptions,
@@ -95,11 +99,16 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         SessionState initialState,
         IMcpToolInvoker? mcp = null,
         bool logLlmPrompts = false,
-        bool logObservedEvents = false)
+        bool logObservedEvents = false,
+        Func<string, bool>? isKnownModel = null,
+        string? modelCatalogSystemPrompt = null)
     {
         _sessionId = sessionId;
         _client = client;
         _chat = chat;
+        _chatByModel = chatByModel;
+        _quickWorkModel = quickWorkModel;
+        _isKnownModel = isKnownModel;
         _events = events;
         _coreOptions = coreOptions;
         _publishOptions = publishOptions;
@@ -108,6 +117,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         _mcp = mcp ?? NullMcpToolInvoker.Instance;
         _logLlmPrompts = logLlmPrompts;
         _logObservedEvents = logObservedEvents;
+        _modelCatalogSystemPrompt = modelCatalogSystemPrompt;
 
         // Tools are loaded once per session.
         // Tool catalog is the source of truth for what the LLM may call.
@@ -122,8 +132,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         {
             internalTools = ClientToolCatalog.Merge(internalTools, ImmutableArray.Create(
                 ToolSchemas.ThreadList,
-                ToolSchemas.ThreadNew,
-                ToolSchemas.ThreadFork,
+                ToolSchemas.ThreadConfig,
+                ToolSchemas.ThreadStart,
                 ToolSchemas.ThreadSend,
                 ToolSchemas.ThreadRead));
         }
@@ -150,12 +160,16 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
                 _sessionId,
                 _client,
                 _chat,
+                _chatByModel,
+                _quickWorkModel,
                 _mcp,
                 _coreOptions,
                 logLlmPrompts: _logLlmPrompts,
                 _store,
                 _threadStore,
-                _threads);
+                _threads,
+                isKnownModel: _isKnownModel,
+                modelCatalogSystemPrompt: _modelCatalogSystemPrompt);
 
             // Catalog == runnable/permission surface, and must be consistent across all threads.
             _orchestrator.InitializeToolCatalog(_state.Tools);
@@ -197,6 +211,103 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         // Tool catalog is loaded once per session agent (constructor).
         var userText = ExtractUserText(request);
 
+        // ACP slash command: /set-model <friendlyName>
+        // Sets inference model for the main thread without involving the LLM.
+        if (TryParseSetModelCommand(userText, out var requestedModel))
+        {
+            if (string.IsNullOrWhiteSpace(requestedModel))
+                throw new Agent.Acp.Acp.AcpJsonRpcException(-32602, "Usage: /set-model <modelName>");
+
+            // Validation: allow literal "default" plus any known friendly model.
+            var known = string.Equals(requestedModel, "default", StringComparison.OrdinalIgnoreCase)
+                || _isKnownModel?.Invoke(requestedModel) == true;
+
+            if (!known)
+            {
+                await _events.SendSessionUpdateAsync(new AgentMessageChunk
+                {
+                    Content = new Agent.Acp.Schema.TextContent { Text = $"Unknown model: {requestedModel}." },
+                }, cancellationToken).ConfigureAwait(false);
+
+                return new PromptResponse { StopReason = StopReason.EndTurn };
+            }
+
+            // Persist via normal observed->reduce->commit path.
+            // NOTE: We intentionally run a direct "single turn" runner for the main thread here,
+            // even when the threaded orchestrator is enabled, because /set-model is a local command
+            // and we want deterministic persistence (no queue scheduling dependency).
+            if (_threadStore is not null && _orchestrator is not null)
+            {
+                // Threaded mode: go through the standard observed -> reduce -> commit pipeline.
+                IEventSink cmdPersist = new Agent.Harness.Threads.MainThreadEventSink(_sessionId, _threadStore, _store, logObserved: _logObservedEvents);
+                var cmdSink = new AcpProjectingEventSink(
+                    cmdPersist,
+                    _coreOptions,
+                    _publishOptions,
+                    execute: (e, ct) => ExecuteEmissionAsync(e, turn, ct));
+
+                await _orchestrator.ObserveAsync(
+                    Agent.Harness.Threads.ThreadIds.Main,
+                    new ObservedSetModel(Agent.Harness.Threads.ThreadIds.Main, requestedModel),
+                    cancellationToken).ConfigureAwait(false);
+
+                await _orchestrator.RunUntilQuiescentAsync(
+                    sinkFactory: tid => tid == Agent.Harness.Threads.ThreadIds.Main ? cmdSink : null,
+                    cancellationToken).ConfigureAwait(false);
+
+                _state = _state with
+                {
+                    Committed = _threadStore.LoadCommittedEvents(_sessionId, Agent.Harness.Threads.ThreadIds.Main),
+                    Buffer = TurnBuffer.Empty,
+                };
+            }
+            else
+            {
+                static async IAsyncEnumerable<ObservedChatEvent> ObserveSetModel(string model)
+                {
+                    yield return new ObservedSetModel(Agent.Harness.Threads.ThreadIds.Main, model);
+                    await Task.CompletedTask;
+                }
+
+                var cmdTitleGen = new SessionTitleGenerator(_chatByModel(_quickWorkModel));
+                var cmdSessionCwd = _store.TryLoadMetadata(_sessionId)?.Cwd;
+
+                var cmdEffects = new AcpEffectExecutor(
+                    _sessionId,
+                    _client,
+                    _chat,
+                    chatByModel: _chatByModel,
+                    isKnownModel: _isKnownModel,
+                    _mcp,
+                    _logLlmPrompts,
+                    sessionCwd: cmdSessionCwd,
+                    store: _store,
+                    modelCatalogSystemPrompt: _modelCatalogSystemPrompt,
+                    threadTools: _orchestrator,
+                    observer: _orchestrator,
+                    lifecycle: _orchestrator,
+                    scheduler: _orchestrator,
+                    threadId: Agent.Harness.Threads.ThreadIds.Main);
+
+                var cmdRunner = new SessionRunner(_coreOptions, cmdTitleGen, cmdEffects);
+                var cmdSink = new AcpProjectingEventSink(
+                    new Agent.Harness.Persistence.JsonlEventSink(_sessionId, _store, logObserved: _logObservedEvents),
+                    _coreOptions,
+                    _publishOptions,
+                    execute: (e, ct) => ExecuteEmissionAsync(e, turn, ct));
+
+                var result = await cmdRunner.RunTurnAsync(Agent.Harness.Threads.ThreadIds.Main, _state, ObserveSetModel(requestedModel), cancellationToken, sink: cmdSink).ConfigureAwait(false);
+                _state = result.Next;
+            }
+
+            await _events.SendSessionUpdateAsync(new AgentMessageChunk
+            {
+                Content = new Agent.Acp.Schema.TextContent { Text = $"Inference model set to: {requestedModel}." },
+            }, cancellationToken).ConfigureAwait(false);
+
+            return new PromptResponse { StopReason = StopReason.EndTurn };
+        }
+
         static async IAsyncEnumerable<ObservedChatEvent> ObservePromptAndWake(string text)
         {
             // Universal intake: user prompt enters the main thread inbox as an observed event.
@@ -210,17 +321,20 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             yield return new ObservedWakeModel(Agent.Harness.Threads.ThreadIds.Main);
         }
 
-        var titleGen = new SessionTitleGenerator(_chat);
+        var titleGen = new SessionTitleGenerator(_chatByModel(_quickWorkModel));
         var sessionCwd = _store.TryLoadMetadata(_sessionId)?.Cwd;
 
         var effects = new AcpEffectExecutor(
             _sessionId,
             _client,
             _chat,
+            chatByModel: _chatByModel,
+            isKnownModel: _isKnownModel,
             _mcp,
             _logLlmPrompts,
             sessionCwd: sessionCwd,
             store: _store,
+            modelCatalogSystemPrompt: _modelCatalogSystemPrompt,
             threadTools: _orchestrator,
             observer: _orchestrator,
             lifecycle: _orchestrator,
@@ -351,6 +465,22 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     private static IAcpToolCall GetOrStart(IAcpPromptTurn turn, string toolId, string title)
     {
         return turn.ToolCalls.Start(toolId, title, ToolKindClassifier.ForToolName(title));
+    }
+
+    private static bool TryParseSetModelCommand(string text, out string? model)
+    {
+        model = null;
+
+        if (string.IsNullOrWhiteSpace(text)) return false;
+
+        // Minimal parser: allow leading whitespace, exact command token, then argument.
+        var trimmed = text.Trim();
+        if (!trimmed.StartsWith("/set-model", StringComparison.Ordinal)) return false;
+
+        // Accept "/set-model" or "/set-model   x".
+        var rest = trimmed["/set-model".Length..].Trim();
+        model = rest;
+        return true;
     }
 
     private static string ExtractUserText(PromptRequest request)

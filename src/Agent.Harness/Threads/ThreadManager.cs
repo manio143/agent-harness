@@ -45,7 +45,12 @@ public sealed class ThreadManager : IThreadTools
     public ImmutableArray<ThreadInfo> List()
     {
         return _store.ListThreads(_sessionId)
-            .Select(m => new ThreadInfo(m.ThreadId, m.ParentThreadId, ProjectStatus(m.ThreadId), m.Intent))
+            .Select(m => new ThreadInfo(
+                ThreadId: m.ThreadId,
+                ParentThreadId: m.ParentThreadId,
+                Status: ProjectStatus(m.ThreadId),
+                Intent: m.Intent,
+                Model: string.IsNullOrWhiteSpace(m.Model) ? "default" : m.Model))
             .ToImmutableArray();
     }
 
@@ -76,6 +81,15 @@ public sealed class ThreadManager : IThreadTools
         var now = DateTimeOffset.UtcNow.ToString("O");
         var next = meta with { Intent = intent, UpdatedAtIso = now };
         _store.SaveThreadMetadata(_sessionId, next);
+    }
+
+    public string GetModel(string threadId)
+    {
+        var meta = _store.TryLoadThreadMetadata(_sessionId, threadId);
+        if (meta is null)
+            throw new InvalidOperationException($"unknown_thread:{threadId}");
+
+        return string.IsNullOrWhiteSpace(meta.Model) ? "default" : meta.Model;
     }
 
 
