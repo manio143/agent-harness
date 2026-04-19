@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text.Json;
 using Agent.Acp.Acp;
 using Agent.Acp.Schema;
@@ -30,13 +31,18 @@ public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
         IAcpSessionEvents events,
         Func<PromptRequest, IAsyncEnumerable<ObservedChatEvent>> observed,
         CoreOptions? coreOptions = null,
-        AcpPublishOptions? publishOptions = null)
+        AcpPublishOptions? publishOptions = null,
+        ImmutableArray<ToolDefinition>? toolCatalog = null)
     {
         _sessionId = sessionId;
         _events = events;
         _observed = observed;
         _coreOptions = coreOptions ?? new CoreOptions();
         _publishOptions = publishOptions ?? new AcpPublishOptions();
+
+        // Tool catalog is needed for the core to accept tool calls (unknown tools are rejected early).
+        if (toolCatalog is not null)
+            _state = _state with { Tools = toolCatalog.Value };
     }
 
     public async Task<PromptResponse> PromptAsync(PromptRequest request, IAcpPromptTurn turn, CancellationToken cancellationToken)
