@@ -182,8 +182,33 @@ public static class SessionEventJson
 
             case "thread_inbox_message_enqueued":
             {
-                var kindStr = root.TryGetProperty("kind", out var kindEl) ? kindEl.GetString() : null;
-                var kindOk = Enum.TryParse<Agent.Harness.Threads.ThreadInboxMessageKind>(kindStr, ignoreCase: true, out var parsed);
+                string? kindStr = null;
+                var kindOk = false;
+                Agent.Harness.Threads.ThreadInboxMessageKind parsed = default;
+
+                if (root.TryGetProperty("kind", out var kindEl))
+                {
+                    if (kindEl.ValueKind == JsonValueKind.String)
+                    {
+                        kindStr = kindEl.GetString();
+                        kindOk = Enum.TryParse<Agent.Harness.Threads.ThreadInboxMessageKind>(kindStr, ignoreCase: true, out parsed);
+                    }
+                    else if (kindEl.ValueKind == JsonValueKind.Number && kindEl.TryGetInt32(out var kindInt))
+                    {
+                        kindStr = kindInt.ToString();
+                        if (Enum.IsDefined(typeof(Agent.Harness.Threads.ThreadInboxMessageKind), kindInt))
+                        {
+                            parsed = (Agent.Harness.Threads.ThreadInboxMessageKind)kindInt;
+                            kindOk = true;
+                        }
+                    }
+                    else
+                    {
+                        // Preserve whatever was present for diagnostics.
+                        kindStr = kindEl.ToString();
+                    }
+                }
+
                 var kind = kindOk ? parsed : Agent.Harness.Threads.ThreadInboxMessageKind.InterThreadMessage;
 
                 var metaBuilder = ImmutableDictionary.CreateBuilder<string, string>(StringComparer.Ordinal);

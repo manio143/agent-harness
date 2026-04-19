@@ -54,7 +54,7 @@ Introduce a first-class **NewThreadTask** concept so that:
   - Centralized inbox meta key names in `ThreadInboxMetaKeys` (no more stringly-typed meta access)
   - Centralized delivery string serialization/parsing in `ThreadInboxDeliveryText` (stable persisted values, case-insensitive read for back-compat)
   - Added JSONL persistence for committed `NewThreadTask` events (serialize + deserialize) + JsonlThreadStore round-trip test
-  - Improved forward-compat for persisted inbox envelopes: unknown `kind` strings are preserved in meta (`unknownInboxKind`) during deserialize
+  - Improved forward-compat for persisted inbox envelopes: unknown `kind` values are preserved in meta (`unknownInboxKind`) during deserialize (including numeric kinds)
   - Enforced reducer invariant: only one committed `NewThreadTask` per thread (duplicates are dequeued but not re-committed)
   - Locked fallback semantics: if `NewThreadTask` meta is missing, reducer falls back to `SourceThreadId` and `IsFork=false`
 
