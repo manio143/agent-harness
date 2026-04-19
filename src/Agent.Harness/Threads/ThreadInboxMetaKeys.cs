@@ -9,4 +9,7 @@ public static class ThreadInboxMetaKeys
     // ThreadIdleNotification
     public const string ChildThreadId = "childThreadId";
     public const string LastIntent = "lastIntent";
+
+    // Forward-compat diagnostics
+    public const string UnknownInboxKind = "unknownInboxKind";
 }

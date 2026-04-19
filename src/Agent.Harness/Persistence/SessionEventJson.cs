@@ -183,18 +183,21 @@ public static class SessionEventJson
             case "thread_inbox_message_enqueued":
             {
                 var kindStr = root.TryGetProperty("kind", out var kindEl) ? kindEl.GetString() : null;
-                var kind = Enum.TryParse<Agent.Harness.Threads.ThreadInboxMessageKind>(kindStr, ignoreCase: true, out var parsed)
-                    ? parsed
-                    : Agent.Harness.Threads.ThreadInboxMessageKind.InterThreadMessage;
+                var kindOk = Enum.TryParse<Agent.Harness.Threads.ThreadInboxMessageKind>(kindStr, ignoreCase: true, out var parsed);
+                var kind = kindOk ? parsed : Agent.Harness.Threads.ThreadInboxMessageKind.InterThreadMessage;
 
-                ImmutableDictionary<string, string>? meta = null;
+                var metaBuilder = ImmutableDictionary.CreateBuilder<string, string>(StringComparer.Ordinal);
                 if (root.TryGetProperty("meta", out var metaEl) && metaEl.ValueKind == JsonValueKind.Object)
                 {
-                    var b = ImmutableDictionary.CreateBuilder<string, string>(StringComparer.Ordinal);
                     foreach (var p in metaEl.EnumerateObject())
-                        b[p.Name] = p.Value.GetString() ?? p.Value.ToString();
-                    meta = b.ToImmutable();
+                        metaBuilder[p.Name] = p.Value.GetString() ?? p.Value.ToString();
                 }
+
+                // Preserve the raw kind string for forward-compat/replay debugging.
+                if (!kindOk && !string.IsNullOrWhiteSpace(kindStr))
+                    metaBuilder[Agent.Harness.Threads.ThreadInboxMetaKeys.UnknownInboxKind] = kindStr;
+
+                ImmutableDictionary<string, string>? meta = metaBuilder.Count == 0 ? null : metaBuilder.ToImmutable();
 
                 return new ThreadInboxMessageEnqueued(
                     ThreadId: root.GetProperty("threadId").GetString() ?? string.Empty,
