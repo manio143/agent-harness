@@ -14,6 +14,7 @@ public static class SessionEventJson
             UserMessage u => new { type = "user_message", text = u.Text },
             InterThreadMessage it => new { type = "inter_thread_message", fromThreadId = it.FromThreadId, text = it.Text },
             ThreadIdleNotification n => new { type = "thread_idle_notification", childThreadId = n.ChildThreadId, lastIntent = n.LastIntent },
+            NewThreadTask t => new { type = "new_thread_task", threadId = t.ThreadId, parentThreadId = t.ParentThreadId, isFork = t.IsFork, message = t.Message },
             AssistantMessage a => new { type = "assistant_message", text = a.Text },
             AssistantTextDelta d => new { type = "assistant_text_delta", textDelta = d.TextDelta },
             ReasoningTextDelta r => new { type = "reasoning_text_delta", textDelta = r.TextDelta },
@@ -86,6 +87,13 @@ public static class SessionEventJson
                 return new ThreadIdleNotification(
                     ChildThreadId: root.GetProperty("childThreadId").GetString() ?? string.Empty,
                     LastIntent: root.GetProperty("lastIntent").GetString() ?? string.Empty);
+
+            case "new_thread_task":
+                return new NewThreadTask(
+                    ThreadId: root.GetProperty("threadId").GetString() ?? string.Empty,
+                    ParentThreadId: root.GetProperty("parentThreadId").GetString() ?? string.Empty,
+                    IsFork: root.GetProperty("isFork").GetBoolean(),
+                    Message: root.GetProperty("message").GetString() ?? string.Empty);
 
             case "assistant_message":
                 return new AssistantMessage(root.GetProperty("text").GetString() ?? string.Empty);

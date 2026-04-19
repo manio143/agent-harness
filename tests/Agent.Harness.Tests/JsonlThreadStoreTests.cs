@@ -125,6 +125,7 @@ public sealed class JsonlThreadStoreTests
         var evts = ImmutableArray.Create<SessionEvent>(
             new TurnStarted(),
             new UserMessage("hi"),
+            new NewThreadTask(ThreadId: "thr_a", ParentThreadId: "main", IsFork: true, Message: "do work"),
             new ToolCallRequested("call_0", "read_text_file", args),
             new ToolCallCompleted("call_0", result));
 
@@ -136,10 +137,12 @@ public sealed class JsonlThreadStoreTests
         loaded.Length.Should().Be(evts.Length);
         loaded[0].Should().BeOfType<TurnStarted>();
         loaded[1].Should().BeOfType<UserMessage>();
-        loaded[2].Should().BeOfType<ToolCallRequested>();
-        loaded[3].Should().BeOfType<ToolCallCompleted>();
+        loaded[2].Should().BeOfType<NewThreadTask>();
+        loaded[3].Should().BeOfType<ToolCallRequested>();
+        loaded[4].Should().BeOfType<ToolCallCompleted>();
 
         loaded.OfType<UserMessage>().Single().Text.Should().Be("hi");
+        loaded.OfType<NewThreadTask>().Single().Should().Be(new NewThreadTask(ThreadId: "thr_a", ParentThreadId: "main", IsFork: true, Message: "do work"));
     }
 
     [Fact]
