@@ -33,9 +33,10 @@ public sealed class DeltaCommitModeTests
 
         var committed = new List<SessionEvent>();
 
-        await foreach (var e in TurnRunner.RunAsync(
+        await foreach (var e in TurnRunner.RunWithEffectsAsync(
             SessionState.Empty,
             Observed(),
+            effects: NullEffectExecutor.Instance,
             options: new CoreOptions(CommitAssistantTextDeltas: true)))
         {
             committed.Add(e);

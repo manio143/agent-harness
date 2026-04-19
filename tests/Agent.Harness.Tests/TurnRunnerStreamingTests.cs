@@ -13,7 +13,7 @@ public sealed class TurnRunnerStreamingTests
 
         var committed = new List<SessionEvent>();
 
-        await foreach (var e in TurnRunner.RunAsync(SessionState.Empty, observed))
+        await foreach (var e in TurnRunner.RunWithEffectsAsync(SessionState.Empty, observed, effects: NullEffectExecutor.Instance))
         {
             committed.Add(e);
         }
@@ -44,7 +44,7 @@ public sealed class TurnRunnerStreamingTests
         var observed = GetObserved();
         SessionState? final = null;
 
-        await foreach (var _ in TurnRunner.RunAsync(SessionState.Empty, observed, onState: s => final = s))
+        await foreach (var _ in TurnRunner.RunWithEffectsAsync(SessionState.Empty, observed, effects: NullEffectExecutor.Instance, onState: s => final = s))
         {
             // ignore
         }

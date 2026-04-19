@@ -51,9 +51,10 @@ public sealed class AcpSessionAgentAdapter : IAcpSessionAgent
         var toolCalls = new Dictionary<string, IAcpToolCall>();
 
         // Consume observed events and publish committed ones.
-        await foreach (var committed in TurnRunner.RunAsync(
+        await foreach (var committed in TurnRunner.RunWithEffectsAsync(
             _state,
             _observed(request),
+            effects: NullEffectExecutor.Instance,
             options: _coreOptions,
             onState: s => _state = s,
             cancellationToken: cancellationToken))
