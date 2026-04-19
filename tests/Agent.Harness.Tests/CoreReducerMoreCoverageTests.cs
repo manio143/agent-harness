@@ -19,13 +19,18 @@ public sealed class CoreReducerMoreCoverageTests
 
         var tools = Core.RenderToolCatalog(caps);
 
-        tools.Select(t => t.Name).Should().Contain(new[]
+        var names = tools.Select(t => t.Name).ToArray();
+
+        names.Should().Contain(new[]
         {
             ToolSchemas.ReadTextFile.Name,
             ToolSchemas.WriteTextFile.Name,
             ToolSchemas.PatchTextFile.Name,
             ToolSchemas.ExecuteCommand.Name,
         });
+
+        // No accidental duplicates in catalog.
+        names.Should().OnlyHaveUniqueItems();
     }
 
     [Fact]
