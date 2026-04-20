@@ -20,20 +20,29 @@ fi
 echo "[scenario2] sessionId=$SESSION_ID"
 
 # Turn 1: create child.
-acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+# NOTE: We intentionally parse the created threadId from the tool output instead of assuming a fixed name.
+TURN1_OUT="$(acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
   'You MUST follow these rules exactly:
-1) You may call at most 2 tools in this turn.
+1) You will call EXACTLY 2 tools in this turn.
 2) You may ONLY call: report_intent, thread_start.
-3) You MUST NOT call any other tools (especially thread_start, thread_send, thread_read, thread_list).
-4) After the 2 tool calls complete, output EXACTLY: OK (nothing else).
+3) You MUST NOT call any other tools.
+4) Do NOT explain. Do NOT add any extra text.
+5) After the 2 tool calls complete, output EXACTLY: OK
 
 Now do the work:
 Call tool report_intent with arguments: {"intent":"create child"}.
 Then call tool thread_start with arguments: {"name":"child_ready","context":"new","delivery":"immediate","message":"Say READY. Do NOT call any tools."}.
-Then output EXACTLY: OK'
+Then output EXACTLY: OK')"
+
+echo "$TURN1_OUT"
 
 THREADS_DIR=".agent/sessions/$SESSION_ID/threads"
-CHILD_ID="child_ready"
+CHILD_ID="$(echo "$TURN1_OUT" | rg -o '"threadId":\s*"[^"]+"' | tail -n 1 | sed 's/"threadId":\s*"//; s/"$//')"
+
+if [[ -z "$CHILD_ID" ]]; then
+  echo "Failed to parse child threadId from Turn 1 output" >&2
+  exit 1
+fi
 
 echo "[scenario2] childThreadId=$CHILD_ID"
 
