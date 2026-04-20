@@ -147,7 +147,7 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
                             throw new InvalidOperationException("thread_start.model_required");
 
                         if (!string.Equals(model, "default", StringComparison.OrdinalIgnoreCase) && _isKnownModel is not null && !_isKnownModel(model))
-                            throw new InvalidOperationException("thread_start.unknown_model");
+                            model = "default";
 
                         await _observer.ObserveAsync(id, new ObservedSetModel(id, model), cancellationToken).ConfigureAwait(false);
                     }

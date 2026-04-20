@@ -56,7 +56,7 @@ public sealed class SystemToolCallExecutorMoreCoverageTests
     }
 
     [Fact]
-    public async Task ThreadStart_WhenUnknownModel_Fails()
+    public async Task ThreadStart_WhenUnknownModel_FallsBackToDefault()
     {
         var lifecycle = new FakeLifecycle();
         var observer = new FakeObserver();
@@ -66,7 +66,15 @@ public sealed class SystemToolCallExecutorMoreCoverageTests
 
         var obs = await exec.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t1", "thread_start", new { name = "child", context = "new", message = "hi", model = "bad" }), CancellationToken.None);
 
-        obs.OfType<ObservedToolCallFailed>().Single().Error.Should().Be("thread_start.unknown_model");
+        obs.OfType<ObservedToolCallFailed>().Should().BeEmpty();
+        obs.OfType<ObservedToolCallCompleted>().Single();
+
+        observer.Observed.Should().HaveCount(2);
+        observer.Observed[0].threadId.Should().Be("child");
+        observer.Observed[0].observed.Should().BeOfType<ObservedSetModel>().Which.Model.Should().Be("default");
+
+        observer.Observed[1].threadId.Should().Be("child");
+        observer.Observed[1].observed.Should().BeOfType<ObservedInboxMessageArrived>();
     }
 
     [Fact]
