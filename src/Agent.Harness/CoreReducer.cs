@@ -287,16 +287,28 @@ public static class Core
                 if (state.Committed.Any(e => e is ToolCallRequested r && r.ToolId == detected.ToolId))
                     return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty, ImmutableArray<Effect>.Empty);
 
+                // Always commit the attempted tool call for auditability, even if we reject it later.
+                var argsJson = JsonSerializer.SerializeToElement(detected.Args);
+                var requested = new ToolCallRequested(detected.ToolId, detected.ToolName, argsJson);
+
+                var committedWithRequested = state.Committed.Add(requested);
+                var nextWithRequested = state with
+                {
+                    Committed = committedWithRequested,
+                    Buffer = detected.ToolName == ToolSchemas.ReportIntent.Name
+                        ? state.Buffer with { IntentReportedThisTurn = true }
+                        : state.Buffer,
+                };
+
                 // Policy: the model MUST report intent before calling any other tools in a turn.
                 if (detected.ToolName != ToolSchemas.ReportIntent.Name && !state.Buffer.IntentReportedThisTurn)
                 {
                     var rejected = new ToolCallRejected(detected.ToolId, "missing_report_intent", ImmutableArray.Create("must_call:report_intent"));
-                    var committedRej = state.Committed.Add(rejected);
-                    var nextRej = state with { Committed = committedRej };
+                    var reduced = Commit(nextWithRequested, rejected);
                     return new ReduceResult(
-                        nextRej,
-                        ImmutableArray.Create<SessionEvent>(rejected),
-                        ImmutableArray.Create<Effect>(new CallModel(ResolveModel(nextRej))));
+                        reduced.Next,
+                        ImmutableArray.Create<SessionEvent>(requested, rejected),
+                        ImmutableArray.Create<Effect>(new CallModel(ResolveModel(reduced.Next))));
                 }
 
                 // Early rejection: unknown tool / invalid args
@@ -304,43 +316,29 @@ public static class Core
                 if (tool is null)
                 {
                     var rejected = new ToolCallRejected(detected.ToolId, "unknown_tool", ImmutableArray.Create("unknown_tool"));
-                    var committedRej = state.Committed.Add(rejected);
-                    var nextRej = state with { Committed = committedRej };
+                    var reduced = Commit(nextWithRequested, rejected);
                     return new ReduceResult(
-                        nextRej,
-                        ImmutableArray.Create<SessionEvent>(rejected),
-                        ImmutableArray.Create<Effect>(new CallModel(ResolveModel(nextRej))));
+                        reduced.Next,
+                        ImmutableArray.Create<SessionEvent>(requested, rejected),
+                        ImmutableArray.Create<Effect>(new CallModel(ResolveModel(reduced.Next))));
                 }
 
                 var errors = ToolArgValidator.Validate(tool.InputSchema, detected.Args);
                 if (!errors.IsEmpty)
                 {
                     var rejected = new ToolCallRejected(detected.ToolId, "invalid_args", errors);
-                    var committedRej = state.Committed.Add(rejected);
-                    var nextRej = state with { Committed = committedRej };
+                    var reduced = Commit(nextWithRequested, rejected);
                     return new ReduceResult(
-                        nextRej,
-                        ImmutableArray.Create<SessionEvent>(rejected),
-                        ImmutableArray.Create<Effect>(new CallModel(ResolveModel(nextRej))));
+                        reduced.Next,
+                        ImmutableArray.Create<SessionEvent>(requested, rejected),
+                        ImmutableArray.Create<Effect>(new CallModel(ResolveModel(reduced.Next))));
                 }
 
-                // Commit ToolCallRequested and emit CheckPermission effect
-                var argsJson = JsonSerializer.SerializeToElement(detected.Args);
-                var requested = new ToolCallRequested(detected.ToolId, detected.ToolName, argsJson);
+                // Valid call: request permission.
                 var permissionEffect = new CheckPermission(detected.ToolId, detected.ToolName, detected.Args);
 
-                var committed = state.Committed.Add(requested);
-
-                var next = state with
-                {
-                    Committed = committed,
-                    Buffer = detected.ToolName == ToolSchemas.ReportIntent.Name
-                        ? state.Buffer with { IntentReportedThisTurn = true }
-                        : state.Buffer,
-                };
-
                 return new ReduceResult(
-                    next,
+                    nextWithRequested,
                     ImmutableArray.Create<SessionEvent>(requested),
                     ImmutableArray.Create<Effect>(permissionEffect));
             }

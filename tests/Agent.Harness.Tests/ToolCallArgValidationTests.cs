@@ -25,6 +25,8 @@ public class ToolCallArgValidationTests
 
         var result = Core.Reduce(initial, observed);
 
+        Assert.Contains(result.NewlyCommitted, e => e is ToolCallRequested { ToolId: "call_1", ToolName: "read_text_file" });
+
         var rejected = Assert.Single(result.NewlyCommitted.OfType<ToolCallRejected>());
         Assert.Equal("invalid_args", rejected.Reason);
         Assert.Contains("missing_required:path", rejected.Details);
@@ -46,6 +48,8 @@ public class ToolCallArgValidationTests
             Args: new { path = 123 });
 
         var result = Core.Reduce(initial, observed);
+
+        Assert.Contains(result.NewlyCommitted, e => e is ToolCallRequested { ToolId: "call_1", ToolName: "read_text_file" });
 
         var rejected = Assert.Single(result.NewlyCommitted.OfType<ToolCallRejected>());
         Assert.Equal("invalid_args", rejected.Reason);

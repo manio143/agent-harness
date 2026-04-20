@@ -136,7 +136,11 @@ public sealed class AcpCommittedEventPublisher
             case ToolCallRejected rejected:
             {
                 // Represent rejection as a failed tool call (no execution).
-                var call = GetOrStart(turn, rejected.ToolId, title: "rejected");
+                // If we already started the call (ToolCallRequested committed), reuse it.
+                var call = toolCalls.TryGetValue(rejected.ToolId, out var existing)
+                    ? existing
+                    : GetOrStart(turn, rejected.ToolId, title: "rejected");
+
                 var msg = rejected.Details.IsEmpty
                     ? rejected.Reason
                     : $"{rejected.Reason}: {string.Join(",", rejected.Details)}";

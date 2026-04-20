@@ -23,7 +23,10 @@ public sealed class ToolCallUnknownToolTests
 
         var result = Core.Reduce(state, observed);
 
-        var rejected = result.NewlyCommitted.Should().ContainSingle().Which.Should().BeOfType<ToolCallRejected>().Which;
+        result.NewlyCommitted.OfType<ToolCallRequested>()
+            .Should().ContainSingle(r => r.ToolId == "call_1" && r.ToolName == "hallucinated_tool");
+
+        var rejected = result.NewlyCommitted.OfType<ToolCallRejected>().Single();
         rejected.ToolId.Should().Be("call_1");
         rejected.Reason.Should().Be("unknown_tool");
         rejected.Details.Should().Equal("unknown_tool");

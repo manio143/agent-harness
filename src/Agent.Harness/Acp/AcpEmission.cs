@@ -80,11 +80,10 @@ public static class AcpProjection
                     ? rejected.Reason
                     : $"{rejected.Reason}: {string.Join(",", rejected.Details)}";
 
-                // Keep presentation aligned with previous behavior: start a placeholder tool call titled "rejected"
-                // and mark it as failed.
-                return ImmutableArray.Create<AcpEmission>(
-                    new AcpToolCallStart(rejected.ToolId, "rejected"),
-                    new AcpToolCallFailed(rejected.ToolId, msg));
+                // Tool call rejection is a terminal event for an already-started tool call.
+                // We rely on ToolCallRequested to have started the call (the reducer commits ToolCallRequested
+                // even for calls that will later be rejected).
+                return ImmutableArray.Create<AcpEmission>(new AcpToolCallFailed(rejected.ToolId, msg));
             }
 
             // Thread inbox events are internal engine details; do not publish them over ACP.

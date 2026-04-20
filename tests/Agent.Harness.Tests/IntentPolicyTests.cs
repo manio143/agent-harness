@@ -23,7 +23,10 @@ public sealed class IntentPolicyTests
 
         var result = Core.Reduce(state, observed);
 
-        var rejected = result.NewlyCommitted.Should().ContainSingle().Which.Should().BeOfType<ToolCallRejected>().Which;
+        result.NewlyCommitted.OfType<ToolCallRequested>()
+            .Should().ContainSingle(r => r.ToolId == "call_1" && r.ToolName == ToolSchemas.ExecuteCommand.Name);
+
+        var rejected = result.NewlyCommitted.OfType<ToolCallRejected>().Single();
         rejected.ToolId.Should().Be("call_1");
         rejected.Reason.Should().Be("missing_report_intent");
         rejected.Details.Should().Contain("must_call:report_intent");

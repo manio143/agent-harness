@@ -63,7 +63,7 @@ public sealed class AcpProjectionTests
     }
 
     [Fact]
-    public void ToolCallRejected_ProjectsStartRejectedThenFailedWithDetails()
+    public void ToolCallRejected_ProjectsFailedWithDetails()
     {
         var core = new CoreOptions();
         var publish = new AcpPublishOptions();
@@ -75,9 +75,7 @@ public sealed class AcpProjectionTests
 
         var emissions = AcpProjection.Project(rejected, core, publish);
 
-        emissions.Should().Equal(
-            new AcpToolCallStart("call_1", "rejected"),
-            new AcpToolCallFailed("call_1", "invalid_args: missing_required:path"));
+        emissions.Should().Equal(new AcpToolCallFailed("call_1", "invalid_args: missing_required:path"));
     }
 
     [Fact]
