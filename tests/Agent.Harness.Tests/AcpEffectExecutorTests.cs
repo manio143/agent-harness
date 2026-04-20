@@ -43,20 +43,24 @@ public sealed class HarnessEffectExecutorTests
         chat.Calls.Should().HaveCount(1);
         var actual = chat.Calls[0].ToArray();
 
-        // First message is the session metadata system prompt.
+        // First messages are system prompt fragments. Order must be stable for provider-side prefix caching.
         actual[0].Role.Should().Be(Microsoft.Extensions.AI.ChatRole.System);
-        actual[0].Text.Should().Contain("<session>");
-        actual[0].Text.Should().Contain("\"sessionId\":\"sess1\"");
-        actual[0].Text.Should().Contain("\"cwd\":\"/cwd\"");
-        actual[0].Text.Should().Contain("\"createdAtIso\":\"t0\"");
-        actual[0].Text.Should().Contain("\"updatedAtIso\":\"t1\"");
-        actual[0].Text.Should().NotContain("\"title\"");
-        actual[0].Text.Should().NotContain("\"tools\"");
+        actual[0].Text.Should().Contain("Tool calling policy:");
+        actual[0].Text.Should().Contain("report_intent");
 
-        actual.Length.Should().Be(expected.Length + 1);
+        actual[1].Role.Should().Be(Microsoft.Extensions.AI.ChatRole.System);
+        actual[1].Text.Should().Contain("<session>");
+        actual[1].Text.Should().Contain("\"sessionId\":\"sess1\"");
+        actual[1].Text.Should().Contain("\"cwd\":\"/cwd\"");
+        actual[1].Text.Should().Contain("\"createdAtIso\":\"t0\"");
+        actual[1].Text.Should().Contain("\"updatedAtIso\":\"t1\"");
+        actual[1].Text.Should().NotContain("\"title\"");
+        actual[1].Text.Should().NotContain("\"tools\"");
+
+        actual.Length.Should().Be(expected.Length + 2);
         for (var i = 0; i < expected.Length; i++)
         {
-            actual[i + 1].Role.Should().Be(expected[i]);
+            actual[i + 2].Role.Should().Be(expected[i]);
         }
     }
 

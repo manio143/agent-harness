@@ -63,6 +63,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         _systemPromptComposer = systemPromptComposer ?? new SystemPromptComposer(new ISystemPromptContributor[]
         {
             new ModelCatalogSystemPromptContributor(),
+            new ToolCallingPolicySystemPromptContributor(),
             new SessionEnvelopeSystemPromptContributor(),
         });
         _threadTools = threadTools;

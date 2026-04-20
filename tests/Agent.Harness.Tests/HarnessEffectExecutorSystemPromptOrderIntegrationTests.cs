@@ -61,6 +61,7 @@ public sealed class HarnessEffectExecutorSystemPromptOrderIntegrationTests
         var composer = new SystemPromptComposer(new ISystemPromptContributor[]
         {
             new ConstContributor("model_catalog", 1000, "Available inference models: qwen. Default: qwen. Quick-work: granite."),
+            new ToolCallingPolicySystemPromptContributor(),
             new SessionEnvelopeSystemPromptContributor(),
         });
 
@@ -92,15 +93,19 @@ public sealed class HarnessEffectExecutorSystemPromptOrderIntegrationTests
         using var doc = JsonDocument.Parse(last);
 
         var messages = doc.RootElement.GetProperty("messages");
-        messages.GetArrayLength().Should().BeGreaterOrEqualTo(2);
+        messages.GetArrayLength().Should().BeGreaterOrEqualTo(3);
 
         var m0 = messages[0];
         var m1 = messages[1];
+        var m2 = messages[2];
 
         m0.GetProperty("role").GetString().Should().Be("system");
         m0.GetProperty("text").GetString().Should().Contain("Available inference models:");
 
         m1.GetProperty("role").GetString().Should().Be("system");
-        m1.GetProperty("text").GetString().Should().StartWith("<session>");
+        m1.GetProperty("text").GetString().Should().Contain("You MUST call `report_intent` before calling any other tool");
+
+        m2.GetProperty("role").GetString().Should().Be("system");
+        m2.GetProperty("text").GetString().Should().StartWith("<session>");
     }
 }

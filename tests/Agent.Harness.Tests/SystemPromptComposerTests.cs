@@ -27,6 +27,20 @@ public sealed class SystemPromptComposerTests
     }
 
     [Fact]
+    public void Compose_DefaultOrders_AreStable()
+    {
+        // Order should remain stable to help provider-side prefix caching.
+        new ToolCallingPolicySystemPromptContributor().Build(new SystemPromptContext("s1", null, null))
+            .Single().Order.Should().Be(1500);
+
+        new ModelCatalogSystemPromptContributor().Build(new SystemPromptContext("s1", null, "x"))
+            .Single().Order.Should().Be(1000);
+
+        new SessionEnvelopeSystemPromptContributor().Build(new SystemPromptContext("s1", null, null))
+            .Single().Order.Should().Be(2000);
+    }
+
+    [Fact]
     public void Compose_ThrowsOnDuplicateIds()
     {
         var c = new SystemPromptComposer(new ISystemPromptContributor[]
