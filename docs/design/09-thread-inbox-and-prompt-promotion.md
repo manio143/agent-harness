@@ -58,6 +58,7 @@ Recommended kinds:
 - `UserPrompt`
 - `InterThreadMessage`
 - `ThreadIdleNotification`
+- `NewThreadTask` (bootstrap task for newly-created threads; renders `<thread_created .../>` + `<task>...` in prompt/read output)
 
 ### 5) Promotion: inbox -> first-class prompt events
 
@@ -78,6 +79,7 @@ The first-class message events used for prompt rendering are:
 - `UserMessage`
 - `InterThreadMessage`
 - `ThreadIdleNotification`
+- `NewThreadTask` (thread bootstrap marker; produced via inbox promotion)
 
 **Renderer policy** maps domain events to LLM roles:
 - `UserMessage` -> user role

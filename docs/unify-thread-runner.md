@@ -10,9 +10,7 @@ Unify main-thread vs child-thread execution so that the *only* difference is sin
 - **Single orchestrator loop** runs main + child threads; **only sink decoration differs**:
   - main thread uses `MainThreadEventSink` + ACP projection
   - child threads use `ThreadEventSink`
-- Harness + ACP test suites are green (Release):
-  - Agent.Acp.Tests: 74 passed
-  - Agent.Harness.Tests: 160 passed
+- Harness + ACP test suites are green (Release). (Avoid pinning exact test counts here; they change frequently.)
 
 ## MVP / non-negotiable behaviors (tests exist) ✅
 These contract tests already exist and are passing:

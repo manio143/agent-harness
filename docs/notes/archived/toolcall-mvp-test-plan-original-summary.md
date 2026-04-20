@@ -26,13 +26,13 @@ All tests are **commit-ready** and in **RED state** (failing with NotImplemented
    - Each test includes "Why this is an invariant" explanation
    - Architecture principles and event/effect flow diagrams
 
-2. **`docs/TEST_IMPLEMENTATION_SUMMARY.md`** (8KB)
+2. **`docs/notes/archived/2026-04-20-TEST_IMPLEMENTATION_SUMMARY.md`** (8KB)
    - Status report of all implemented tests
    - Failure categories (expected RED state)
    - Seams required for implementation
    - Next steps by priority
 
-3. **`docs/IMPLEMENTATION_DRIVER_GUIDE.md`** (14KB)
+3. **`docs/notes/archived/2026-04-20-IMPLEMENTATION_DRIVER_GUIDE.md`** (14KB)
    - Step-by-step implementation guide
    - Recommended order: Reducer → Catalog → Executors → SessionRunner → ACP → MCP
    - Code examples for each phase
@@ -184,7 +184,7 @@ The implementation driver should follow this order (easiest to hardest):
 ## Key Files for Implementation Driver
 
 **Must read:**
-- `docs/IMPLEMENTATION_DRIVER_GUIDE.md` - Step-by-step implementation guide
+- `docs/notes/archived/2026-04-20-IMPLEMENTATION_DRIVER_GUIDE.md` - Step-by-step implementation guide
 - `docs/TOOL_CALLING_MVP_TEST_PLAN.md` - Full test specifications
 
 **Must modify:**
@@ -220,7 +220,7 @@ cd /home/node/.openclaw/workspace/marian-agent
 dotnet test -c Release --filter "FullyQualifiedName~ToolCall"
 ```
 
-Then follow `docs/IMPLEMENTATION_DRIVER_GUIDE.md` to make tests GREEN.
+Then follow `docs/notes/archived/2026-04-20-IMPLEMENTATION_DRIVER_GUIDE.md` to make tests GREEN.
 
 ---
 

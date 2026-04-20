@@ -1,4 +1,7 @@
-# Plan (TDD) — `NewThreadTask` / `thread_created` + fork read-window
+# `NewThreadTask` / `thread_created` + fork read-window (implementation notes)
+
+> Note (2026-04-20): `thread_start` now requires a `name` parameter. The provided name becomes the child thread’s `ThreadId` (instead of a generated `thr_...` id).
+
 
 ## Quick implementation checklist (likely touch points)
 

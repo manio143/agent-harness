@@ -1,4 +1,7 @@
-# Tool Calling MVP - Test Implementation Summary
+# (Archived) Tool Calling MVP - Test Implementation Summary
+
+> Archived 2026-04-20: This document captures the original “RED tests ready” snapshot. Current implementation may differ; keep for historical reference.
+
 
 ## Status: ✅ RED Tests Ready
 

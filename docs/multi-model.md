@@ -1,6 +1,8 @@
-# PENDING — Multi-model support (friendly names + per-thread model)
+# Multi-model support (friendly names + per-thread model)
 
 Branch/target: `main`
+
+> Status: implemented. This doc describes the current behavior + design intent.
 
 ## Goal
 Enable the harness to use **different OpenAI-compatible model endpoints** for different tasks.
@@ -16,6 +18,10 @@ Key behaviors:
    - Committed event: `SetModel`
    - Last `SetModel` in thread controls which model is used for subsequent `CallModel` effects.
 5) If a requested model name does not exist, **fallback to DefaultModel**.
+
+   Notes:
+   - This is enforced at the chat client factory boundary (unknown/blank/"default" names resolve to DefaultModel).
+   - Thread tools should follow the same rule (unknown model names should not hard-fail; they should resolve to DefaultModel).
 6) New tool: `thread_config`:
    - Required: `threadId`
    - Optional: `model` — sets the model for that thread.
@@ -83,7 +89,9 @@ Title generation uses `QuickWorkModel`.
 ### C) Thread model state
 Add events:
 - Observed: `ObservedSetModel(threadId, model)`
-- Committed: `SetModel(threadId, model)`
+- Committed: `SetModel(model)`
+
+Note: committed events are stored per-thread in that thread’s `events.jsonl`, so `threadId` is implicit in the log the event is written to.
 
 Projection rule:
 - `ThreadModel` = last `SetModel` in committed stream (if none, null → default).
@@ -121,11 +129,11 @@ Return shape (MVP):
 
 #### `thread_start`
 Replace `thread_new`/`thread_fork` tool schemas with one: ✅ done (legacy tools removed)
-- `name`: **required** unique name/id for the new thread (unique within the session)
+- `name`: **required** unique name/id for the new thread (unique within the session). This becomes the thread’s `ThreadId` (shown in `thread_list`).
 - `context`: `"new"|"fork"`
 - `message`: string
 - `delivery`: immediate|enqueue (existing)
-- optional `model`: string
+- optional `model`: string (friendly name; unknown should resolve to DefaultModel)
 
 Behavior:
 - context=new: seed from empty + message

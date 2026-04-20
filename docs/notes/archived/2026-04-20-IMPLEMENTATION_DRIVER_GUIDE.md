@@ -1,4 +1,7 @@
-# Implementation Driver Guide - Tool Calling MVP
+# (Archived) Implementation Driver Guide - Tool Calling MVP
+
+> Archived 2026-04-20: This guide describes an earlier “RED tests” implementation phase. The harness has since evolved; keep this only for historical context.
+
 
 This guide helps the implementation driver (you or another agent) implement the tool calling MVP by following the tests.
 
