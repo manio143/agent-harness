@@ -112,6 +112,7 @@ public sealed class ThreadOrchestratorThreadStartMidTurnCreatesChildAndCommitsIn
                         new MeaiFunctionCallContent("call_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "thread new" }),
                         new MeaiFunctionCallContent("call_1", "thread_start", new Dictionary<string, object?>
                         {
+                            ["name"] = "child",
                             ["context"] = "fork",
                             ["message"] = "child hello",
                             ["delivery"] = "immediate",

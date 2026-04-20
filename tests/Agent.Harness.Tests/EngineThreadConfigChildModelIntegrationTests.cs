@@ -148,6 +148,7 @@ public sealed class EngineThreadConfigChildModelIntegrationTests
                         new MeaiFunctionCallContent("call_start_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "start child" }),
                         new MeaiFunctionCallContent("call_start_1", "thread_start", new Dictionary<string, object?>
                         {
+                            ["name"] = "child",
                             ["context"] = "fork",
                             ["message"] = "do work",
                             ["delivery"] = "immediate",

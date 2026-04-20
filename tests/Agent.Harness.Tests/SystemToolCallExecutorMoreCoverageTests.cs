@@ -35,7 +35,7 @@ public sealed class SystemToolCallExecutorMoreCoverageTests
     {
         var exec = new SystemToolCallExecutor(threadTools: null, observer: null, lifecycle: null, scheduler: null, isKnownModel: _ => true, threadId: "thr_main");
 
-        var obs = await exec.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t1", "thread_start", new { context = "new", message = "hi" }), CancellationToken.None);
+        var obs = await exec.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t1", "thread_start", new { name = "child", context = "new", message = "hi" }), CancellationToken.None);
 
         obs.OfType<ObservedToolCallFailed>().Single().Error.Should().Be("thread_tools_require_orchestrator");
     }
@@ -49,7 +49,7 @@ public sealed class SystemToolCallExecutorMoreCoverageTests
 
         var exec = new SystemToolCallExecutor(threadTools: null, observer: observer, lifecycle: lifecycle, scheduler: scheduler, isKnownModel: _ => true, threadId: "thr_main");
 
-        var obs = await exec.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t1", "thread_start", new { context = "new", message = "hi", model = "" }), CancellationToken.None);
+        var obs = await exec.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t1", "thread_start", new { name = "child", context = "new", message = "hi", model = "" }), CancellationToken.None);
 
         obs.OfType<ObservedToolCallFailed>().Single().Error.Should().Be("thread_start.model_required");
         lifecycle.Forked.Should().BeTrue();
@@ -64,7 +64,7 @@ public sealed class SystemToolCallExecutorMoreCoverageTests
 
         var exec = new SystemToolCallExecutor(threadTools: null, observer: observer, lifecycle: lifecycle, scheduler: scheduler, isKnownModel: _ => false, threadId: "thr_main");
 
-        var obs = await exec.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t1", "thread_start", new { context = "new", message = "hi", model = "bad" }), CancellationToken.None);
+        var obs = await exec.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t1", "thread_start", new { name = "child", context = "new", message = "hi", model = "bad" }), CancellationToken.None);
 
         obs.OfType<ObservedToolCallFailed>().Single().Error.Should().Be("thread_start.unknown_model");
     }
@@ -78,7 +78,7 @@ public sealed class SystemToolCallExecutorMoreCoverageTests
 
         var exec = new SystemToolCallExecutor(threadTools: null, observer: observer, lifecycle: lifecycle, scheduler: scheduler, isKnownModel: _ => true, threadId: "thr_main");
 
-        var obs = await exec.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t1", "thread_start", new { context = "new", message = "hi", delivery = "immediate" }), CancellationToken.None);
+        var obs = await exec.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t1", "thread_start", new { name = "child", context = "new", message = "hi", delivery = "immediate" }), CancellationToken.None);
 
         var completed = obs.OfType<ObservedToolCallCompleted>().Single();
         var json = (JsonElement)completed.Result;
@@ -115,7 +115,7 @@ public sealed class SystemToolCallExecutorMoreCoverageTests
                 new NewThreadTask(ThreadId: "thr_parent", ParentThreadId: "main", IsFork: false, Message: "bootstrap"))
         };
 
-        var obs = await exec.ExecuteAsync(state, new ExecuteToolCall("t1", "thread_start", new { context = "fork", message = "child task" }), CancellationToken.None);
+        var obs = await exec.ExecuteAsync(state, new ExecuteToolCall("t1", "thread_start", new { name = "child", context = "fork", message = "child task" }), CancellationToken.None);
 
         obs.OfType<ObservedToolCallCompleted>().Single();
 

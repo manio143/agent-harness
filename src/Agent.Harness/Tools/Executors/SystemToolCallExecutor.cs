@@ -109,9 +109,16 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
 
                 case "thread_start":
                 {
+                    var name = GetRequiredString(args, "name");
                     var context = GetRequiredString(args, "context");
                     var message = GetRequiredString(args, "message");
                     var delivery = ParseDelivery(args);
+
+                    if (!IsValidThreadName(name))
+                        throw new InvalidOperationException("thread_start.invalid_name");
+
+                    if (string.Equals(name, Agent.Harness.Threads.ThreadIds.Main, StringComparison.Ordinal))
+                        throw new InvalidOperationException("thread_start.name_reserved");
 
                     if (_lifecycle is null || _observer is null || _scheduler is null)
                         throw new InvalidOperationException("thread_tools_require_orchestrator");
@@ -125,7 +132,7 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
                         _ => throw new InvalidOperationException("thread_start.invalid_context"),
                     };
 
-                    var id = "thr_" + Guid.NewGuid().ToString("N")[..12];
+                    var id = name;
 
                     await _lifecycle.RequestForkChildThreadAsync(
                         _threadId,
@@ -223,6 +230,25 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
             throw new InvalidOperationException($"missing_required:{name}");
 
         return v.GetString() ?? "";
+    }
+
+    private static bool IsValidThreadName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        if (name.Length > 64) return false;
+
+        // Keep this strict: thread id becomes a directory name in JsonlThreadStore.
+        // Allow: letters, digits, '_' and '-'. Must start with a letter.
+        if (!char.IsLetter(name[0])) return false;
+
+        foreach (var ch in name)
+        {
+            if (char.IsLetterOrDigit(ch)) continue;
+            if (ch is '_' or '-') continue;
+            return false;
+        }
+
+        return true;
     }
 
     private static string ResolveModelFromCommitted(ImmutableArray<SessionEvent> committed)

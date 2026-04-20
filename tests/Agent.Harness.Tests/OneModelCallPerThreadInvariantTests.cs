@@ -160,7 +160,7 @@ public sealed class OneModelCallPerThreadInvariantTests
                         Contents = new List<MeaiAIContent>
                         {
                             new MeaiFunctionCallContent("call_m_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "spawn" }),
-                            new MeaiFunctionCallContent("call_m_1", "thread_start", new Dictionary<string, object?> { ["context"] = "fork", ["message"] = "do work", ["delivery"] = "immediate" }),
+                            new MeaiFunctionCallContent("call_m_1", "thread_start", new Dictionary<string, object?> { ["name"] = "child", ["context"] = "fork", ["message"] = "do work", ["delivery"] = "immediate" }),
                         }
                     };
                 }

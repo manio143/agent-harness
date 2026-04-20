@@ -105,7 +105,7 @@ public sealed class ThreadOrchestratorEndToEndEnqueueGatingIntegrationTests
         private bool _main2ToolsDone;
         private bool _childToolsDone;
 
-        private static readonly Regex ChildIdRe = new("thr_[a-f0-9]{12}", RegexOptions.Compiled);
+        private static readonly Regex ChildIdRe = new("<thread_idle child=\"([^\"]+)\"", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         public int MainPromptCount { get; private set; }
         public int ChildPromptCount { get; private set; }
@@ -160,7 +160,7 @@ public sealed class ThreadOrchestratorEndToEndEnqueueGatingIntegrationTests
                     Contents = new List<MeaiAIContent>
                     {
                         new MeaiFunctionCallContent("call_m1_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "create child" }),
-                        new MeaiFunctionCallContent("call_m1_1", "thread_start", new Dictionary<string, object?> { ["context"] = "fork", ["message"] = "do work", ["delivery"] = "immediate" }),
+                        new MeaiFunctionCallContent("call_m1_1", "thread_start", new Dictionary<string, object?> { ["name"] = "child", ["context"] = "fork", ["message"] = "do work", ["delivery"] = "immediate" }),
                     }
                 };
             }

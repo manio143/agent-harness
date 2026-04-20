@@ -142,7 +142,7 @@ public sealed class ToolExecutorCoverageTests
 
         var obs = await exec.ExecuteAsync(
             SessionState.Empty,
-            new ExecuteToolCall("t1", "thread_start", new { context = "bad", message = "hi" }),
+            new ExecuteToolCall("t1", "thread_start", new { name = "child", context = "bad", message = "hi" }),
             CancellationToken.None);
 
         obs.OfType<ObservedToolCallFailed>().Single().Error.Should().Be("thread_start.invalid_context");

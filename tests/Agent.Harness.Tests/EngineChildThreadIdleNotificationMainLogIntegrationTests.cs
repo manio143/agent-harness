@@ -72,7 +72,7 @@ public sealed class EngineChildThreadIdleNotificationMainLogIntegrationTests
             .FirstOrDefault(x => x is not null);
 
         childId.Should().NotBeNull();
-        childId!.Should().StartWith("thr_");
+        childId!.Should().NotBeNullOrWhiteSpace();
 
         var mainCommitted = threadStore.LoadCommittedEvents(sessionId, ThreadIds.Main);
 
@@ -130,7 +130,7 @@ public sealed class EngineChildThreadIdleNotificationMainLogIntegrationTests
                     Contents = new List<MeaiAIContent>
                     {
                         new MeaiFunctionCallContent("call_m_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "create child" }),
-                        new MeaiFunctionCallContent("call_m_1", "thread_start", new Dictionary<string, object?> { ["context"] = "fork", ["message"] = "do work", ["delivery"] = "immediate" }),
+                        new MeaiFunctionCallContent("call_m_1", "thread_start", new Dictionary<string, object?> { ["name"] = "child", ["context"] = "fork", ["message"] = "do work", ["delivery"] = "immediate" }),
                     }
                 };
                 await Task.CompletedTask;

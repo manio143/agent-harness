@@ -73,7 +73,7 @@ public sealed class EngineChildThreadOrchestrationIntegrationTests
             .FirstOrDefault(x => x is not null);
 
         childId.Should().NotBeNull("expected thread_start to return a threadId rawOutput");
-        childId!.Should().StartWith("thr_");
+        childId!.Should().NotBeNullOrWhiteSpace();
 
         var childEventsPath = Path.Combine(root, sessionId, "threads", childId!, "events.jsonl");
 
@@ -188,7 +188,7 @@ public sealed class EngineChildThreadOrchestrationIntegrationTests
         private bool _main2ToolsDone;
         private bool _childToolsDone;
 
-        private static readonly Regex ChildIdRe = new("thr_[a-f0-9]{12}", RegexOptions.Compiled);
+        private static readonly Regex ChildIdRe = new("Check child=([A-Za-z0-9_-]+)", RegexOptions.Compiled);
 
         public IAsyncEnumerable<MeaiChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<MeaiChatMessage> messages, MeaiChatOptions? options = null, CancellationToken cancellationToken = default)
         {
@@ -224,7 +224,7 @@ public sealed class EngineChildThreadOrchestrationIntegrationTests
                     Contents = new List<MeaiAIContent>
                     {
                         new MeaiFunctionCallContent("call_m1_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "create child" }),
-                        new MeaiFunctionCallContent("call_m1_1", "thread_start", new Dictionary<string, object?> { ["context"] = "fork", ["message"] = "do work", ["delivery"] = "immediate" }),
+                        new MeaiFunctionCallContent("call_m1_1", "thread_start", new Dictionary<string, object?> { ["name"] = "child", ["context"] = "fork", ["message"] = "do work", ["delivery"] = "immediate" }),
                     }
                 };
                 await Task.CompletedTask;
@@ -283,7 +283,7 @@ public sealed class EngineChildThreadOrchestrationIntegrationTests
             {
                 var m = ChildIdRe.Match(msgText);
                 m.Success.Should().BeTrue("expected main prompt 2 to contain a child thread id; prompt was: {0}", msgText);
-                return !_main2ToolsDone ? Main2_Tools_ReadChild(m.Value) : Main2_Text_Done();
+                return !_main2ToolsDone ? Main2_Tools_ReadChild(m.Groups[1].Value) : Main2_Text_Done();
             }
 
             if (isMainPrompt1)

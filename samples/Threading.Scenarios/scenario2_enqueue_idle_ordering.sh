@@ -29,26 +29,11 @@ acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --tim
 
 Now do the work:
 Call tool report_intent with arguments: {"intent":"create child"}.
-Then call tool thread_start with arguments: {"context":"new","delivery":"immediate","message":"Say READY. Do NOT call any tools."}.
+Then call tool thread_start with arguments: {"name":"child_ready","context":"new","delivery":"immediate","message":"Say READY. Do NOT call any tools."}.
 Then output EXACTLY: OK'
 
 THREADS_DIR=".agent/sessions/$SESSION_ID/threads"
-
-CHILD_ID=""
-for _ in $(seq 1 40); do
-  if [[ -d "$THREADS_DIR" ]]; then
-    CHILD_ID="$(ls -1 "$THREADS_DIR" 2>/dev/null | grep -v '^main$' | head -n 1 || true)"
-    if [[ -n "$CHILD_ID" ]]; then
-      break
-    fi
-  fi
-  sleep 0.25
-done
-
-if [[ -z "$CHILD_ID" ]]; then
-  echo "Failed to find child thread under $THREADS_DIR" >&2
-  exit 1
-fi
+CHILD_ID="child_ready"
 
 echo "[scenario2] childThreadId=$CHILD_ID"
 

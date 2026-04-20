@@ -92,7 +92,7 @@ public sealed class EngineChildThreadIdleNotificationIntegrationTests
 
         public string? LastChildThreadId { get; private set; }
 
-        private static readonly Regex ChildIdRe = new("thr_[a-f0-9]{12,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex ChildIdRe = new("\\\\u0022threadId\\\\u0022:\\\\u0022([A-Za-z0-9_-]+)\\\\u0022", RegexOptions.Compiled);
 
         public IAsyncEnumerable<MeaiChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<MeaiChatMessage> messages, MeaiChatOptions? options = null, CancellationToken cancellationToken = default)
         {
@@ -122,7 +122,7 @@ public sealed class EngineChildThreadIdleNotificationIntegrationTests
                     Contents = new List<MeaiAIContent>
                     {
                         new MeaiFunctionCallContent("call_mhi_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "create child" }),
-                        new MeaiFunctionCallContent("call_mhi_1", "thread_start", new Dictionary<string, object?> { ["context"] = "fork", ["message"] = "do work", ["delivery"] = "immediate" }),
+                        new MeaiFunctionCallContent("call_mhi_1", "thread_start", new Dictionary<string, object?> { ["name"] = "child", ["context"] = "fork", ["message"] = "do work", ["delivery"] = "immediate" }),
                     }
                 };
                 await Task.CompletedTask;
@@ -136,7 +136,7 @@ public sealed class EngineChildThreadIdleNotificationIntegrationTests
                 if (!match.Success)
                     throw new InvalidOperationException($"Expected child id in rendered prompt, got: {rendered}");
 
-                var childId = match.Value;
+                var childId = match.Groups[1].Value;
                 LastChildThreadId = childId;
 
                 yield return new MeaiChatResponseUpdate

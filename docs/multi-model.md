@@ -121,6 +121,7 @@ Return shape (MVP):
 
 #### `thread_start`
 Replace `thread_new`/`thread_fork` tool schemas with one: ✅ done (legacy tools removed)
+- `name`: **required** unique name/id for the new thread (unique within the session)
 - `context`: `"new"|"fork"`
 - `message`: string
 - `delivery`: immediate|enqueue (existing)

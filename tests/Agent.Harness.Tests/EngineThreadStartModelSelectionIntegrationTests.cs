@@ -93,6 +93,7 @@ public sealed class EngineThreadStartModelSelectionIntegrationTests
                         new MeaiFunctionCallContent($"call_{_calls}_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "start child" }),
                         new MeaiFunctionCallContent($"call_{_calls}_1", "thread_start", new Dictionary<string, object?>
                         {
+                            ["name"] = "child",
                             ["context"] = "new",
                             ["model"] = "m2",
                             ["message"] = "do work",

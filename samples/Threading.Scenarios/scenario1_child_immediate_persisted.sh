@@ -30,29 +30,12 @@ acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --tim
 
 Now do the work:
 Call tool report_intent with arguments: {"intent":"create child"}.
-Then call tool thread_start with arguments: {"context":"new","delivery":"immediate","message":"In 1 paragraph, explain how the tool catalog acts as the permission boundary in this harness. Do NOT call any tools. Do NOT ask questions."}.
+Then call tool thread_start with arguments: {"name":"perm_boundary","context":"new","delivery":"immediate","message":"In 1 paragraph, explain how the tool catalog acts as the permission boundary in this harness. Do NOT call any tools. Do NOT ask questions."}.
 Then output EXACTLY: OK'
 
-# Grab the child thread id from the persisted thread store.
+# Child thread id is model-provided.
 THREADS_DIR=".agent/sessions/$SESSION_ID/threads"
-
-# Wait (briefly) for the orchestrator to persist the new child thread directory.
-CHILD_ID=""
-for _ in $(seq 1 40); do
-  if [[ -d "$THREADS_DIR" ]]; then
-    CHILD_ID="$(ls -1 "$THREADS_DIR" 2>/dev/null | grep -v '^main$' | head -n 1 || true)"
-    if [[ -n "$CHILD_ID" ]]; then
-      break
-    fi
-  fi
-  sleep 0.25
-done
-
-if [[ -z "$CHILD_ID" ]]; then
-  echo "Failed to find child thread under $THREADS_DIR" >&2
-  ls -la ".agent/sessions/$SESSION_ID" >&2 || true
-  exit 1
-fi
+CHILD_ID="perm_boundary"
 
 echo "[scenario1] childThreadId=$CHILD_ID"
 

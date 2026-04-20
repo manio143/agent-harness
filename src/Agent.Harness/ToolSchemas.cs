@@ -145,12 +145,13 @@ public static class ToolSchemas
         {
           "type": "object",
           "properties": {
+            "name": { "type": "string", "description": "Mandatory unique name/id for the new child thread (unique within the session). Use a short, stable identifier like 'research' or 'fix_deadlock'." },
             "context": { "type": "string", "enum": ["new", "fork"], "description": "Whether to start from empty state or fork the current thread" },
             "message": { "type": "string", "description": "Initial message to attach to the child thread" },
             "delivery": { "type": "string", "enum": ["enqueue", "immediate"], "description": "Whether the message should be delivered immediately or enqueued until idle" },
             "model": { "type": "string", "description": "Optional model friendly name for the child thread (or 'default')" }
           },
-          "required": ["context", "message"]
+          "required": ["name", "context", "message"]
         }
         """));
 
