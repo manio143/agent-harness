@@ -376,16 +376,29 @@ public static class Core
 
             case ObservedPermissionDenied denied:
             {
-                // Commit ToolCallPermissionDenied + ToolCallRejected with no execution, then request a model call.
+                // Commit ToolCallPermissionDenied.
                 var deniedEvt = new ToolCallPermissionDenied(denied.ToolId, denied.Reason);
-                var rejected = new ToolCallRejected(denied.ToolId, denied.Reason, ImmutableArray<string>.Empty);
-                var committed = state.Committed.Add(deniedEvt).Add(rejected);
+                var committed = state.Committed.Add(deniedEvt);
                 var next = state with { Committed = committed };
 
+                // Tightened invariant: never commit a ToolCallRejected unless we have a prior ToolCallRequested.
+                // (Otherwise events.jsonl would contain a rejection with no information about the attempted call.)
+                var hasRequested = state.Committed.OfType<ToolCallRequested>().Any(r => r.ToolId == denied.ToolId);
+                if (!hasRequested)
+                {
+                    return new ReduceResult(
+                        next,
+                        ImmutableArray.Create<SessionEvent>(deniedEvt),
+                        ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next))));
+                }
+
+                var rejected = new ToolCallRejected(denied.ToolId, denied.Reason, ImmutableArray<string>.Empty);
+                var reduced = Commit(next, rejected);
+
                 return new ReduceResult(
-                    next,
+                    reduced.Next,
                     ImmutableArray.Create<SessionEvent>(deniedEvt, rejected),
-                    ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next))));
+                    ImmutableArray.Create<Effect>(new CallModel(ResolveModel(reduced.Next))));
             }
 
             case ObservedToolCallProgressUpdate progress:
