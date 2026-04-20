@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Text.Json;
 using Agent.Acp.Acp;
 using Agent.Harness.Llm;
+using Agent.Harness.Llm.SystemPrompts;
 using Agent.Harness.Tools.Executors;
 
 using MeaiIChatClient = Microsoft.Extensions.AI.IChatClient;
@@ -22,6 +23,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
     private readonly string? _sessionCwd;
     private readonly Agent.Harness.Persistence.ISessionStore? _store;
     private readonly string? _modelCatalogSystemPrompt;
+    private readonly SystemPromptComposer _systemPromptComposer;
     private readonly Agent.Harness.Threads.IThreadTools? _threadTools;
     private readonly Agent.Harness.Threads.IThreadObserver? _observer;
     private readonly Agent.Harness.Threads.IThreadLifecycle? _lifecycle;
@@ -41,6 +43,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         string? sessionCwd = null,
         Agent.Harness.Persistence.ISessionStore? store = null,
         string? modelCatalogSystemPrompt = null,
+        SystemPromptComposer? systemPromptComposer = null,
         Agent.Harness.Threads.IThreadTools? threadTools = null,
         Agent.Harness.Threads.IThreadObserver? observer = null,
         Agent.Harness.Threads.IThreadLifecycle? lifecycle = null,
@@ -57,6 +60,11 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         _sessionCwd = sessionCwd;
         _store = store;
         _modelCatalogSystemPrompt = modelCatalogSystemPrompt;
+        _systemPromptComposer = systemPromptComposer ?? new SystemPromptComposer(new ISystemPromptContributor[]
+        {
+            new ModelCatalogSystemPromptContributor(),
+            new SessionEnvelopeSystemPromptContributor(),
+        });
         _threadTools = threadTools;
         _observer = observer;
         _lifecycle = lifecycle;
@@ -132,18 +140,15 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
 
             // Session metadata system prompt (client-/protocol-agnostic).
             var meta = _store?.TryLoadMetadata(_sessionId);
-            var sessionPayload = JsonSerializer.Serialize(new
-            {
-                sessionId = _sessionId,
-                cwd = meta?.Cwd,
-                createdAtIso = meta?.CreatedAtIso,
-                updatedAtIso = meta?.UpdatedAtIso,
-            }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            var ctx = new SystemPromptContext(
+                SessionId: _sessionId,
+                SessionMetadata: meta,
+                ModelCatalogPrompt: _modelCatalogSystemPrompt);
 
-            meaiMessages.Insert(0, new MeaiChatMessage(MeaiChatRole.System, $"<session>{sessionPayload}</session>"));
-
-            if (!string.IsNullOrWhiteSpace(_modelCatalogSystemPrompt))
-                meaiMessages.Insert(0, new MeaiChatMessage(MeaiChatRole.System, _modelCatalogSystemPrompt));
+            // Stable, deterministic order (provider prefix-cache friendly).
+            var fragments = _systemPromptComposer.Compose(ctx);
+            for (var i = fragments.Count - 1; i >= 0; i--)
+                meaiMessages.Insert(0, new MeaiChatMessage(MeaiChatRole.System, fragments[i].Content));
 
 
         var options = new Microsoft.Extensions.AI.ChatOptions
