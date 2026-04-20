@@ -58,11 +58,17 @@ public sealed class HarnessEffectExecutorSystemPromptOrderIntegrationTests
             CreatedAtIso: DateTimeOffset.UtcNow.ToString("O"),
             UpdatedAtIso: DateTimeOffset.UtcNow.ToString("O")));
 
+        var threadStore = new Agent.Harness.Threads.InMemoryThreadStore();
+        threadStore.CreateMainIfMissing(sessionId);
+        var existingMeta = threadStore.TryLoadThreadMetadata(sessionId, "main")!;
+        threadStore.SaveThreadMetadata(sessionId, existingMeta with { CreatedAtIso = "t0", UpdatedAtIso = "t1" });
+
         var composer = new SystemPromptComposer(new ISystemPromptContributor[]
         {
             new ConstContributor("model_catalog", 1000, "Available inference models: qwen. Default: qwen. Quick-work: granite."),
             new ToolCallingPolicySystemPromptContributor(),
             new SessionEnvelopeSystemPromptContributor(),
+            new ThreadEnvelopeSystemPromptContributor(),
         });
 
         var exec = new HarnessEffectExecutor(
@@ -76,7 +82,9 @@ public sealed class HarnessEffectExecutorSystemPromptOrderIntegrationTests
             sessionCwd: "/tmp",
             store: store,
             modelCatalogSystemPrompt: null,
-            systemPromptComposer: composer);
+            systemPromptComposer: composer,
+            threadStore: threadStore);
+
 
         // Seed minimal state; tools empty ok.
         var state = new SessionState(
@@ -93,11 +101,12 @@ public sealed class HarnessEffectExecutorSystemPromptOrderIntegrationTests
         using var doc = JsonDocument.Parse(last);
 
         var messages = doc.RootElement.GetProperty("messages");
-        messages.GetArrayLength().Should().BeGreaterOrEqualTo(3);
+        messages.GetArrayLength().Should().BeGreaterOrEqualTo(4);
 
         var m0 = messages[0];
         var m1 = messages[1];
         var m2 = messages[2];
+        var m3 = messages[3];
 
         m0.GetProperty("role").GetString().Should().Be("system");
         m0.GetProperty("text").GetString().Should().Contain("Available inference models:");
@@ -107,5 +116,9 @@ public sealed class HarnessEffectExecutorSystemPromptOrderIntegrationTests
 
         m2.GetProperty("role").GetString().Should().Be("system");
         m2.GetProperty("text").GetString().Should().StartWith("<session>");
+
+        m3.GetProperty("role").GetString().Should().Be("system");
+        m3.GetProperty("text").GetString().Should().StartWith("<thread>");
+        m3.GetProperty("text").GetString().Should().Contain("\"createdAtIso\":\"t0\"");
     }
 }

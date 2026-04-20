@@ -19,7 +19,7 @@ public sealed class SystemPromptComposerTests
             new Contrib(new SystemPromptFragment("c", 1000, "C")),
         });
 
-        var ctx = new SystemPromptContext("s1", SessionMetadata: null, ModelCatalogPrompt: null);
+        var ctx = new SystemPromptContext("s1", SessionMetadata: null, ModelCatalogPrompt: null, ThreadId: "main", ThreadMetadata: null);
 
         var result = c.Compose(ctx);
 
@@ -30,14 +30,20 @@ public sealed class SystemPromptComposerTests
     public void Compose_DefaultOrders_AreStable()
     {
         // Order should remain stable to help provider-side prefix caching.
-        new ToolCallingPolicySystemPromptContributor().Build(new SystemPromptContext("s1", null, null))
+        var ctx = new SystemPromptContext("s1", SessionMetadata: null, ModelCatalogPrompt: "x", ThreadId: "main", ThreadMetadata: null);
+
+        new ToolCallingPolicySystemPromptContributor().Build(ctx)
             .Single().Order.Should().Be(1500);
 
-        new ModelCatalogSystemPromptContributor().Build(new SystemPromptContext("s1", null, "x"))
+        new ModelCatalogSystemPromptContributor().Build(ctx)
             .Single().Order.Should().Be(1000);
 
-        new SessionEnvelopeSystemPromptContributor().Build(new SystemPromptContext("s1", null, null))
+        new SessionEnvelopeSystemPromptContributor().Build(ctx)
             .Single().Order.Should().Be(2000);
+
+        // Thread envelope comes after session.
+        new ThreadEnvelopeSystemPromptContributor().Build(ctx)
+            .Should().BeEmpty();
     }
 
     [Fact]
@@ -49,7 +55,7 @@ public sealed class SystemPromptComposerTests
             new Contrib(new SystemPromptFragment("x", 2000, "X2")),
         });
 
-        var ctx = new SystemPromptContext("s1", SessionMetadata: null, ModelCatalogPrompt: null);
+        var ctx = new SystemPromptContext("s1", SessionMetadata: null, ModelCatalogPrompt: null, ThreadId: "main", ThreadMetadata: null);
 
         c.Invoking(x => x.Compose(ctx)).Should().Throw<InvalidOperationException>()
             .WithMessage("*Duplicate system prompt fragment id: x*");

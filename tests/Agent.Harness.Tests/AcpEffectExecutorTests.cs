@@ -31,7 +31,12 @@ public sealed class HarnessEffectExecutorTests
             CreatedAtIso: "t0",
             UpdatedAtIso: "t1"));
 
-        var exec = new HarnessEffectExecutor("sess1", new FakeClientCaller(), chat, store: store);
+        var threadStore = new Agent.Harness.Threads.InMemoryThreadStore();
+        threadStore.CreateMainIfMissing("sess1");
+        var existingThreadMeta = threadStore.TryLoadThreadMetadata("sess1", "main")!;
+        threadStore.SaveThreadMetadata("sess1", existingThreadMeta with { CreatedAtIso = "t-threads", UpdatedAtIso = "t-threads" });
+
+        var exec = new HarnessEffectExecutor("sess1", new FakeClientCaller(), chat, store: store, threadStore: threadStore);
 
         var observed = await exec.ExecuteAsync(state, new CallModel("default"), CancellationToken.None);
         observed.Should().NotBeNull();
@@ -57,10 +62,14 @@ public sealed class HarnessEffectExecutorTests
         actual[1].Text.Should().NotContain("\"title\"");
         actual[1].Text.Should().NotContain("\"tools\"");
 
-        actual.Length.Should().Be(expected.Length + 2);
+        actual[2].Role.Should().Be(Microsoft.Extensions.AI.ChatRole.System);
+        actual[2].Text.Should().Contain("<thread>");
+        actual[2].Text.Should().Contain("\"createdAtIso\":\"t-threads\"");
+
+        actual.Length.Should().Be(expected.Length + 3);
         for (var i = 0; i < expected.Length; i++)
         {
-            actual[i + 2].Role.Should().Be(expected[i]);
+            actual[i + 3].Role.Should().Be(expected[i]);
         }
     }
 

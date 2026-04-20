@@ -24,6 +24,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
     private readonly Agent.Harness.Persistence.ISessionStore? _store;
     private readonly string? _modelCatalogSystemPrompt;
     private readonly SystemPromptComposer _systemPromptComposer;
+    private readonly Agent.Harness.Threads.IThreadStore? _threadStore;
     private readonly Agent.Harness.Threads.IThreadTools? _threadTools;
     private readonly Agent.Harness.Threads.IThreadObserver? _observer;
     private readonly Agent.Harness.Threads.IThreadLifecycle? _lifecycle;
@@ -44,6 +45,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         Agent.Harness.Persistence.ISessionStore? store = null,
         string? modelCatalogSystemPrompt = null,
         SystemPromptComposer? systemPromptComposer = null,
+        Agent.Harness.Threads.IThreadStore? threadStore = null,
         Agent.Harness.Threads.IThreadTools? threadTools = null,
         Agent.Harness.Threads.IThreadObserver? observer = null,
         Agent.Harness.Threads.IThreadLifecycle? lifecycle = null,
@@ -60,11 +62,13 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         _sessionCwd = sessionCwd;
         _store = store;
         _modelCatalogSystemPrompt = modelCatalogSystemPrompt;
+        _threadStore = threadStore;
         _systemPromptComposer = systemPromptComposer ?? new SystemPromptComposer(new ISystemPromptContributor[]
         {
             new ModelCatalogSystemPromptContributor(),
             new ToolCallingPolicySystemPromptContributor(),
             new SessionEnvelopeSystemPromptContributor(),
+            new ThreadEnvelopeSystemPromptContributor(),
         });
         _threadTools = threadTools;
         _observer = observer;
@@ -141,10 +145,14 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
 
             // Session metadata system prompt (client-/protocol-agnostic).
             var meta = _store?.TryLoadMetadata(_sessionId);
+            var threadMeta = _threadStore?.TryLoadThreadMetadata(_sessionId, _threadId);
+
             var ctx = new SystemPromptContext(
                 SessionId: _sessionId,
                 SessionMetadata: meta,
-                ModelCatalogPrompt: _modelCatalogSystemPrompt);
+                ModelCatalogPrompt: _modelCatalogSystemPrompt,
+                ThreadId: _threadId,
+                ThreadMetadata: threadMeta);
 
             // Stable, deterministic order (provider prefix-cache friendly).
             var fragments = _systemPromptComposer.Compose(ctx);
