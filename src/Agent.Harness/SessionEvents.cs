@@ -59,6 +59,10 @@ public sealed record SessionTitleSet(string Title) : SessionEvent;
 /// </summary>
 public sealed record ModelInvoked(ImmutableArray<ChatMessage> RenderedMessages) : SessionEvent;
 
+// --- Usage ---
+// Token usage reported by the underlying provider (when available).
+public sealed record TokenUsageObserved(long? InputTokens, long? OutputTokens, long? TotalTokens) : SessionEvent;
+
 // --- Turn lifecycle ---
 // Invariant: TurnStart is informative only; TurnEnd is committed when the core decides the turn has stabilized.
 public sealed record TurnStarted() : SessionEvent;

@@ -68,6 +68,18 @@ public static class MeaiObservedEventSource
                         }
 
                         // Mode A: tool-call intent is surfaced as a FunctionCallContent in the model stream.
+                        case UsageContent uc:
+                        {
+                            // Provider-reported token usage. Some providers emit this once at the end.
+                            // We log it immediately on arrival; downstream can decide whether to take the
+                            // first/last occurrence if a provider ever becomes cumulative.
+                            yield return new Agent.Harness.ObservedTokenUsage(
+                                InputTokens: uc.Details?.InputTokenCount,
+                                OutputTokens: uc.Details?.OutputTokenCount,
+                                TotalTokens: uc.Details?.TotalTokenCount) { RawUpdate = u };
+                            break;
+                        }
+
                         case FunctionCallContent:
                         {
                             // Boundary: tool calls may arrive after assistant text or reasoning in the same stream.

@@ -247,6 +247,14 @@ public static class Core
             case ObservedAssistantMessageCompleted:
                 return FlushAssistant(state);
 
+            case ObservedTokenUsage usage:
+            {
+                var evtUsage = new TokenUsageObserved(usage.InputTokens, usage.OutputTokens, usage.TotalTokens);
+                var committed = state.Committed.Add(evtUsage);
+                var next = state with { Committed = committed };
+                return new ReduceResult(next, ImmutableArray.Create<SessionEvent>(evtUsage), ImmutableArray<Effect>.Empty);
+            }
+
             case ObservedTurnStabilized stabilized:
             {
                 // Turn stabilization is the reducer's chance to:
