@@ -19,6 +19,30 @@ public static class ObservedEventJson
             ObservedReasoningMessageCompleted c => new Dictionary<string, object?> { ["type"] = "obs_reasoning_message_completed", ["finishReason"] = c.FinishReason },
             ObservedAssistantMessageCompleted c => new Dictionary<string, object?> { ["type"] = "obs_assistant_message_completed", ["finishReason"] = c.FinishReason },
 
+            ObservedTokenUsage u => new Dictionary<string, object?>
+            {
+                ["type"] = "obs_token_usage",
+                ["inputTokens"] = u.InputTokens,
+                ["outputTokens"] = u.OutputTokens,
+                ["totalTokens"] = u.TotalTokens,
+            },
+
+            ObservedSetModel m => new Dictionary<string, object?> { ["type"] = "obs_set_model", ["threadId"] = m.ThreadId, ["model"] = m.Model },
+
+            ObservedInboxMessageArrived m => new Dictionary<string, object?>
+            {
+                ["type"] = "obs_inbox_message_arrived",
+                ["threadId"] = m.ThreadId,
+                ["kind"] = m.Kind.ToString(),
+                ["delivery"] = m.Delivery.ToString(),
+                ["envelopeId"] = m.EnvelopeId,
+                ["enqueuedAtIso"] = m.EnqueuedAtIso,
+                ["source"] = m.Source,
+                ["sourceThreadId"] = m.SourceThreadId,
+                ["text"] = m.Text,
+                ["meta"] = m.Meta,
+            },
+
             ObservedToolCallDetected t => new Dictionary<string, object?>
             {
                 ["type"] = "obs_tool_call_detected",

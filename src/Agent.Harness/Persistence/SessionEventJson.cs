@@ -24,6 +24,8 @@ public static class SessionEventJson
             TurnStarted => new { type = "turn_started" },
             TurnEnded => new { type = "turn_ended" },
 
+            TokenUsage u => new { type = "token_usage", inputTokens = u.InputTokens, outputTokens = u.OutputTokens, totalTokens = u.TotalTokens },
+
             ToolCallRequested r => new { type = "tool_call_requested", toolId = r.ToolId, toolName = r.ToolName, args = r.Args },
             ToolCallPermissionApproved a => new { type = "tool_call_permission_approved", toolId = a.ToolId, reason = a.Reason },
             ToolCallPermissionDenied d => new { type = "tool_call_permission_denied", toolId = d.ToolId, reason = d.Reason },
@@ -118,6 +120,23 @@ public static class SessionEventJson
 
             case "turn_ended":
                 return new TurnEnded();
+
+            case "token_usage":
+            {
+                static long? ReadNullableLong(JsonElement root, string name)
+                {
+                    if (!root.TryGetProperty(name, out var el)) return null;
+                    if (el.ValueKind == JsonValueKind.Null) return null;
+                    if (el.ValueKind == JsonValueKind.Number && el.TryGetInt64(out var n)) return n;
+                    if (el.ValueKind == JsonValueKind.String && long.TryParse(el.GetString(), out var ns)) return ns;
+                    return null;
+                }
+
+                return new TokenUsage(
+                    InputTokens: ReadNullableLong(root, "inputTokens"),
+                    OutputTokens: ReadNullableLong(root, "outputTokens"),
+                    TotalTokens: ReadNullableLong(root, "totalTokens"));
+            }
 
             case "tool_call_requested":
                 return new ToolCallRequested(
