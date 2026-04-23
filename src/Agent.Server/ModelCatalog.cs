@@ -59,4 +59,22 @@ public sealed record ModelCatalog(
 
         return Models[DefaultModel];
     }
+
+    public int? TryGetContextWindowTokensByProviderModel(string providerModel)
+    {
+        if (string.IsNullOrWhiteSpace(providerModel)) return null;
+
+        foreach (var m in Models.Values)
+        {
+            if (!string.Equals(m.Model, providerModel, StringComparison.Ordinal))
+                continue;
+
+            if (m.ContextWindowK is null)
+                return null;
+
+            return m.ContextWindowK.Value * 1000;
+        }
+
+        return null;
+    }
 }

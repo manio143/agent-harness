@@ -41,6 +41,13 @@ public sealed class AgentServerOptions
         public string ApiKey { get; set; } = "ollama";
 
         /// <summary>
+        /// Context window size in thousands of tokens (e.g. 4 => ~4000 tokens).
+        /// MEAI does not expose this for automated discovery.
+        /// If null, context window is treated as unknown.
+        /// </summary>
+        public int? ContextWindowK { get; set; }
+
+        /// <summary>
         /// Network timeout for the underlying OpenAI-compatible HTTP client.
         /// Default is left null to use library defaults.
         /// </summary>
