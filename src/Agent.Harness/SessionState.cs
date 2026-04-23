@@ -22,7 +22,9 @@ public sealed record TurnBuffer(
     string ReasoningText,
     bool ReasoningMessageOpen,
     bool IntentReportedThisTurn,
-    bool TurnStartedFromIdle)
+    bool TurnStartedFromIdle,
+    bool CompactionDue = false,
+    bool ContinuationPending = false)
 {
     public static TurnBuffer Empty { get; } = new(
         AssistantText: "",
@@ -32,7 +34,9 @@ public sealed record TurnBuffer(
         // Default true so unit tests that call Core.Reduce directly (without ObservedTurnStarted)
         // do not accidentally trip the per-turn intent policy.
         IntentReportedThisTurn: true,
-        TurnStartedFromIdle: false);
+        TurnStartedFromIdle: false,
+        CompactionDue: false,
+        ContinuationPending: false);
 }
 
 public sealed record ReduceResult(

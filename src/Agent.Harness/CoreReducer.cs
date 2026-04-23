@@ -2,13 +2,16 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Text.Json;
 using System.Collections.Generic;
+using System;
 
 namespace Agent.Harness;
 
 public sealed record CoreOptions(
     bool EmitModelInvokedEvents = false,
     bool CommitAssistantTextDeltas = false,
-    bool CommitReasoningTextDeltas = false);
+    bool CommitReasoningTextDeltas = false,
+    Func<string, int?>? ContextWindowTokensByProviderModel = null,
+    double CompactionThreshold = 0.90);
 
 /// <summary>
 /// Functional core reducer.
@@ -108,6 +111,8 @@ public static class Core
     {
         if (state is null) throw new ArgumentNullException(nameof(state));
         if (evt is null) throw new ArgumentNullException(nameof(evt));
+
+        options ??= new CoreOptions();
 
         switch (evt)
         {
@@ -252,7 +257,21 @@ public static class Core
             {
                 var evtUsage = new TokenUsage(usage.InputTokens, usage.OutputTokens, usage.TotalTokens, usage.ProviderModel);
                 var committed = state.Committed.Add(evtUsage);
+
                 var next = state with { Committed = committed };
+
+                // Compaction trigger (latched per turn). Unknown limit => no compaction.
+                if (!next.Buffer.CompactionDue &&
+                    usage.TotalTokens is not null &&
+                    !string.IsNullOrWhiteSpace(usage.ProviderModel) &&
+                    options.ContextWindowTokensByProviderModel?.Invoke(usage.ProviderModel!) is { } limit &&
+                    limit > 0)
+                {
+                    var ratio = (double)usage.TotalTokens.Value / limit;
+                    if (ratio >= options.CompactionThreshold)
+                        next = next with { Buffer = next.Buffer with { CompactionDue = true } };
+                }
+
                 return new ReduceResult(next, ImmutableArray.Create<SessionEvent>(evtUsage), ImmutableArray<Effect>.Empty);
             }
 
