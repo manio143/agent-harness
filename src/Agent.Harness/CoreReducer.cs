@@ -278,6 +278,7 @@ public static class Core
 
                 // Nothing else to do: end the turn.
                 var reduced = Commit(next, new TurnEnded());
+                TurnInvariants.AssertNoOpenToolCallsAtTurnEnd(reduced.Next.Committed);
 
                 var all = ImmutableArray.CreateBuilder<SessionEvent>();
                 all.AddRange(newly);

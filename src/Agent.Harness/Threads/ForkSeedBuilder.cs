@@ -40,8 +40,7 @@ public static class ForkSeedBuilder
         }
 
         // Debug-only invariant: all turns in the seed must have tool calls terminal by end-of-turn.
-        Debug.Assert(AllToolCallsTerminalByTurnEnd(seed), "fork_seed_invariant_failed: open tool call present at end of an included turn");
-
+        // Shared invariant is enforced at TurnEnded commit time; fork seed just ensures it ends on a boundary.
         return seed;
     }
 
@@ -80,42 +79,10 @@ public static class ForkSeedBuilder
             _ => false,
         });
 
-    private static bool AllToolCallsTerminalByTurnEnd(ImmutableArray<SessionEvent> committed)
-    {
-        // Walk each turn slice, ensure no open tool calls remain at its end.
-        var start = 0;
-        while (start < committed.Length)
-        {
-            var ts = IndexOf<TurnStarted>(committed, start);
-            if (ts < 0) break;
-            var te = IndexOf<TurnEnded>(committed, ts);
-            if (te < 0) return false;
-
-            var turn = committed[ts..(te + 1)];
-            foreach (var r in turn.OfType<ToolCallRequested>())
-            {
-                if (!HasTerminalToolCall(turn, r.ToolId))
-                    return false;
-            }
-
-            start = te + 1;
-        }
-
-        return true;
-    }
-
     private static int LastIndexOf<T>(ImmutableArray<SessionEvent> events)
         where T : SessionEvent
     {
         for (var i = events.Length - 1; i >= 0; i--)
-            if (events[i] is T) return i;
-        return -1;
-    }
-
-    private static int IndexOf<T>(ImmutableArray<SessionEvent> events, int start)
-        where T : SessionEvent
-    {
-        for (var i = start; i < events.Length; i++)
             if (events[i] is T) return i;
         return -1;
     }
