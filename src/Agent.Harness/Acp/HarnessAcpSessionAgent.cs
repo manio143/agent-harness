@@ -66,6 +66,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     private readonly bool _logLlmPrompts;
     private readonly bool _logObservedEvents;
     private readonly string? _modelCatalogSystemPrompt;
+    private readonly int _compactionTailMessageCount;
+    private readonly string _compactionModel;
 
     private SessionState _state;
     private string _toolAllowlist = "all";
@@ -105,7 +107,9 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         bool logObservedEvents = false,
         Func<string, bool>? isKnownModel = null,
         string? modelCatalogSystemPrompt = null,
-        Func<string, string?>? providerModelByFriendlyName = null)
+        Func<string, string?>? providerModelByFriendlyName = null,
+        int compactionTailMessageCount = 5,
+        string compactionModel = "default")
     {
         _sessionId = sessionId;
         _client = client;
@@ -123,6 +127,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         _logLlmPrompts = logLlmPrompts;
         _logObservedEvents = logObservedEvents;
         _modelCatalogSystemPrompt = modelCatalogSystemPrompt;
+        _compactionTailMessageCount = compactionTailMessageCount;
+        _compactionModel = compactionModel;
 
         // Tools are loaded once per session.
         // Tool catalog is the source of truth for what the LLM may call.
@@ -174,7 +180,9 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             _threads,
             isKnownModel: _isKnownModel,
             modelCatalogSystemPrompt: _modelCatalogSystemPrompt,
-            providerModelByFriendlyName: _providerModelByFriendlyName);
+            providerModelByFriendlyName: _providerModelByFriendlyName,
+            compactionTailMessageCount: _compactionTailMessageCount,
+            compactionModel: _compactionModel);
 
         // Catalog == runnable/permission surface, and must be consistent across all threads.
         _orchestrator.InitializeToolCatalog(_state.Tools);

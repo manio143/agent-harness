@@ -11,6 +11,7 @@ public sealed class AgentServerOptions
     public SessionStoreOptions Sessions { get; set; } = new();
     public LoggingOptions Logging { get; set; } = new();
     public CoreOptions Core { get; set; } = new();
+    public CompactionOptions Compaction { get; set; } = new();
     public AcpOptions Acp { get; set; } = new();
 
     public sealed class ModelsOptions
@@ -84,6 +85,27 @@ public sealed class AgentServerOptions
     {
         public bool CommitAssistantTextDeltas { get; set; } = true;
         public bool CommitReasoningTextDeltas { get; set; } = false;
+    }
+
+    public sealed class CompactionOptions
+    {
+        /// <summary>
+        /// When totalTokens / contextWindowTokens >= threshold, schedule compaction.
+        /// Default: 0.90.
+        /// </summary>
+        public double Threshold { get; set; } = 0.90;
+
+        /// <summary>
+        /// Number of user/assistant messages to retain verbatim after compaction.
+        /// Default: 5.
+        /// </summary>
+        public int TailMessageCount { get; set; } = 5;
+
+        /// <summary>
+        /// Friendly model name used for compaction runs.
+        /// Default: "default".
+        /// </summary>
+        public string Model { get; set; } = "default";
     }
 
     public sealed class AcpOptions

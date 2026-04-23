@@ -25,6 +25,8 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
     private readonly Agent.Harness.Persistence.ISessionStore? _store;
     private readonly string? _modelCatalogSystemPrompt;
     private readonly SystemPromptComposer _systemPromptComposer;
+    private readonly int _compactionTailMessageCount;
+    private readonly string _compactionModel;
     private readonly Agent.Harness.Threads.IThreadStore? _threadStore;
     private readonly Agent.Harness.Threads.IThreadTools? _threadTools;
     private readonly Agent.Harness.Threads.IThreadObserver? _observer;
@@ -46,6 +48,8 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         string? sessionCwd = null,
         Agent.Harness.Persistence.ISessionStore? store = null,
         string? modelCatalogSystemPrompt = null,
+        int compactionTailMessageCount = 5,
+        string compactionModel = "default",
         SystemPromptComposer? systemPromptComposer = null,
         Agent.Harness.Threads.IThreadStore? threadStore = null,
         Agent.Harness.Threads.IThreadTools? threadTools = null,
@@ -65,6 +69,8 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         _sessionCwd = sessionCwd;
         _store = store;
         _modelCatalogSystemPrompt = modelCatalogSystemPrompt;
+        _compactionTailMessageCount = compactionTailMessageCount;
+        _compactionModel = compactionModel;
         _threadStore = threadStore;
         _systemPromptComposer = systemPromptComposer ?? new SystemPromptComposer(new ISystemPromptContributor[]
         {
@@ -125,7 +131,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
 
             case RunCompaction c:
             {
-                var model = ResolveModelFriendly(state);
+                var model = string.IsNullOrWhiteSpace(_compactionModel) ? ResolveModelFriendly(state) : _compactionModel;
                 var chat = _chatByModel is null ? _chat : _chatByModel(model);
 
                 var transcript = Agent.Harness.Compaction.CompactionTranscriptBuilder.Build(state.Committed);
@@ -162,7 +168,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         try
         {
 
-            var meaiMessages = Agent.Harness.Llm.MeaiPromptRenderer.Render(state);
+            var meaiMessages = Agent.Harness.Llm.MeaiPromptRenderer.Render(state, compactionTailMessageCount: _compactionTailMessageCount);
 
             // Session metadata system prompt (client-/protocol-agnostic).
             var meta = _store?.TryLoadMetadata(_sessionId);

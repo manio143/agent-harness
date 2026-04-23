@@ -44,6 +44,8 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
     private readonly bool _logLlmPrompts;
     private readonly ISessionStore _sessionStore;
     private readonly string? _modelCatalogSystemPrompt;
+    private readonly int _compactionTailMessageCount;
+    private readonly string _compactionModel;
 
     private bool _toolsInitialized;
     private ImmutableArray<ToolDefinition> _toolCatalog;
@@ -70,7 +72,9 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         ThreadManager threads,
         Func<string, bool>? isKnownModel = null,
         string? modelCatalogSystemPrompt = null,
-        Func<string, string?>? providerModelByFriendlyName = null)
+        Func<string, string?>? providerModelByFriendlyName = null,
+        int compactionTailMessageCount = 5,
+        string compactionModel = "default")
     {
         _sessionId = sessionId;
         _client = client;
@@ -84,6 +88,8 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         _logLlmPrompts = logLlmPrompts;
         _sessionStore = sessionStore;
         _modelCatalogSystemPrompt = modelCatalogSystemPrompt;
+        _compactionTailMessageCount = compactionTailMessageCount;
+        _compactionModel = compactionModel;
 
         _toolsInitialized = false;
         _toolCatalog = ImmutableArray<ToolDefinition>.Empty;
@@ -219,6 +225,8 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 sessionCwd: _sessionStore.TryLoadMetadata(_sessionId)?.Cwd,
                 store: _sessionStore,
                 modelCatalogSystemPrompt: _modelCatalogSystemPrompt,
+                compactionTailMessageCount: _compactionTailMessageCount,
+                compactionModel: _compactionModel,
                 threadTools: this,
                 observer: this,
                 lifecycle: this,

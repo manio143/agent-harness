@@ -272,7 +272,9 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
 
         var coreOptions = new CoreOptions(
             CommitAssistantTextDeltas: _options.Core.CommitAssistantTextDeltas,
-            CommitReasoningTextDeltas: _options.Core.CommitReasoningTextDeltas);
+            CommitReasoningTextDeltas: _options.Core.CommitReasoningTextDeltas,
+            ContextWindowTokensByProviderModel: _modelCatalog.TryGetContextWindowTokensByProviderModel,
+            CompactionThreshold: _options.Compaction.Threshold);
 
         var publishOptions = new AcpPublishOptions(PublishReasoning: _options.Acp.PublishReasoning);
 
@@ -307,7 +309,9 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             logObservedEvents: _options.Logging.LogObservedEvents,
             isKnownModel: _modelCatalog.IsKnownModel,
             modelCatalogSystemPrompt: BuildModelCatalogSystemPrompt(_modelCatalog),
-            providerModelByFriendlyName: friendly => _modelCatalog.Resolve(friendly).Model);
+            providerModelByFriendlyName: friendly => _modelCatalog.Resolve(friendly).Model,
+            compactionTailMessageCount: _options.Compaction.TailMessageCount,
+            compactionModel: _options.Compaction.Model);
     }
 
     public async Task ReplaySessionAsync(string sessionId, IAcpSessionEvents events, CancellationToken cancellationToken)
