@@ -42,7 +42,7 @@ public sealed class ThreadStartNameUniquenessIntegrationTests
     }
 
     [Fact]
-    public async Task thread_start_name_must_be_unique_within_session()
+    public async Task thread_start_name_must_be_unique_among_open_threads()
     {
         // Arrange
         var dir = Path.Combine(Path.GetTempPath(), "harness-thread-start-tests", Guid.NewGuid().ToString("N"));
@@ -81,6 +81,7 @@ public sealed class ThreadStartNameUniquenessIntegrationTests
             observer: orchestrator,
             lifecycle: orchestrator,
             scheduler: orchestrator,
+            threadIdAllocator: new TestThreadIdAllocator("0000"),
             isKnownModel: null,
             threadId: ThreadIds.Main);
 
@@ -94,6 +95,6 @@ public sealed class ThreadStartNameUniquenessIntegrationTests
         first.Should().ContainSingle(e => e is ObservedToolCallCompleted);
         second.OfType<ObservedToolCallFailed>().Single().Error.Should().Be("thread_already_exists:child");
 
-        threadStore.ListThreads(sessionId).Select(t => t.ThreadId).Should().Contain("child");
+        threadStore.ListThreads(sessionId).Select(t => t.ThreadId).Should().Contain("child-0000");
     }
 }

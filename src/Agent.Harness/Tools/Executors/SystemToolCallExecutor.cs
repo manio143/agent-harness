@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 using System.Text.Json;
 
 namespace Agent.Harness.Tools.Executors;
@@ -9,6 +10,7 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
     private readonly Agent.Harness.Threads.IThreadObserver? _observer;
     private readonly Agent.Harness.Threads.IThreadLifecycle? _lifecycle;
     private readonly Agent.Harness.Threads.IThreadScheduler? _scheduler;
+    private readonly Agent.Harness.Threads.IThreadIdAllocator? _threadIdAllocator;
     private readonly Func<string, bool>? _isKnownModel;
     private readonly string _threadId;
 
@@ -19,11 +21,24 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
         Agent.Harness.Threads.IThreadScheduler? scheduler,
         Func<string, bool>? isKnownModel,
         string threadId)
+        : this(threadTools, observer, lifecycle, scheduler, threadIdAllocator: null, isKnownModel, threadId)
+    {
+    }
+
+    public SystemToolCallExecutor(
+        Agent.Harness.Threads.IThreadTools? threadTools,
+        Agent.Harness.Threads.IThreadObserver? observer,
+        Agent.Harness.Threads.IThreadLifecycle? lifecycle,
+        Agent.Harness.Threads.IThreadScheduler? scheduler,
+        Agent.Harness.Threads.IThreadIdAllocator? threadIdAllocator,
+        Func<string, bool>? isKnownModel,
+        string threadId)
     {
         _threadTools = threadTools;
         _observer = observer;
         _lifecycle = lifecycle;
         _scheduler = scheduler;
+        _threadIdAllocator = threadIdAllocator;
         _isKnownModel = isKnownModel;
         _threadId = threadId;
     }
@@ -128,8 +143,13 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
                     if (string.Equals(name, Agent.Harness.Threads.ThreadIds.Main, StringComparison.Ordinal))
                         throw new InvalidOperationException("thread_start.name_reserved");
 
-                    if (_lifecycle is null || _observer is null || _scheduler is null)
+                    if (_threadTools is null || _lifecycle is null || _observer is null || _scheduler is null || _threadIdAllocator is null)
                         throw new InvalidOperationException("thread_tools_require_orchestrator");
+
+                    // Keep the model's mental model simple: "name" is a human prefix and must be unique among *open* threads.
+                    // The actual thread id returned is "{name}-{hhhh}".
+                    if (_threadTools.List().Any(t => t.ThreadId.StartsWith(name + "-", StringComparison.Ordinal)))
+                        throw new InvalidOperationException($"thread_already_exists:{name}");
 
                     ImmutableArray<SessionEvent> seed = context switch
                     {
@@ -140,7 +160,7 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
                         _ => throw new InvalidOperationException("thread_start.invalid_context"),
                     };
 
-                    var id = name;
+                    var id = _threadIdAllocator.AllocateThreadId(name);
 
                     await _lifecycle.RequestForkChildThreadAsync(
                         _threadId,

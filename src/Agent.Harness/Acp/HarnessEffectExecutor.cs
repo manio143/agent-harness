@@ -58,6 +58,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         Agent.Harness.Threads.IThreadObserver? observer = null,
         Agent.Harness.Threads.IThreadLifecycle? lifecycle = null,
         Agent.Harness.Threads.IThreadScheduler? scheduler = null,
+        Agent.Harness.Threads.IThreadIdAllocator? threadIdAllocator = null,
         string threadId = Agent.Harness.Threads.ThreadIds.Main)
     {
         _sessionId = sessionId;
@@ -89,9 +90,14 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         _scheduler = scheduler;
         _threadId = threadId;
 
+        var allocator = threadIdAllocator
+            ?? (_threadTools is not null
+                ? new Agent.Harness.Threads.RandomSuffixThreadIdAllocator(_threadTools, new Agent.Harness.Threads.GuidHexSuffixGenerator(), suffixChars: 4)
+                : null);
+
         _toolRouter = new ToolCallRouter(new IToolCallExecutor[]
         {
-            new SystemToolCallExecutor(_threadTools, _observer, _lifecycle, _scheduler, _isKnownModel, _threadId),
+            new SystemToolCallExecutor(_threadTools, _observer, _lifecycle, _scheduler, allocator, _isKnownModel, _threadId),
             new McpToolCallExecutor(_mcp),
             new AcpHostToolCallExecutor(_sessionId, _client, sessionCwd: _sessionCwd, store: _store),
         });

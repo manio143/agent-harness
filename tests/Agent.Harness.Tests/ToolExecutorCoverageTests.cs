@@ -142,6 +142,7 @@ public sealed class ToolExecutorCoverageTests
             observer: new CapturingObserver(),
             lifecycle: new CapturingLifecycle(),
             scheduler: new CapturingScheduler(),
+            threadIdAllocator: new TestThreadIdAllocator("0000"),
             isKnownModel: null,
             threadId: "thr_main");
 

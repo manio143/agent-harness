@@ -46,8 +46,9 @@ public sealed class SystemToolCallExecutorMoreCoverageTests
         var lifecycle = new FakeLifecycle();
         var observer = new FakeObserver();
         var scheduler = new FakeScheduler();
+        var tools = new FakeThreadTools(model: "default");
 
-        var exec = new SystemToolCallExecutor(threadTools: null, observer: observer, lifecycle: lifecycle, scheduler: scheduler, isKnownModel: _ => true, threadId: "thr_main");
+        var exec = new SystemToolCallExecutor(threadTools: tools, observer: observer, lifecycle: lifecycle, scheduler: scheduler, threadIdAllocator: new TestThreadIdAllocator("0000"), isKnownModel: _ => true, threadId: "thr_main");
 
         var obs = await exec.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t1", "thread_start", new { name = "child", context = "new", mode = "multi", message = "hi", model = "" }), CancellationToken.None);
 
@@ -61,8 +62,9 @@ public sealed class SystemToolCallExecutorMoreCoverageTests
         var lifecycle = new FakeLifecycle();
         var observer = new FakeObserver();
         var scheduler = new FakeScheduler();
+        var tools = new FakeThreadTools(model: "default");
 
-        var exec = new SystemToolCallExecutor(threadTools: null, observer: observer, lifecycle: lifecycle, scheduler: scheduler, isKnownModel: _ => false, threadId: "thr_main");
+        var exec = new SystemToolCallExecutor(threadTools: tools, observer: observer, lifecycle: lifecycle, scheduler: scheduler, threadIdAllocator: new TestThreadIdAllocator("0000"), isKnownModel: _ => false, threadId: "thr_main");
 
         var obs = await exec.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t1", "thread_start", new { name = "child", context = "new", mode = "multi", message = "hi", model = "bad" }), CancellationToken.None);
 
@@ -70,10 +72,10 @@ public sealed class SystemToolCallExecutorMoreCoverageTests
         obs.OfType<ObservedToolCallCompleted>().Single();
 
         observer.Observed.Should().HaveCount(2);
-        observer.Observed[0].threadId.Should().Be("child");
+        observer.Observed[0].threadId.Should().Be("child-0000");
         observer.Observed[0].observed.Should().BeOfType<ObservedSetModel>().Which.Model.Should().Be("default");
 
-        observer.Observed[1].threadId.Should().Be("child");
+        observer.Observed[1].threadId.Should().Be("child-0000");
         observer.Observed[1].observed.Should().BeOfType<ObservedInboxMessageArrived>();
     }
 
@@ -83,8 +85,9 @@ public sealed class SystemToolCallExecutorMoreCoverageTests
         var lifecycle = new FakeLifecycle();
         var observer = new FakeObserver();
         var scheduler = new FakeScheduler();
+        var tools = new FakeThreadTools(model: "default");
 
-        var exec = new SystemToolCallExecutor(threadTools: null, observer: observer, lifecycle: lifecycle, scheduler: scheduler, isKnownModel: _ => true, threadId: "thr_main");
+        var exec = new SystemToolCallExecutor(threadTools: tools, observer: observer, lifecycle: lifecycle, scheduler: scheduler, threadIdAllocator: new TestThreadIdAllocator("0000"), isKnownModel: _ => true, threadId: "thr_main");
 
         var obs = await exec.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t1", "thread_start", new { name = "child", context = "new", mode = "multi", message = "hi", delivery = "immediate" }), CancellationToken.None);
 
@@ -113,8 +116,9 @@ public sealed class SystemToolCallExecutorMoreCoverageTests
         var lifecycle = new FakeLifecycle();
         var observer = new FakeObserver();
         var scheduler = new FakeScheduler();
+        var tools = new FakeThreadTools(model: "default");
 
-        var exec = new SystemToolCallExecutor(threadTools: null, observer: observer, lifecycle: lifecycle, scheduler: scheduler, isKnownModel: _ => true, threadId: "thr_parent");
+        var exec = new SystemToolCallExecutor(threadTools: tools, observer: observer, lifecycle: lifecycle, scheduler: scheduler, threadIdAllocator: new TestThreadIdAllocator("0000"), isKnownModel: _ => true, threadId: "thr_parent");
 
         var state = SessionState.Empty with
         {
