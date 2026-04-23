@@ -127,8 +127,8 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
                     {
                         "new" => ImmutableArray<SessionEvent>.Empty,
                         // Forking should carry over historical context, but must not copy prior thread bootstrap markers
-                        // (e.g., parent's NewThreadTask) into the child.
-                        "fork" => state.Committed.Where(e => e is not NewThreadTask).ToImmutableArray(),
+                        // (e.g., parent's NewThreadTask) or any in-flight tool-call lifecycle from the active parent turn.
+                        "fork" => Agent.Harness.Threads.ForkSeedBuilder.BuildForkSeed(state.Committed),
                         _ => throw new InvalidOperationException("thread_start.invalid_context"),
                     };
 

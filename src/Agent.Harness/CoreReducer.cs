@@ -48,42 +48,16 @@ public static class Core
     private static bool HasOtherOpenToolCalls(SessionState state, string excludingToolId)
     {
         // "Open" means: a ToolCallRequested exists and we haven't committed any terminal event for that toolId yet.
-        // IMPORTANT: only consider tool calls within the CURRENT turn.
-        // Forked child threads may include historical tool-call audit events from the parent; those must not
-        // block re-prompting in the child's active turn.
-        var committed = GetCurrentTurnCommitted(state.Committed);
-
-        foreach (var r in committed.OfType<ToolCallRequested>())
+        foreach (var r in state.Committed.OfType<ToolCallRequested>())
         {
             if (r.ToolId == excludingToolId) continue;
 
-            if (!HasTerminalToolCall(committed, r.ToolId))
+            if (!HasTerminalToolCall(state, r.ToolId))
                 return true;
         }
 
         return false;
     }
-
-    private static ImmutableArray<SessionEvent> GetCurrentTurnCommitted(ImmutableArray<SessionEvent> committed)
-    {
-        for (var i = committed.Length - 1; i >= 0; i--)
-        {
-            if (committed[i] is TurnStarted)
-                return committed[i..];
-        }
-
-        return committed;
-    }
-
-    private static bool HasTerminalToolCall(ImmutableArray<SessionEvent> committed, string toolId)
-        => committed.Any(e => e switch
-        {
-            ToolCallCompleted c when c.ToolId == toolId => true,
-            ToolCallFailed f when f.ToolId == toolId => true,
-            ToolCallCancelled c when c.ToolId == toolId => true,
-            ToolCallRejected r when r.ToolId == toolId => true,
-            _ => false,
-        });
 
     /// <summary>
     /// Render the tool catalog based on client capabilities.
