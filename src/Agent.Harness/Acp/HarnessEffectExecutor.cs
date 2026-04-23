@@ -141,7 +141,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
 
                 var resp = await chat.GetResponseAsync(new[] { system, user }, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-                var (structured, prose) = ParseCompactionResponse(resp.Text);
+                var (structured, prose) = Agent.Harness.Compaction.CompactionResponseParser.Parse(resp.Text);
 
                 yield return new ObservedCompactionGenerated(structured, prose);
                 yield break;
@@ -290,35 +290,6 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
     {
         var last = state.Committed.OfType<SetModel>().LastOrDefault();
         return last?.Model ?? "default";
-    }
-
-    private static (JsonElement Structured, string ProseSummary) ParseCompactionResponse(string? text)
-    {
-        var fallback = (JsonSerializer.SerializeToElement(new { }), (text ?? string.Empty).Trim());
-        if (string.IsNullOrWhiteSpace(text))
-            return fallback;
-
-        try
-        {
-            using var doc = JsonDocument.Parse(text);
-            var root = doc.RootElement;
-
-            if (root.ValueKind != JsonValueKind.Object)
-                return fallback;
-
-            if (!root.TryGetProperty("structured", out var structured))
-                return fallback;
-
-            if (!root.TryGetProperty("proseSummary", out var prose))
-                return fallback;
-
-            var proseStr = prose.ValueKind == JsonValueKind.String ? (prose.GetString() ?? string.Empty) : prose.ToString();
-            return (structured.Clone(), proseStr);
-        }
-        catch
-        {
-            return fallback;
-        }
     }
 
     private void TryAppendPromptLog(object promptPayload)
