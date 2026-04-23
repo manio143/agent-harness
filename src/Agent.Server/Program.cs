@@ -19,6 +19,10 @@ public static class Program
             .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
             .AddEnvironmentVariables(prefix: "AGENTSERVER_");
 
+        // Load dotnet user-secrets (opt-in by environment) so local runs can keep API keys out of appsettings.json.
+        if (builder.Environment.IsDevelopment())
+            builder.Configuration.AddUserSecrets(typeof(Program).Assembly, optional: true);
+
         builder.Services.AddLogging(o =>
         {
             o.ClearProviders();
