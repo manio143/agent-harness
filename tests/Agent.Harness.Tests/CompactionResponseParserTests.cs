@@ -27,6 +27,24 @@ reasoning
     }
 
     [Fact]
+    public void Parse_WhenReasoningContainsExampleBraces_PicksJsonObjectWithStructuredProseSummary()
+    {
+        var text = """
+<think>
+Here is an example: structured: { not json }
+And another block: { "notOurSchema": true }
+</think>
+
+{"structured": {"a": 2}, "proseSummary": "ok2"}
+""";
+
+        var (structured, prose) = CompactionResponseParser.Parse(text);
+
+        structured.GetProperty("a").GetInt32().Should().Be(2);
+        prose.Should().Be("ok2");
+    }
+
+    [Fact]
     public void Parse_WhenNotJson_FallsBackToRawTextSummary()
     {
         var (structured, prose) = CompactionResponseParser.Parse("not json");
