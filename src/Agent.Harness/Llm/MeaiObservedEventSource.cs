@@ -16,6 +16,8 @@ public static class MeaiObservedEventSource
         var assistantMessageOpen = false;
         var reasoningMessageOpen = false;
 
+        (long? input, long? output, long? total)? lastUsage = null;
+
         // Some providers repeat previously-seen tool calls in later streaming updates ("cumulative" deltas)
         // or stream a single tool call over multiple updates.
         // The core reducer deduplicates by ToolId (ToolCallRequested is committed once per toolId),
@@ -70,13 +72,22 @@ public static class MeaiObservedEventSource
                         // Mode A: tool-call intent is surfaced as a FunctionCallContent in the model stream.
                         case UsageContent uc:
                         {
-                            // Provider-reported token usage. Some providers emit this once at the end.
-                            // We log it immediately on arrival; downstream can decide whether to take the
-                            // first/last occurrence if a provider ever becomes cumulative.
-                            yield return new Agent.Harness.ObservedTokenUsage(
-                                InputTokens: uc.Details?.InputTokenCount,
-                                OutputTokens: uc.Details?.OutputTokenCount,
-                                TotalTokens: uc.Details?.TotalTokenCount) { RawUpdate = u };
+                            // Provider-reported token usage. Some providers emit identical usage multiple times
+                            // (or resend cumulative usage). Deduplicate consecutive identical tuples.
+                            var current = (
+                                input: (long?)uc.Details?.InputTokenCount,
+                                output: (long?)uc.Details?.OutputTokenCount,
+                                total: (long?)uc.Details?.TotalTokenCount);
+
+                            if (lastUsage is null || lastUsage.Value != current)
+                            {
+                                lastUsage = current;
+                                yield return new Agent.Harness.ObservedTokenUsage(
+                                    InputTokens: current.input,
+                                    OutputTokens: current.output,
+                                    TotalTokens: current.total) { RawUpdate = u };
+                            }
+
                             break;
                         }
 
