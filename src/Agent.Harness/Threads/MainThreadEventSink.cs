@@ -49,22 +49,38 @@ public sealed class MainThreadEventSink : IEventSink
         _appender.AppendCommittedEvent(_sessionId, ThreadIds.Main, committed);
 
         // Best-effort thread metadata projection (main thread).
-        if (committed is SetModel set)
+        switch (committed)
         {
-            var now = DateTimeOffset.UtcNow.ToString("O");
-            var meta = _threadStore.TryLoadThreadMetadata(_sessionId, ThreadIds.Main);
-            var next = meta is null
-                ? new ThreadMetadata(
-                    ThreadId: ThreadIds.Main,
-                    ParentThreadId: null,
-                    Intent: null,
-                    CreatedAtIso: now,
-                    UpdatedAtIso: now,
-                    Model: set.Model,
-                    CompactionCount: 0)
-                : meta with { Model = set.Model, UpdatedAtIso = now };
+            case SetModel set:
+            {
+                var now = DateTimeOffset.UtcNow.ToString("O");
+                var meta = _threadStore.TryLoadThreadMetadata(_sessionId, ThreadIds.Main);
+                var next = meta is null
+                    ? new ThreadMetadata(
+                        ThreadId: ThreadIds.Main,
+                        ParentThreadId: null,
+                        Intent: null,
+                        CreatedAtIso: now,
+                        UpdatedAtIso: now,
+                        Model: set.Model,
+                        CompactionCount: 0)
+                    : meta with { Model = set.Model, UpdatedAtIso = now };
 
-            _threadStore.SaveThreadMetadata(_sessionId, next);
+                _threadStore.SaveThreadMetadata(_sessionId, next);
+                break;
+            }
+
+            case CompactionCommitted:
+            {
+                var meta = _threadStore.TryLoadThreadMetadata(_sessionId, ThreadIds.Main);
+                if (meta is not null)
+                {
+                    var now = DateTimeOffset.UtcNow.ToString("O");
+                    _threadStore.SaveThreadMetadata(_sessionId, meta with { CompactionCount = meta.CompactionCount + 1, UpdatedAtIso = now });
+                }
+
+                break;
+            }
         }
 
         // Best-effort session metadata projection.

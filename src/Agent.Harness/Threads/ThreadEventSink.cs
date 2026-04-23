@@ -28,15 +28,22 @@ public sealed class ThreadEventSink : IEventSink
     {
         _appender.AppendCommittedEvent(_sessionId, _threadId, evt);
 
-        // Projection: keep thread metadata in sync with model changes.
-        if (evt is SetModel setModel)
+        // Projection: keep thread metadata in sync with important committed events.
+        var meta = _store.TryLoadThreadMetadata(_sessionId, _threadId);
+        if (meta is null)
+            return ValueTask.CompletedTask;
+
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        switch (evt)
         {
-            var meta = _store.TryLoadThreadMetadata(_sessionId, _threadId);
-            if (meta is not null)
-            {
-                var now = DateTimeOffset.UtcNow.ToString("O");
+            case SetModel setModel:
                 _store.SaveThreadMetadata(_sessionId, meta with { Model = setModel.Model, UpdatedAtIso = now });
-            }
+                break;
+
+            case CompactionCommitted:
+                _store.SaveThreadMetadata(_sessionId, meta with { CompactionCount = meta.CompactionCount + 1, UpdatedAtIso = now });
+                break;
         }
 
         return ValueTask.CompletedTask;
