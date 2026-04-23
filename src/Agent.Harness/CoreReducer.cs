@@ -128,7 +128,7 @@ public static class Core
                 {
                     Buffer = state.Buffer with
                     {
-                        IntentReportedThisTurn = false,
+                        IntentReportedThisTurn = state.Buffer.ContinuationPending,
                         TurnStartedFromIdle = startedFromIdle,
                         CompactionDue = false,
                         // ContinuationPending may be set by the previous turn to request an immediate
