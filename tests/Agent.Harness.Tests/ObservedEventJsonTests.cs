@@ -27,6 +27,7 @@ public sealed class ObservedEventJsonTests
         yield return new object[] { new ObservedReasoningTextDelta("r"), "obs_reasoning_text_delta" };
         yield return new object[] { new ObservedReasoningMessageCompleted("stop"), "obs_reasoning_message_completed" };
         yield return new object[] { new ObservedAssistantMessageCompleted("stop"), "obs_assistant_message_completed" };
+        yield return new object[] { new ObservedTokenUsage(1, 2, 3, "qwen2.5:3b"), "obs_token_usage" };
 
         yield return new object[]
         {
@@ -43,6 +44,15 @@ public sealed class ObservedEventJsonTests
         yield return new object[] { new ObservedToolCallCancelled("1"), "obs_tool_call_cancelled" };
 
         yield return new object[] { new ObservedMcpConnectionFailed("srv", "err"), "obs_mcp_connection_failed" };
+    }
+
+    [Fact]
+    public void ToJsonl_EncodesTokenUsageProviderModel()
+    {
+        var json = ObservedEventJson.ToJsonl(new ObservedTokenUsage(1, 2, 3, "qwen2.5:3b"));
+
+        using var doc = JsonDocument.Parse(json);
+        doc.RootElement.GetProperty("providerModel").GetString().Should().Be("qwen2.5:3b");
     }
 
     [Fact]

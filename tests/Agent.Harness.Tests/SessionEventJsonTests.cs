@@ -7,6 +7,30 @@ namespace Agent.Harness.Tests;
 public sealed class SessionEventJsonTests
 {
     [Fact]
+    public void SerializeDeserialize_TokenUsage_WithProviderModel_RoundTrips()
+    {
+        var evt = new TokenUsage(1, 2, 3, "qwen2.5:3b");
+
+        var json = SessionEventJson.Serialize(evt);
+        var decoded = SessionEventJson.Deserialize(json);
+
+        decoded.Should().Be(evt);
+    }
+
+    [Fact]
+    public void Deserialize_TokenUsage_WhenProviderModelMissing_DefaultsToNull()
+    {
+        var json = """
+        {"type":"token_usage","inputTokens":1,"outputTokens":2,"totalTokens":3}
+        """;
+
+        var decoded = SessionEventJson.Deserialize(json);
+
+        var usage = decoded.Should().BeOfType<TokenUsage>().Subject;
+        usage.ProviderModel.Should().BeNull();
+    }
+
+    [Fact]
     public void Deserialize_ThreadInboxMessageEnqueued_WhenKindUnknown_PreservesRawKindInMeta()
     {
         var json = """

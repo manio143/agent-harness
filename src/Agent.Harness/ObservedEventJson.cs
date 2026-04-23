@@ -25,6 +25,7 @@ public static class ObservedEventJson
                 ["inputTokens"] = u.InputTokens,
                 ["outputTokens"] = u.OutputTokens,
                 ["totalTokens"] = u.TotalTokens,
+                ["providerModel"] = u.ProviderModel,
             },
 
             ObservedSetModel m => new Dictionary<string, object?> { ["type"] = "obs_set_model", ["threadId"] = m.ThreadId, ["model"] = m.Model },

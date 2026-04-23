@@ -24,7 +24,7 @@ public static class SessionEventJson
             TurnStarted => new { type = "turn_started" },
             TurnEnded => new { type = "turn_ended" },
 
-            TokenUsage u => new { type = "token_usage", inputTokens = u.InputTokens, outputTokens = u.OutputTokens, totalTokens = u.TotalTokens },
+            TokenUsage u => new { type = "token_usage", inputTokens = u.InputTokens, outputTokens = u.OutputTokens, totalTokens = u.TotalTokens, providerModel = u.ProviderModel },
 
             ToolCallRequested r => new { type = "tool_call_requested", toolId = r.ToolId, toolName = r.ToolName, args = r.Args },
             ToolCallPermissionApproved a => new { type = "tool_call_permission_approved", toolId = a.ToolId, reason = a.Reason },
@@ -132,10 +132,17 @@ public static class SessionEventJson
                     return null;
                 }
 
+                static string? ReadOptionalString(JsonElement root, string name)
+                {
+                    if (!root.TryGetProperty(name, out var el) || el.ValueKind != JsonValueKind.String) return null;
+                    return el.GetString();
+                }
+
                 return new TokenUsage(
                     InputTokens: ReadNullableLong(root, "inputTokens"),
                     OutputTokens: ReadNullableLong(root, "outputTokens"),
-                    TotalTokens: ReadNullableLong(root, "totalTokens"));
+                    TotalTokens: ReadNullableLong(root, "totalTokens"),
+                    ProviderModel: ReadOptionalString(root, "providerModel"));
             }
 
             case "tool_call_requested":

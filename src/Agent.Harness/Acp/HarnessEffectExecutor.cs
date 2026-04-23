@@ -17,6 +17,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
     private readonly IAcpClientCaller _client;
     private readonly MeaiIChatClient _chat;
     private readonly Func<string, MeaiIChatClient>? _chatByModel;
+    private readonly Func<string, string?>? _providerModelByFriendlyName;
     private readonly Func<string, bool>? _isKnownModel;
     private readonly IMcpToolInvoker _mcp;
     private readonly bool _logLlmPrompts;
@@ -38,6 +39,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         IAcpClientCaller client,
         MeaiIChatClient chat,
         Func<string, MeaiIChatClient>? chatByModel = null,
+        Func<string, string?>? providerModelByFriendlyName = null,
         Func<string, bool>? isKnownModel = null,
         IMcpToolInvoker? mcp = null,
         bool logLlmPrompts = false,
@@ -56,6 +58,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         _client = client;
         _chat = chat;
         _chatByModel = chatByModel;
+        _providerModelByFriendlyName = providerModelByFriendlyName;
         _isKnownModel = isKnownModel;
         _mcp = mcp ?? NullMcpToolInvoker.Instance;
         _logLlmPrompts = logLlmPrompts;
@@ -236,11 +239,18 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
             TryAppendPromptLog(promptPayload);
         }
 
+        var providerModel = _providerModelByFriendlyName?.Invoke(call.Model);
+
         var chat = _chatByModel is null ? _chat : _chatByModel(call.Model);
         var updates = chat.GetStreamingResponseAsync(meaiMessages, options, cancellationToken);
 
         await foreach (var o in MeaiObservedEventSource.FromStreamingResponse(updates, cancellationToken).ConfigureAwait(false))
-            yield return o;
+        {
+            if (o is ObservedTokenUsage u && !string.IsNullOrWhiteSpace(providerModel))
+                yield return u with { ProviderModel = providerModel };
+            else
+                yield return o;
+        }
         }
         finally
         {

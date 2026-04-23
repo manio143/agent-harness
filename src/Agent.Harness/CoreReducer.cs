@@ -249,7 +249,7 @@ public static class Core
 
             case ObservedTokenUsage usage:
             {
-                var evtUsage = new TokenUsage(usage.InputTokens, usage.OutputTokens, usage.TotalTokens);
+                var evtUsage = new TokenUsage(usage.InputTokens, usage.OutputTokens, usage.TotalTokens, usage.ProviderModel);
                 var committed = state.Committed.Add(evtUsage);
                 var next = state with { Committed = committed };
                 return new ReduceResult(next, ImmutableArray.Create<SessionEvent>(evtUsage), ImmutableArray<Effect>.Empty);

@@ -306,7 +306,8 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             logLlmPrompts: _options.Logging.LogLlmPrompts,
             logObservedEvents: _options.Logging.LogObservedEvents,
             isKnownModel: _modelCatalog.IsKnownModel,
-            modelCatalogSystemPrompt: BuildModelCatalogSystemPrompt(_modelCatalog));
+            modelCatalogSystemPrompt: BuildModelCatalogSystemPrompt(_modelCatalog),
+            providerModelByFriendlyName: friendly => _modelCatalog.Resolve(friendly).Model);
     }
 
     public async Task ReplaySessionAsync(string sessionId, IAcpSessionEvents events, CancellationToken cancellationToken)

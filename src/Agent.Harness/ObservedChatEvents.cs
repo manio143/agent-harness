@@ -56,7 +56,7 @@ public sealed record ObservedAssistantMessageCompleted(string? FinishReason = nu
 
 // --- Usage Observations ---
 // Emitted by the MEAI streaming layer when the provider reports token usage.
-public sealed record ObservedTokenUsage(long? InputTokens, long? OutputTokens, long? TotalTokens) : ObservedChatEvent;
+public sealed record ObservedTokenUsage(long? InputTokens, long? OutputTokens, long? TotalTokens, string? ProviderModel = null) : ObservedChatEvent;
 
 // --- Tool Call Observations ---
 // Invariant: These are fed TO the reducer from the imperative shell (SessionRunner, model provider).

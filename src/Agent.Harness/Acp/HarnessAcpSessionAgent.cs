@@ -55,6 +55,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     private readonly IAcpClientCaller _client;
     private readonly MeaiIChatClient _chat;
     private readonly Func<string, MeaiIChatClient> _chatByModel;
+    private readonly Func<string, string?>? _providerModelByFriendlyName;
     private readonly string _quickWorkModel;
     private readonly Func<string, bool>? _isKnownModel;
     private readonly IAcpSessionEvents _events;
@@ -103,13 +104,15 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         bool logLlmPrompts = false,
         bool logObservedEvents = false,
         Func<string, bool>? isKnownModel = null,
-        string? modelCatalogSystemPrompt = null)
+        string? modelCatalogSystemPrompt = null,
+        Func<string, string?>? providerModelByFriendlyName = null)
     {
         _sessionId = sessionId;
         _client = client;
         _chat = chat;
         _chatByModel = chatByModel;
         _quickWorkModel = quickWorkModel;
+        _providerModelByFriendlyName = providerModelByFriendlyName;
         _isKnownModel = isKnownModel;
         _events = events;
         _coreOptions = coreOptions;
@@ -170,7 +173,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             _threadAppender,
             _threads,
             isKnownModel: _isKnownModel,
-            modelCatalogSystemPrompt: _modelCatalogSystemPrompt);
+            modelCatalogSystemPrompt: _modelCatalogSystemPrompt,
+            providerModelByFriendlyName: _providerModelByFriendlyName);
 
         // Catalog == runnable/permission surface, and must be consistent across all threads.
         _orchestrator.InitializeToolCatalog(_state.Tools);

@@ -36,6 +36,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
     private readonly IAcpClientCaller _client;
     private readonly Microsoft.Extensions.AI.IChatClient _chat;
     private readonly Func<string, Microsoft.Extensions.AI.IChatClient> _chatByModel;
+    private readonly Func<string, string?>? _providerModelByFriendlyName;
     private readonly string _quickWorkModel;
     private readonly Func<string, bool>? _isKnownModel;
     private readonly IMcpToolInvoker _mcp;
@@ -68,13 +69,15 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         IThreadCommittedEventAppender threadAppender,
         ThreadManager threads,
         Func<string, bool>? isKnownModel = null,
-        string? modelCatalogSystemPrompt = null)
+        string? modelCatalogSystemPrompt = null,
+        Func<string, string?>? providerModelByFriendlyName = null)
     {
         _sessionId = sessionId;
         _client = client;
         _chat = chat;
         _chatByModel = chatByModel;
         _quickWorkModel = quickWorkModel;
+        _providerModelByFriendlyName = providerModelByFriendlyName;
         _isKnownModel = isKnownModel;
         _mcp = mcp;
         _coreOptions = coreOptions;
@@ -209,6 +212,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 acpClient,
                 _chat,
                 chatByModel: _chatByModel,
+                providerModelByFriendlyName: _providerModelByFriendlyName,
                 isKnownModel: _isKnownModel,
                 _mcp,
                 logLlmPrompts: threadId == ThreadIds.Main && _logLlmPrompts,
