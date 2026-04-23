@@ -9,6 +9,8 @@ These scripts exercise the harness threading engine end-to-end (ACP stdio server
 
 ## Run all
 
+By default, `run_all.sh` forces a tool-capable local Ollama model (`granite4:3b`) via env vars (some Ollama models reject tool usage).
+
 ```bash
 cd /home/node/.openclaw/workspace/marian-agent
 bash samples/Threading.Scenarios/run_all.sh
@@ -20,7 +22,11 @@ Artifacts:
 
 ## Scenarios
 
-Note: child thread startup tasks are delivered via `NewThreadTask` and rendered in the prompt as:
+Notes:
+- `thread_start` requires a `mode` ("single" or "multi").
+- `thread_start` returns a generated `threadId` of the form `{name}-{hhhh}`; scripts parse this from tool output and use it for subsequent operations.
+
+Child thread startup tasks are delivered via `NewThreadTask` and rendered in the prompt as:
 
 - `<thread_created id="..." parent_id="..." />`
 - optional fork notice (`<notice>...`) when created with `context=fork`

@@ -21,21 +21,46 @@ fi
 echo "[scenario1] sessionId=$SESSION_ID"
 
 # Turn 1: create child.
-acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
-  'You MUST follow these rules exactly:
-1) You may call at most 2 tools in this turn.
-2) You may ONLY call: report_intent, thread_start.
-3) You MUST NOT call any other tools (especially thread_start, thread_send, thread_read, thread_list).
-4) After the 2 tool calls complete, output EXACTLY: OK (nothing else).
+# NOTE: Parse the created threadId from the tool output instead of assuming a fixed name.
+set +e
+TURN1_OUT="$(acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+  'You MUST follow these rules exactly.
 
-Now do the work:
-Call tool report_intent with arguments: {"intent":"create child"}.
-Then call tool thread_start with arguments: {"name":"perm_boundary","context":"new","delivery":"immediate","message":"In 1 paragraph, explain how the tool catalog acts as the permission boundary in this harness. Do NOT call any tools. Do NOT ask questions."}.
-Then output EXACTLY: OK'
+This single request may invoke you MULTIPLE TIMES. Each time you are invoked, inspect the conversation history and follow the FIRST matching rule.
 
-# Child thread id is model-provided.
+Allowed tools: report_intent, thread_start.
+Tool rules:
+- You may call at most 2 tools per invocation.
+- If you call any tools, you MUST call report_intent first, then thread_start.
+- Do NOT call thread_start more than once in this request.
+
+Rules (apply in order):
+1) If the history already contains a tool result for thread_start:
+   - You MUST NOT call any tools.
+   - Output EXACTLY: OK
+   - Stop.
+
+2) Else (first invocation):
+   - Call tool report_intent with arguments: {"intent":"create child"}.
+   - Then call tool thread_start with arguments: {"name":"perm_boundary","context":"new","mode":"single","delivery":"immediate","message":"In 1 paragraph, explain how the tool catalog acts as the permission boundary in this harness. Do NOT call any tools. Do NOT ask questions."}.
+   - Then output EXACTLY: OK
+   - Stop.')"
+TURN1_CODE=$?
+set -e
+
+echo "$TURN1_OUT"
+if [[ "$TURN1_CODE" != "0" ]]; then
+  echo "[scenario1] Turn 1 failed with exit code $TURN1_CODE" >&2
+  exit "$TURN1_CODE"
+fi
+
 THREADS_DIR=".agent/sessions/$SESSION_ID/threads"
-CHILD_ID="perm_boundary"
+CHILD_ID="$(echo "$TURN1_OUT" | rg -o '"threadId":\s*"[^"]+"' | tail -n 1 | sed 's/"threadId":\s*"//; s/"$//')"
+
+if [[ -z "$CHILD_ID" ]]; then
+  echo "Failed to parse child threadId from Turn 1 output" >&2
+  exit 1
+fi
 
 echo "[scenario1] childThreadId=$CHILD_ID"
 

@@ -84,20 +84,54 @@ public sealed class ThreadManager : IThreadTools
             break;
         }
 
-        return evts
-            .Skip(startIndex)
-            .SelectMany(e => e switch
+        var list = new List<ThreadMessage>();
+        var pendingAssistant = (string?)null;
+
+        void FlushAssistant()
+        {
+            if (string.IsNullOrEmpty(pendingAssistant)) return;
+            list.Add(new ThreadMessage("assistant", pendingAssistant));
+            pendingAssistant = null;
+        }
+
+        foreach (var e in evts.Skip(startIndex))
+        {
+            switch (e)
             {
-                UserMessage u => new[] { new ThreadMessage("user", u.Text) },
-                InterThreadMessage it => new[] { new ThreadMessage("inter_thread", it.Text) },
-                AssistantMessage a => new[] { new ThreadMessage("assistant", a.Text) },
-                NewThreadTask t => new[]
-                {
-                    new ThreadMessage("system", NewThreadTaskMarkup.Render(t)),
-                },
-                _ => Array.Empty<ThreadMessage>(),
-            })
-            .ToImmutableArray();
+                case AssistantTextDelta d:
+                    pendingAssistant = (pendingAssistant ?? string.Empty) + d.TextDelta;
+                    break;
+
+                case AssistantMessage a:
+                    // If the runtime commits both streaming deltas and the final assistant message,
+                    // prefer the final message to avoid duplicates.
+                    pendingAssistant = null;
+                    list.Add(new ThreadMessage("assistant", a.Text));
+                    break;
+
+                case UserMessage u:
+                    FlushAssistant();
+                    list.Add(new ThreadMessage("user", u.Text));
+                    break;
+
+                case InterThreadMessage it:
+                    FlushAssistant();
+                    list.Add(new ThreadMessage("inter_thread", it.Text));
+                    break;
+
+                case NewThreadTask t:
+                    FlushAssistant();
+                    list.Add(new ThreadMessage("system", NewThreadTaskMarkup.Render(t)));
+                    break;
+
+                default:
+                    FlushAssistant();
+                    break;
+            }
+        }
+
+        FlushAssistant();
+        return list.ToImmutableArray();
 
     }
 

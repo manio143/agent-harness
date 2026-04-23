@@ -23,6 +23,13 @@ if [[ "$LOG_RPC" == "true" ]]; then
   export AGENTSERVER_AgentServer__Logging__LogRpc=true
 fi
 
+# Force a tool-capable local model for scenarios (some Ollama models reject tool usage).
+# Also helps reduce OOM risk by keeping DefaultModel and QuickWorkModel aligned.
+export AGENTSERVER_AgentServer__Models__DefaultModel="granite"
+export AGENTSERVER_AgentServer__Models__QuickWorkModel="granite"
+# Back-compat (some components still read AgentServer:OpenAI)
+export AGENTSERVER_AgentServer__OpenAI__Model="granite4:3b"
+
 run_scenario() {
   local name="$1"
   echo "" | tee "$OUT_DIR/${name}.log"
