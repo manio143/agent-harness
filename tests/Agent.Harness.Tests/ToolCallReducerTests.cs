@@ -215,6 +215,37 @@ public class ToolCallReducerTests
         Assert.Equal("call_1", committed.ToolId);
     }
 
+    [Fact]
+    public void ToolExecutionCompleted_WhenOtherToolCallsAreStillOpen_DoesNotRequestAnotherModelCallYet()
+    {
+        // ARRANGE: Two tool calls were requested in a single model response.
+        // The model expects to get BOTH results in the next model call.
+        var initial = new SessionState(
+            Committed: ImmutableArray.Create<SessionEvent>(
+                new UserMessage("Do two things"),
+                new ToolCallRequested("call_1", "read_text_file", J(new { path = "/tmp/a.txt" })),
+                new ToolCallRequested("call_2", "read_text_file", J(new { path = "/tmp/b.txt" })),
+                new ToolCallPending("call_1"),
+                new ToolCallInProgress("call_1"),
+                new ToolCallPending("call_2"),
+                new ToolCallInProgress("call_2")),
+            Buffer: TurnBuffer.Empty,
+            Tools: ImmutableArray.Create(ToolSchemas.ReadTextFile));
+
+        // ACT: First tool completes.
+        var result1 = Core.Reduce(initial, new ObservedToolCallCompleted("call_1", new { ok = true }));
+
+        // ASSERT: no CallModel effect yet (call_2 is still open)
+        Assert.DoesNotContain(result1.Effects, e => e is CallModel);
+
+        // ACT: Second tool completes.
+        var state2 = result1.Next;
+        var result2 = Core.Reduce(state2, new ObservedToolCallCompleted("call_2", new { ok = true }));
+
+        // ASSERT: now we can re-prompt (all tool calls are closed)
+        Assert.Contains(result2.Effects, e => e is CallModel);
+    }
+
     /// <summary>
     /// TC-CORE-006: Capability Absent → Tool Not Included in Catalog
     /// 

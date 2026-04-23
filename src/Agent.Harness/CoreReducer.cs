@@ -48,15 +48,42 @@ public static class Core
     private static bool HasOtherOpenToolCalls(SessionState state, string excludingToolId)
     {
         // "Open" means: a ToolCallRequested exists and we haven't committed any terminal event for that toolId yet.
-        foreach (var r in state.Committed.OfType<ToolCallRequested>())
+        // IMPORTANT: only consider tool calls within the CURRENT turn.
+        // Forked child threads may include historical tool-call audit events from the parent; those must not
+        // block re-prompting in the child's active turn.
+        var committed = GetCurrentTurnCommitted(state.Committed);
+
+        foreach (var r in committed.OfType<ToolCallRequested>())
         {
             if (r.ToolId == excludingToolId) continue;
-            if (!HasTerminalToolCall(state, r.ToolId))
+
+            if (!HasTerminalToolCall(committed, r.ToolId))
                 return true;
         }
 
         return false;
     }
+
+    private static ImmutableArray<SessionEvent> GetCurrentTurnCommitted(ImmutableArray<SessionEvent> committed)
+    {
+        for (var i = committed.Length - 1; i >= 0; i--)
+        {
+            if (committed[i] is TurnStarted)
+                return committed[i..];
+        }
+
+        return committed;
+    }
+
+    private static bool HasTerminalToolCall(ImmutableArray<SessionEvent> committed, string toolId)
+        => committed.Any(e => e switch
+        {
+            ToolCallCompleted c when c.ToolId == toolId => true,
+            ToolCallFailed f when f.ToolId == toolId => true,
+            ToolCallCancelled c when c.ToolId == toolId => true,
+            ToolCallRejected r when r.ToolId == toolId => true,
+            _ => false,
+        });
 
     /// <summary>
     /// Render the tool catalog based on client capabilities.
@@ -474,14 +501,17 @@ public static class Core
                 var committed = state.Committed.AddRange(newlyCommitted);
                 var next = state with { Committed = committed };
 
-                // Report-intent should normally not force a re-prompt if the model already streamed
-                // additional tool intents in the same response.
-                // However if report_intent is the ONLY thing the model emitted, we must re-prompt.
+                // Invariant: if multiple tool calls are open, we must wait until ALL terminal events
+                // are committed before re-prompting. The model expects to see all tool results together.
                 var hasOtherOpen = HasOtherOpenToolCalls(state, completed.ToolId);
 
-                var effects = (isReportIntent && hasOtherOpen)
-                    ? ImmutableArray<Effect>.Empty
-                    : ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next)));
+                // Report-intent should not force a re-prompt if the model already streamed additional
+                // tool intents in the same response.
+                var shouldRePrompt = !hasOtherOpen;
+
+                var effects = shouldRePrompt
+                    ? ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next)))
+                    : ImmutableArray<Effect>.Empty;
 
                 return new ReduceResult(
                     next,
@@ -494,15 +524,20 @@ public static class Core
                 if (HasTerminalToolCall(state, failed.ToolId))
                     return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty, ImmutableArray<Effect>.Empty);
 
-                // Commit ToolCallFailed (terminal state) then request a model call.
+                // Commit ToolCallFailed (terminal state) then (maybe) request a model call.
                 var failedEvent = new ToolCallFailed(failed.ToolId, failed.Error);
                 var committed = state.Committed.Add(failedEvent);
                 var next = state with { Committed = committed };
 
+                var hasOtherOpen = HasOtherOpenToolCalls(state, failed.ToolId);
+                var effects = hasOtherOpen
+                    ? ImmutableArray<Effect>.Empty
+                    : ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next)));
+
                 return new ReduceResult(
                     next,
                     ImmutableArray.Create<SessionEvent>(failedEvent),
-                    ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next))));
+                    effects);
             }
 
             case ObservedToolCallCancelled cancelled:
@@ -510,15 +545,20 @@ public static class Core
                 if (HasTerminalToolCall(state, cancelled.ToolId))
                     return new ReduceResult(state, ImmutableArray<SessionEvent>.Empty, ImmutableArray<Effect>.Empty);
 
-                // Commit ToolCallCancelled (terminal state) then request a model call.
+                // Commit ToolCallCancelled (terminal state) then (maybe) request a model call.
                 var cancelledEvent = new ToolCallCancelled(cancelled.ToolId);
                 var committed = state.Committed.Add(cancelledEvent);
                 var next = state with { Committed = committed };
 
+                var hasOtherOpen = HasOtherOpenToolCalls(state, cancelled.ToolId);
+                var effects = hasOtherOpen
+                    ? ImmutableArray<Effect>.Empty
+                    : ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next)));
+
                 return new ReduceResult(
                     next,
                     ImmutableArray.Create<SessionEvent>(cancelledEvent),
-                    ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next))));
+                    effects);
             }
 
             case ObservedSetModel set:

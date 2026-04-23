@@ -178,10 +178,26 @@ public static partial class TurnRunner
             }
 
             // Phase 2: all other effects (deduped) after the model stream is fully reduced.
+            // Ordering invariant:
+            // - If the model emitted multiple tool calls and report_intent is among them, run report_intent first
+            //   (when no intent has been reported yet). This ensures downstream prompts and thread metadata
+            //   reflect the intent ASAP.
             var batch = DeduplicateEffects(pendingEffects.ToImmutableArray());
             pendingEffects.Clear();
 
-            foreach (var eff in batch)
+            static int Priority(Effect e)
+                => e switch
+                {
+                    CheckPermission p when p.ToolName == ToolSchemas.ReportIntent.Name => 0,
+                    ExecuteToolCall t when t.ToolName == ToolSchemas.ReportIntent.Name => 0,
+                    _ => 1,
+                };
+
+            var ordered = batch
+                .OrderBy(Priority)
+                .ToImmutableArray();
+
+            foreach (var eff in ordered)
             {
                 var observations = await effects.ExecuteAsync(state, eff, cancellationToken).ConfigureAwait(false);
                 foreach (var obs in observations)
