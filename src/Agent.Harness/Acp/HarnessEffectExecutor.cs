@@ -123,6 +123,24 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
                 yield break;
             }
 
+            case RunCompaction c:
+            {
+                var model = ResolveModelFriendly(state);
+                var chat = _chatByModel is null ? _chat : _chatByModel(model);
+
+                var transcript = Agent.Harness.Compaction.CompactionTranscriptBuilder.Build(state.Committed);
+
+                var system = new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.System, CompactionSystemPrompt);
+                var user = new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.User, "<transcript>\n" + transcript + "\n</transcript>");
+
+                var resp = await chat.GetResponseAsync(new[] { system, user }, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+                var (structured, prose) = ParseCompactionResponse(resp.Text);
+
+                yield return new ObservedCompactionGenerated(structured, prose);
+                yield break;
+            }
+
             default:
                 yield break;
         }
@@ -254,6 +272,46 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         }
         finally
         {
+        }
+    }
+
+    private const string CompactionSystemPrompt =
+        "You are a session compactor. You will be given a transcript of conversation + tool activity. " +
+        "Output ONLY valid JSON with shape: {\"structured\": <object>, \"proseSummary\": <string>} . " +
+        "Do not include tool output bodies; summarize them.";
+
+    private static string ResolveModelFriendly(SessionState state)
+    {
+        var last = state.Committed.OfType<SetModel>().LastOrDefault();
+        return last?.Model ?? "default";
+    }
+
+    private static (JsonElement Structured, string ProseSummary) ParseCompactionResponse(string? text)
+    {
+        var fallback = (JsonSerializer.SerializeToElement(new { }), (text ?? string.Empty).Trim());
+        if (string.IsNullOrWhiteSpace(text))
+            return fallback;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(text);
+            var root = doc.RootElement;
+
+            if (root.ValueKind != JsonValueKind.Object)
+                return fallback;
+
+            if (!root.TryGetProperty("structured", out var structured))
+                return fallback;
+
+            if (!root.TryGetProperty("proseSummary", out var prose))
+                return fallback;
+
+            var proseStr = prose.ValueKind == JsonValueKind.String ? (prose.GetString() ?? string.Empty) : prose.ToString();
+            return (structured.Clone(), proseStr);
+        }
+        catch
+        {
+            return fallback;
         }
     }
 

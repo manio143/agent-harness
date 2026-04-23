@@ -44,6 +44,13 @@ public static class ObservedEventJson
                 ["meta"] = m.Meta,
             },
 
+            ObservedCompactionGenerated c => new Dictionary<string, object?>
+            {
+                ["type"] = "obs_compaction_generated",
+                ["structured"] = c.Structured,
+                ["proseSummary"] = c.ProseSummary,
+            },
+
             ObservedToolCallDetected t => new Dictionary<string, object?>
             {
                 ["type"] = "obs_tool_call_detected",

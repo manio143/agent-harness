@@ -165,5 +165,19 @@ public sealed class SessionEventJsonTests
         var deq = evt.Should().BeOfType<ThreadInboxMessageDequeued>().Subject;
         deq.DequeuedAtIso.Should().Be("");
     }
+
+    [Fact]
+    public void SerializeDeserialize_CompactionCommitted_RoundTrips()
+    {
+        var evt = new CompactionCommitted(System.Text.Json.JsonSerializer.SerializeToElement(new { a = 1 }), "summary");
+
+        var json = SessionEventJson.Serialize(evt);
+        var decoded = SessionEventJson.Deserialize(json);
+
+        decoded.Should().BeOfType<CompactionCommitted>();
+        var c = (CompactionCommitted)decoded;
+        c.Structured.GetProperty("a").GetInt32().Should().Be(1);
+        c.ProseSummary.Should().Be("summary");
+    }
 }
 

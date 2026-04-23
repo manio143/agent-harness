@@ -28,6 +28,7 @@ public sealed class ObservedEventJsonTests
         yield return new object[] { new ObservedReasoningMessageCompleted("stop"), "obs_reasoning_message_completed" };
         yield return new object[] { new ObservedAssistantMessageCompleted("stop"), "obs_assistant_message_completed" };
         yield return new object[] { new ObservedTokenUsage(1, 2, 3, "qwen2.5:3b"), "obs_token_usage" };
+        yield return new object[] { new ObservedCompactionGenerated(JsonSerializer.SerializeToElement(new { s = 1 }), "sum"), "obs_compaction_generated" };
 
         yield return new object[]
         {

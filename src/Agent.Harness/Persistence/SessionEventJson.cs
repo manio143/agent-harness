@@ -26,6 +26,8 @@ public static class SessionEventJson
 
             TokenUsage u => new { type = "token_usage", inputTokens = u.InputTokens, outputTokens = u.OutputTokens, totalTokens = u.TotalTokens, providerModel = u.ProviderModel },
 
+            CompactionCommitted c => new { type = "compaction_committed", structured = c.Structured, proseSummary = c.ProseSummary },
+
             ToolCallRequested r => new { type = "tool_call_requested", toolId = r.ToolId, toolName = r.ToolName, args = r.Args },
             ToolCallPermissionApproved a => new { type = "tool_call_permission_approved", toolId = a.ToolId, reason = a.Reason },
             ToolCallPermissionDenied d => new { type = "tool_call_permission_denied", toolId = d.ToolId, reason = d.Reason },
@@ -144,6 +146,11 @@ public static class SessionEventJson
                     TotalTokens: ReadNullableLong(root, "totalTokens"),
                     ProviderModel: ReadOptionalString(root, "providerModel"));
             }
+
+            case "compaction_committed":
+                return new CompactionCommitted(
+                    Structured: root.GetProperty("structured").Clone(),
+                    ProseSummary: root.GetProperty("proseSummary").GetString() ?? string.Empty);
 
             case "tool_call_requested":
                 return new ToolCallRequested(
