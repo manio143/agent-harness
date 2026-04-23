@@ -26,6 +26,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
     private readonly string? _modelCatalogSystemPrompt;
     private readonly SystemPromptComposer _systemPromptComposer;
     private readonly int _compactionTailMessageCount;
+    private readonly int? _compactionMaxTailMessageChars;
     private readonly string _compactionModel;
     private readonly Agent.Harness.Threads.IThreadStore? _threadStore;
     private readonly Agent.Harness.Threads.IThreadTools? _threadTools;
@@ -49,6 +50,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         Agent.Harness.Persistence.ISessionStore? store = null,
         string? modelCatalogSystemPrompt = null,
         int compactionTailMessageCount = 5,
+        int? compactionMaxTailMessageChars = null,
         string compactionModel = "default",
         SystemPromptComposer? systemPromptComposer = null,
         Agent.Harness.Threads.IThreadStore? threadStore = null,
@@ -70,6 +72,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         _store = store;
         _modelCatalogSystemPrompt = modelCatalogSystemPrompt;
         _compactionTailMessageCount = compactionTailMessageCount;
+        _compactionMaxTailMessageChars = compactionMaxTailMessageChars;
         _compactionModel = compactionModel;
         _threadStore = threadStore;
         _systemPromptComposer = systemPromptComposer ?? new SystemPromptComposer(new ISystemPromptContributor[]
@@ -168,7 +171,10 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         try
         {
 
-            var meaiMessages = Agent.Harness.Llm.MeaiPromptRenderer.Render(state, compactionTailMessageCount: _compactionTailMessageCount);
+            var meaiMessages = Agent.Harness.Llm.MeaiPromptRenderer.Render(
+                state,
+                compactionTailMessageCount: _compactionTailMessageCount,
+                maxTailMessageChars: _compactionMaxTailMessageChars);
 
             // Session metadata system prompt (client-/protocol-agnostic).
             var meta = _store?.TryLoadMetadata(_sessionId);

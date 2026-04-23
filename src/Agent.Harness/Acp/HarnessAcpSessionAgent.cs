@@ -67,6 +67,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     private readonly bool _logObservedEvents;
     private readonly string? _modelCatalogSystemPrompt;
     private readonly int _compactionTailMessageCount;
+    private readonly int? _compactionMaxTailMessageChars;
     private readonly string _compactionModel;
 
     private SessionState _state;
@@ -109,6 +110,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         string? modelCatalogSystemPrompt = null,
         Func<string, string?>? providerModelByFriendlyName = null,
         int compactionTailMessageCount = 5,
+        int? compactionMaxTailMessageChars = null,
         string compactionModel = "default")
     {
         _sessionId = sessionId;
@@ -128,6 +130,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         _logObservedEvents = logObservedEvents;
         _modelCatalogSystemPrompt = modelCatalogSystemPrompt;
         _compactionTailMessageCount = compactionTailMessageCount;
+        _compactionMaxTailMessageChars = compactionMaxTailMessageChars;
         _compactionModel = compactionModel;
 
         // Tools are loaded once per session.
@@ -182,6 +185,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             modelCatalogSystemPrompt: _modelCatalogSystemPrompt,
             providerModelByFriendlyName: _providerModelByFriendlyName,
             compactionTailMessageCount: _compactionTailMessageCount,
+            compactionMaxTailMessageChars: _compactionMaxTailMessageChars,
             compactionModel: _compactionModel);
 
         // Catalog == runnable/permission surface, and must be consistent across all threads.

@@ -45,6 +45,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
     private readonly ISessionStore _sessionStore;
     private readonly string? _modelCatalogSystemPrompt;
     private readonly int _compactionTailMessageCount;
+    private readonly int? _compactionMaxTailMessageChars;
     private readonly string _compactionModel;
 
     private bool _toolsInitialized;
@@ -74,6 +75,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         string? modelCatalogSystemPrompt = null,
         Func<string, string?>? providerModelByFriendlyName = null,
         int compactionTailMessageCount = 5,
+        int? compactionMaxTailMessageChars = null,
         string compactionModel = "default")
     {
         _sessionId = sessionId;
@@ -89,6 +91,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         _sessionStore = sessionStore;
         _modelCatalogSystemPrompt = modelCatalogSystemPrompt;
         _compactionTailMessageCount = compactionTailMessageCount;
+        _compactionMaxTailMessageChars = compactionMaxTailMessageChars;
         _compactionModel = compactionModel;
 
         _toolsInitialized = false;
@@ -226,6 +229,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 store: _sessionStore,
                 modelCatalogSystemPrompt: _modelCatalogSystemPrompt,
                 compactionTailMessageCount: _compactionTailMessageCount,
+                compactionMaxTailMessageChars: _compactionMaxTailMessageChars,
                 compactionModel: _compactionModel,
                 threadTools: this,
                 observer: this,

@@ -102,6 +102,12 @@ public sealed class AgentServerOptions
         public int TailMessageCount { get; set; } = 5;
 
         /// <summary>
+        /// Optional safety valve: truncate individual tail user/assistant messages to this many characters
+        /// when building post-compaction prompts. Null disables truncation.
+        /// </summary>
+        public int? MaxTailMessageChars { get; set; } = null;
+
+        /// <summary>
         /// Friendly model name used for compaction runs.
         /// Default: "default".
         /// </summary>

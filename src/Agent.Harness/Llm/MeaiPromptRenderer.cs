@@ -39,7 +39,7 @@ public static class MeaiPromptRenderer
         return msg;
     }
 
-    public static List<Microsoft.Extensions.AI.ChatMessage> Render(SessionState state, int compactionTailMessageCount = 5)
+    public static List<Microsoft.Extensions.AI.ChatMessage> Render(SessionState state, int compactionTailMessageCount = 5, int? maxTailMessageChars = null)
     {
         if (state is null) throw new ArgumentNullException(nameof(state));
         if (compactionTailMessageCount <= 0) compactionTailMessageCount = 1;
@@ -104,7 +104,7 @@ public static class MeaiPromptRenderer
                 if (evt is CompactionCommitted)
                     continue;
 
-                RenderEvent(messages, evt, json);
+                RenderEvent(messages, evt, json, maxTailMessageChars);
             }
 
             return messages;
@@ -112,22 +112,22 @@ public static class MeaiPromptRenderer
 
         foreach (var evt in state.Committed)
         {
-            RenderEvent(messages, evt, json);
+            RenderEvent(messages, evt, json, maxTailMessageChars);
         }
 
         return messages;
     }
 
-    private static void RenderEvent(List<Microsoft.Extensions.AI.ChatMessage> messages, SessionEvent evt, JsonSerializerOptions json)
+    private static void RenderEvent(List<Microsoft.Extensions.AI.ChatMessage> messages, SessionEvent evt, JsonSerializerOptions json, int? maxTailMessageChars)
     {
         switch (evt)
         {
             case UserMessage u:
-                messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.User, u.Text));
+                messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.User, Truncate(u.Text, maxTailMessageChars)));
                 break;
 
             case AssistantMessage a:
-                messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.Assistant, a.Text));
+                messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.Assistant, Truncate(a.Text, maxTailMessageChars)));
                 break;
 
             case InterThreadMessage it:
@@ -199,5 +199,15 @@ public static class MeaiPromptRenderer
         {
             return el.ToString();
         }
+    }
+
+    private static string Truncate(string? text, int? maxChars)
+    {
+        if (text is null) return string.Empty;
+        if (maxChars is null || maxChars <= 0) return text;
+        if (text.Length <= maxChars) return text;
+
+        var head = text.Substring(0, maxChars.Value);
+        return head + $"\n\n[TRUNCATED: original_length={text.Length}]";
     }
 }

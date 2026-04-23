@@ -311,6 +311,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             modelCatalogSystemPrompt: BuildModelCatalogSystemPrompt(_modelCatalog),
             providerModelByFriendlyName: friendly => _modelCatalog.Resolve(friendly).Model,
             compactionTailMessageCount: _options.Compaction.TailMessageCount,
+            compactionMaxTailMessageChars: _options.Compaction.MaxTailMessageChars,
             compactionModel: _options.Compaction.Model);
     }
 
