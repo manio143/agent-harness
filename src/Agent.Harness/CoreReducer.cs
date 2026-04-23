@@ -277,13 +277,13 @@ public static class Core
 
             case ObservedCompactionGenerated compacted:
             {
-                var evt = new CompactionCommitted(compacted.Structured, compacted.ProseSummary);
-                var committed = state.Committed.Add(evt);
+                var compaction = new CompactionCommitted(compacted.Structured, compacted.ProseSummary);
+                var committed = state.Committed.Add(compaction);
 
                 // Once we have compacted, compaction is no longer due. (ContinuationPending is handled at turn start.)
                 var next = state with { Committed = committed, Buffer = state.Buffer with { CompactionDue = false } };
 
-                return new ReduceResult(next, ImmutableArray.Create<SessionEvent>(evt), ImmutableArray<Effect>.Empty);
+                return new ReduceResult(next, ImmutableArray.Create<SessionEvent>(compaction), ImmutableArray<Effect>.Empty);
             }
 
             case ObservedTurnStabilized stabilized:
@@ -527,13 +527,20 @@ public static class Core
                 // are committed before re-prompting. The model expects to see all tool results together.
                 var hasOtherOpen = HasOtherOpenToolCalls(state, completed.ToolId);
 
-                // Report-intent should not force a re-prompt if the model already streamed additional
-                // tool intents in the same response.
-                var shouldRePrompt = !hasOtherOpen;
+                // If we are about to compact, do NOT re-prompt in this turn. Instead, latch a continuation
+                // so that after compaction we can call the model with the now-completed tool results.
+                if (next.Buffer.CompactionDue && !hasOtherOpen)
+                {
+                    next = next with { Buffer = next.Buffer with { ContinuationPending = true } };
+                    return new ReduceResult(
+                        next,
+                        newlyCommitted.ToImmutable(),
+                        ImmutableArray<Effect>.Empty);
+                }
 
-                var effects = shouldRePrompt
-                    ? ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next)))
-                    : ImmutableArray<Effect>.Empty;
+                var effects = hasOtherOpen
+                    ? ImmutableArray<Effect>.Empty
+                    : ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next)));
 
                 return new ReduceResult(
                     next,
@@ -552,6 +559,16 @@ public static class Core
                 var next = state with { Committed = committed };
 
                 var hasOtherOpen = HasOtherOpenToolCalls(state, failed.ToolId);
+
+                if (next.Buffer.CompactionDue && !hasOtherOpen)
+                {
+                    next = next with { Buffer = next.Buffer with { ContinuationPending = true } };
+                    return new ReduceResult(
+                        next,
+                        ImmutableArray.Create<SessionEvent>(failedEvent),
+                        ImmutableArray<Effect>.Empty);
+                }
+
                 var effects = hasOtherOpen
                     ? ImmutableArray<Effect>.Empty
                     : ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next)));
@@ -573,6 +590,16 @@ public static class Core
                 var next = state with { Committed = committed };
 
                 var hasOtherOpen = HasOtherOpenToolCalls(state, cancelled.ToolId);
+
+                if (next.Buffer.CompactionDue && !hasOtherOpen)
+                {
+                    next = next with { Buffer = next.Buffer with { ContinuationPending = true } };
+                    return new ReduceResult(
+                        next,
+                        ImmutableArray.Create<SessionEvent>(cancelledEvent),
+                        ImmutableArray<Effect>.Empty);
+                }
+
                 var effects = hasOtherOpen
                     ? ImmutableArray<Effect>.Empty
                     : ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next)));
