@@ -151,10 +151,6 @@ public static class SessionEventJson
                 return new ThreadCompacted(
                     Text: root.GetProperty("text").GetString() ?? string.Empty);
 
-            // Back-compat: older logs used compaction_committed. Preserve proseSummary as text.
-            case "compaction_committed":
-                return new ThreadCompacted(
-                    Text: root.GetProperty("proseSummary").GetString() ?? string.Empty);
 
             case "tool_call_requested":
                 return new ToolCallRequested(

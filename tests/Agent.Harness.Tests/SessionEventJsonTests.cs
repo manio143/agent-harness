@@ -178,17 +178,5 @@ public sealed class SessionEventJsonTests
         ((ThreadCompacted)decoded).Text.Should().Be("<compaction>hi</compaction>");
     }
 
-    [Fact]
-    public void Deserialize_CompactionCommitted_BackCompat_MapsToThreadCompacted()
-    {
-        var json = """
-        {"type":"compaction_committed","structured":{},"proseSummary":"old"}
-        """;
-
-        var decoded = SessionEventJson.Deserialize(json);
-
-        decoded.Should().BeOfType<ThreadCompacted>();
-        ((ThreadCompacted)decoded).Text.Should().Be("old");
-    }
 }
 

@@ -49,8 +49,6 @@ public static class MeaiPromptRenderer
 
         // Compaction memory is rendered as a system message. Always-injected system fragments
         // (model catalog, thread envelope, etc.) are prepended later by the executor.
-        //
-        // Back-compat: if older sessions still contain CompactionCommitted, prefer ThreadCompacted.
         var lastCompaction = state.Committed.OfType<ThreadCompacted>().LastOrDefault();
         if (lastCompaction is not null)
         {
