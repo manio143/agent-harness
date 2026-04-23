@@ -63,6 +63,8 @@ public sealed record ModelInvoked(ImmutableArray<ChatMessage> RenderedMessages) 
 // Token usage reported by the underlying provider (when available).
 public sealed record TokenUsage(long? InputTokens, long? OutputTokens, long? TotalTokens, string? ProviderModel = null) : SessionEvent;
 
+public sealed record CompactionCommitted(JsonElement Structured, string ProseSummary) : SessionEvent;
+
 // --- Turn lifecycle ---
 // Invariant: TurnStart is informative only; TurnEnd is committed when the core decides the turn has stabilized.
 public sealed record TurnStarted() : SessionEvent;

@@ -275,6 +275,17 @@ public static class Core
                 return new ReduceResult(next, ImmutableArray.Create<SessionEvent>(evtUsage), ImmutableArray<Effect>.Empty);
             }
 
+            case ObservedCompactionGenerated compacted:
+            {
+                var evt = new CompactionCommitted(compacted.Structured, compacted.ProseSummary);
+                var committed = state.Committed.Add(evt);
+
+                // Once we have compacted, compaction is no longer due. (ContinuationPending is handled at turn start.)
+                var next = state with { Committed = committed, Buffer = state.Buffer with { CompactionDue = false } };
+
+                return new ReduceResult(next, ImmutableArray.Create<SessionEvent>(evt), ImmutableArray<Effect>.Empty);
+            }
+
             case ObservedTurnStabilized stabilized:
             {
                 // Turn stabilization is the reducer's chance to:
