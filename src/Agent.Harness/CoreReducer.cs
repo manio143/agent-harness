@@ -185,16 +185,20 @@ public static class Core
                 // - immediate is always promotable
                 // - enqueue is promotable only if this turn started from an idle state
                 //   (i.e., this wake is the first opportunity to run after being idle).
+                var continuation = state.Buffer.ContinuationPending;
+
                 var (next, newly) = PromotePendingInbox(state, wake.ThreadId, allowEnqueue: state.Buffer.TurnStartedFromIdle);
 
-                // Only call the model if the wake actually produced a prompt-visible message that
-                // may require continuation.
-                //
-                // Design grounding: child thread completion is signaled to the parent via a
-                // ThreadIdleNotification. The parent often needs to continue without waiting
-                // for user interaction.
-                var shouldCallModel = newly.Any(e => e is UserMessage or InterThreadMessage or ThreadIdleNotification or NewThreadTask);
-                var effects = shouldCallModel ? ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next))) : ImmutableArray<Effect>.Empty;
+                // Continuation wake (e.g., after compaction): call the model even if no inbox message
+                // was promoted, because we still need to produce an assistant follow-up.
+                var shouldCallModel = continuation || newly.Any(e => e is UserMessage or InterThreadMessage or ThreadIdleNotification or NewThreadTask);
+
+                if (continuation)
+                    next = next with { Buffer = next.Buffer with { ContinuationPending = false } };
+
+                var effects = shouldCallModel
+                    ? ImmutableArray.Create<Effect>(new CallModel(ResolveModel(next)))
+                    : ImmutableArray<Effect>.Empty;
 
                 return new ReduceResult(next, newly, effects);
             }

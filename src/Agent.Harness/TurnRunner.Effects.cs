@@ -18,6 +18,7 @@ public static partial class TurnRunner
                 CheckPermission p => $"check_permission:{p.ToolId}",
                 ExecuteToolCall t => $"execute_tool:{t.ToolId}",
                 CallModel => "call_model",
+                RunCompaction c => $"run_compaction:{c.ThreadId}",
                 ScheduleWake w => $"schedule_wake:{w.ThreadId}",
                 _ => e.GetType().FullName ?? e.GetType().Name,
             };
@@ -199,9 +200,21 @@ public static partial class TurnRunner
 
             foreach (var eff in ordered)
             {
+                // Special inter-turn effect: compaction must end a turn and begin a new one.
+                // We inject the next turn start marker here so the committed ordering becomes:
+                // TurnEnded -> CompactionCommitted -> TurnStarted.
+                var continuationPending = eff is RunCompaction && state.Buffer.ContinuationPending;
+
                 var observations = await effects.ExecuteAsync(state, eff, cancellationToken).ConfigureAwait(false);
                 foreach (var obs in observations)
                     observedQueue.Enqueue(obs);
+
+                if (eff is RunCompaction rc)
+                {
+                    observedQueue.Enqueue(new ObservedTurnStarted(rc.ThreadId));
+                    if (continuationPending)
+                        observedQueue.Enqueue(new ObservedWakeModel(rc.ThreadId));
+                }
 
                 // Important: reduce the effects' observations before executing the next effect.
                 // This preserves tool-call ordering when a later tool depends on state changes
