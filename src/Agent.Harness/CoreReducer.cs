@@ -286,6 +286,23 @@ public static class Core
                 //   The turn continues until the model/tool lifecycle stabilizes.
                 var (next, newly) = PromotePendingInbox(state, stabilized.ThreadId, allowEnqueue: true);
 
+                // Compaction has priority over continuing. If we are near the context limit, end the turn and
+                // compact BEFORE attempting any further call_model.
+                if (next.Buffer.CompactionDue)
+                {
+                    var reduced0 = Commit(next, new TurnEnded());
+                    TurnInvariants.AssertNoOpenToolCallsAtTurnEnd(reduced0.Next.Committed);
+
+                    var all0 = ImmutableArray.CreateBuilder<SessionEvent>();
+                    all0.AddRange(newly);
+                    all0.AddRange(reduced0.NewlyCommitted);
+
+                    return new ReduceResult(
+                        reduced0.Next,
+                        all0.ToImmutable(),
+                        ImmutableArray.Create<Effect>(new RunCompaction(stabilized.ThreadId)));
+                }
+
                 var shouldCallModel = newly.Any(e => e is UserMessage or InterThreadMessage or ThreadIdleNotification or NewThreadTask);
                 if (shouldCallModel)
                 {

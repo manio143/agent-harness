@@ -45,5 +45,7 @@ public sealed record CallModel(string Model) : Effect;
 /// </summary>
 public sealed record ScheduleWake(string ThreadId) : Effect;
 
+public sealed record RunCompaction(string ThreadId) : Effect;
+
 /// <summary>
 
