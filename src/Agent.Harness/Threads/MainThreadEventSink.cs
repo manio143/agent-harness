@@ -60,7 +60,8 @@ public sealed class MainThreadEventSink : IEventSink
                     Intent: null,
                     CreatedAtIso: now,
                     UpdatedAtIso: now,
-                    Model: set.Model)
+                    Model: set.Model,
+                    CompactionCount: 0)
                 : meta with { Model = set.Model, UpdatedAtIso = now };
 
             _threadStore.SaveThreadMetadata(_sessionId, next);

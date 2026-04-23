@@ -23,7 +23,8 @@ public sealed class JsonlThreadStore : IThreadStore, IThreadCommittedEventAppend
             Intent: null,
             CreatedAtIso: DateTimeOffset.UtcNow.ToString("O"),
             UpdatedAtIso: DateTimeOffset.UtcNow.ToString("O"),
-            Model: null));
+            Model: null,
+            CompactionCount: 0));
     }
 
     public ThreadMetadata? TryLoadThreadMetadata(string sessionId, string threadId)

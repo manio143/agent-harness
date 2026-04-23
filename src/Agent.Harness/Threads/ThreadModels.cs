@@ -23,7 +23,8 @@ public sealed record ThreadMetadata(
     string? Intent,
     string CreatedAtIso,
     string UpdatedAtIso,
-    string? Model);
+    string? Model,
+    int CompactionCount = 0);
 
 public enum ThreadInboxMessageKind
 {

@@ -18,6 +18,7 @@ public sealed class ThreadEnvelopeSystemPromptContributor : ISystemPromptContrib
             threadId = meta.ThreadId,
             parentThreadId = meta.ParentThreadId,
             createdAtIso = meta.CreatedAtIso,
+            compactionCount = meta.CompactionCount,
         }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
         yield return new SystemPromptFragment(FragmentId, Order: 2500, $"<thread>{threadPayload}</thread>");

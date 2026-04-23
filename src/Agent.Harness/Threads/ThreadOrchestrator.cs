@@ -278,7 +278,8 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
             Intent: null,
             CreatedAtIso: now,
             UpdatedAtIso: now,
-            Model: ResolveModelFromCommitted(seedCommitted));
+            Model: ResolveModelFromCommitted(seedCommitted),
+            CompactionCount: 0);
 
         _threadStore.CreateThread(_sessionId, meta);
 
