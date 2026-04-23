@@ -39,86 +39,165 @@ public static class MeaiPromptRenderer
         return msg;
     }
 
-    public static List<Microsoft.Extensions.AI.ChatMessage> Render(SessionState state)
+    public static List<Microsoft.Extensions.AI.ChatMessage> Render(SessionState state, int compactionTailMessageCount = 5)
     {
         if (state is null) throw new ArgumentNullException(nameof(state));
+        if (compactionTailMessageCount <= 0) compactionTailMessageCount = 1;
 
         var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         var messages = new List<Microsoft.Extensions.AI.ChatMessage>();
 
+        var lastCompaction = state.Committed.OfType<CompactionCommitted>().LastOrDefault();
+        if (lastCompaction is not null)
+        {
+            // Compaction summary is rendered as a system message. Always-injected system fragments
+            // (model catalog, thread envelope, etc.) are prepended later by the executor.
+            var structured = SafeRawJson(lastCompaction.Structured);
+            var prose = lastCompaction.ProseSummary ?? string.Empty;
+
+            messages.Add(new Microsoft.Extensions.AI.ChatMessage(
+                Microsoft.Extensions.AI.ChatRole.System,
+                $"<compaction>\n<structured>{structured}</structured>\n<summary>{prose}</summary>\n</compaction>"));
+
+            // Tail selection: last N user/assistant messages, plus tool-call tail if tool results exist
+            // after the last assistant message (no assistant follow-up).
+            var messageIdx = new List<int>();
+            for (var i = 0; i < state.Committed.Length; i++)
+            {
+                if (state.Committed[i] is UserMessage or AssistantMessage)
+                    messageIdx.Add(i);
+            }
+
+            var tailStart = messageIdx.Count == 0
+                ? 0
+                : messageIdx[Math.Max(0, messageIdx.Count - compactionTailMessageCount)];
+
+            var lastAssistantIdx = -1;
+            for (var i = state.Committed.Length - 1; i >= 0; i--)
+            {
+                if (state.Committed[i] is AssistantMessage)
+                {
+                    lastAssistantIdx = i;
+                    break;
+                }
+            }
+
+            var toolTailStart = -1;
+            if (lastAssistantIdx >= 0)
+            {
+                for (var i = lastAssistantIdx + 1; i < state.Committed.Length; i++)
+                {
+                    if (state.Committed[i] is ToolCallRequested or ToolCallCompleted or ToolCallFailed or ToolCallCancelled or ToolCallRejected)
+                    {
+                        toolTailStart = i;
+                        break;
+                    }
+                }
+            }
+
+            if (toolTailStart >= 0)
+                tailStart = Math.Min(tailStart, lastAssistantIdx);
+
+            foreach (var evt in state.Committed.Skip(tailStart))
+            {
+                // The summary is already injected.
+                if (evt is CompactionCommitted)
+                    continue;
+
+                RenderEvent(messages, evt, json);
+            }
+
+            return messages;
+        }
+
         foreach (var evt in state.Committed)
         {
-            switch (evt)
-            {
-                case UserMessage u:
-                    messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.User, u.Text));
-                    break;
-
-                case AssistantMessage a:
-                    messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.Assistant, a.Text));
-                    break;
-
-                case InterThreadMessage it:
-                    messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.System, $"<inter_thread from=\"{it.FromThreadId}\">{it.Text}</inter_thread>"));
-                    break;
-
-                case ThreadIdleNotification n:
-                    messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.System, $"<thread_idle child=\"{n.ChildThreadId}\" intent=\"{n.LastIntent}\" />"));
-                    break;
-
-                case NewThreadTask t:
-                {
-                    messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.System, Agent.Harness.Threads.NewThreadTaskMarkup.Render(t)));
-                    break;
-                }
-
-                case ToolCallRequested t:
-                {
-                    var fc = MeaiFunctionContentFactory.CreateFunctionCall(t.ToolId, t.ToolName, t.Args);
-                    messages.Add(CreateWithContents(Microsoft.Extensions.AI.ChatRole.Assistant, fc));
-                    break;
-                }
-
-                case ToolCallUpdate u:
-                {
-                    var payload = JsonSerializer.Serialize(new { toolId = u.ToolId, content = u.Content }, json);
-                    messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.System, $"<tool_update>{payload}</tool_update>"));
-                    break;
-                }
-
-                case ToolCallCompleted c:
-                {
-                    var fr = MeaiFunctionContentFactory.CreateFunctionResult(c.ToolId, c.Result);
-                    messages.Add(CreateWithContents(Microsoft.Extensions.AI.ChatRole.Tool, fr));
-                    break;
-                }
-
-                case ToolCallFailed f:
-                {
-                    var fr = MeaiFunctionContentFactory.CreateFunctionResult(f.ToolId, new { outcome = "failed", error = f.Error });
-                    messages.Add(CreateWithContents(Microsoft.Extensions.AI.ChatRole.Tool, fr));
-                    break;
-                }
-
-                case ToolCallRejected r:
-                {
-                    var fr = MeaiFunctionContentFactory.CreateFunctionResult(r.ToolId, new { outcome = "rejected", reason = r.Reason, details = r.Details });
-                    messages.Add(CreateWithContents(Microsoft.Extensions.AI.ChatRole.Tool, fr));
-                    break;
-                }
-
-                case ToolCallCancelled c:
-                {
-                    var fr = MeaiFunctionContentFactory.CreateFunctionResult(c.ToolId, new { outcome = "cancelled" });
-                    messages.Add(CreateWithContents(Microsoft.Extensions.AI.ChatRole.Tool, fr));
-                    break;
-                }
-
-                default:
-                    break;
-            }
+            RenderEvent(messages, evt, json);
         }
 
         return messages;
+    }
+
+    private static void RenderEvent(List<Microsoft.Extensions.AI.ChatMessage> messages, SessionEvent evt, JsonSerializerOptions json)
+    {
+        switch (evt)
+        {
+            case UserMessage u:
+                messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.User, u.Text));
+                break;
+
+            case AssistantMessage a:
+                messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.Assistant, a.Text));
+                break;
+
+            case InterThreadMessage it:
+                messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.System, $"<inter_thread from=\"{it.FromThreadId}\">{it.Text}</inter_thread>"));
+                break;
+
+            case ThreadIdleNotification n:
+                messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.System, $"<thread_idle child=\"{n.ChildThreadId}\" intent=\"{n.LastIntent}\" />"));
+                break;
+
+            case NewThreadTask t:
+                messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.System, Agent.Harness.Threads.NewThreadTaskMarkup.Render(t)));
+                break;
+
+            case ToolCallRequested t:
+            {
+                var fc = MeaiFunctionContentFactory.CreateFunctionCall(t.ToolId, t.ToolName, t.Args);
+                messages.Add(CreateWithContents(Microsoft.Extensions.AI.ChatRole.Assistant, fc));
+                break;
+            }
+
+            case ToolCallUpdate u:
+            {
+                var payload = JsonSerializer.Serialize(new { toolId = u.ToolId, content = u.Content }, json);
+                messages.Add(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.System, $"<tool_update>{payload}</tool_update>"));
+                break;
+            }
+
+            case ToolCallCompleted c:
+            {
+                var fr = MeaiFunctionContentFactory.CreateFunctionResult(c.ToolId, c.Result);
+                messages.Add(CreateWithContents(Microsoft.Extensions.AI.ChatRole.Tool, fr));
+                break;
+            }
+
+            case ToolCallFailed f:
+            {
+                var fr = MeaiFunctionContentFactory.CreateFunctionResult(f.ToolId, new { outcome = "failed", error = f.Error });
+                messages.Add(CreateWithContents(Microsoft.Extensions.AI.ChatRole.Tool, fr));
+                break;
+            }
+
+            case ToolCallRejected r:
+            {
+                var fr = MeaiFunctionContentFactory.CreateFunctionResult(r.ToolId, new { outcome = "rejected", reason = r.Reason, details = r.Details });
+                messages.Add(CreateWithContents(Microsoft.Extensions.AI.ChatRole.Tool, fr));
+                break;
+            }
+
+            case ToolCallCancelled c:
+            {
+                var fr = MeaiFunctionContentFactory.CreateFunctionResult(c.ToolId, new { outcome = "cancelled" });
+                messages.Add(CreateWithContents(Microsoft.Extensions.AI.ChatRole.Tool, fr));
+                break;
+            }
+
+            default:
+                break;
+        }
+    }
+
+    private static string SafeRawJson(JsonElement el)
+    {
+        try
+        {
+            return el.ValueKind == JsonValueKind.Undefined ? "null" : el.GetRawText();
+        }
+        catch
+        {
+            return el.ToString();
+        }
     }
 }
