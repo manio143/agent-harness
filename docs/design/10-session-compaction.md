@@ -89,7 +89,7 @@ Required committed ordering:
 ```
 ... (normal turn events)
 TurnEnded
-CompactionCommitted
+ThreadCompacted
 TurnStarted
 ... (next turn)
 ```
@@ -105,7 +105,7 @@ This is enforced via a shared debug invariant (see `TurnInvariants.AssertNoOpenT
 
 Compaction summarizes a range of committed events:
 
-- Range start: after the last `CompactionCommitted` for the thread, or beginning of thread history.
+- Range start: after the last `ThreadCompacted` for the thread, or beginning of thread history.
 - Range end: current committed position.
 
 ### What to include
@@ -114,6 +114,11 @@ Compaction summarizes a range of committed events:
 - For tool calls:
   - include tool name
   - include call parameters (`args`)
+    - **Do not redact** args.
+    - To avoid prompt bloat, **omit large file contents** for known file-writing tools:
+      - `write_text_file.content` larger than a threshold is replaced with a placeholder like `<omitted length=12345>`.
+      - `patch_text_file` edit payloads are scanned and any huge string fields (e.g. `oldText/newText/text`) are replaced similarly.
+    - For all other tools (including MCP tools), args are preserved as-is.
   - include terminal status: `completed|failed|cancelled|rejected`
   - include short error reason for failures/rejections
   - **do not include** full tool output bodies
@@ -131,10 +136,22 @@ Compaction is a dedicated model call:
 - Model: `CompactionModel` (friendly) resolved the same way as other model calls; defaults to `DefaultModel`.
 - Tools: **disabled**.
 - Prompt:
-  - A special compaction system prompt requiring:
-    - structured JSON with facts/decisions/problems/open questions/tool/action summaries
-    - and a few paragraphs of prose summary
-  - The compaction transcript payload is passed as a **user** message.
+  - A special compaction **system prompt** requiring a single **semi-structured markdown** block:
+    - Return **exactly one** `<compaction>...</compaction>` block and nothing else.
+    - Inside the block, use headings in the exact order:
+      1) `## Overview`
+      2) `## Intent`
+      3) `## Actions`
+      4) `## Decisions`
+      5) `## Important facts + details`
+      6) `## Open questions`
+      7) `## Next steps`
+    - Must not include tool call ids.
+    - Must not paste raw tool output bodies.
+  - The compaction transcript payload is passed as a **user** message (`<transcript>...</transcript>`).
+
+Notes:
+- The full system prompt used for compaction is logged in an **observed** event for debugging (not committed).
 
 ---
 
@@ -142,16 +159,20 @@ Compaction is a dedicated model call:
 
 Introduce:
 
-- `ObservedCompactionGenerated` — observed result of compaction model call.
-- `CompactionCommitted` — committed durable compaction artifact.
+### Observed (debug)
+- `ObservedThreadCompactionStarted(threadId, model, providerModel, systemPrompt)`
+  - Emitted immediately before the compaction model call.
+  - Stores the **full system prompt** for reproduction/debugging.
+- `ObservedThreadCompactedGenerated(threadId, text)`
+  - Emitted with the model-produced compaction block.
 
-Suggested committed payload fields:
+### Committed (canonical)
+- `ThreadCompacted(text)`
+  - Durable compaction artifact stored in the committed per-thread log.
+  - Serialized as JSONL: `{ "type": "thread_compacted", "text": "..." }`.
 
-- `threadId`
-- `fromEventIndex` / `toEventIndex` (or equivalent stable ids)
-- `modelFriendly` and `providerModel`
-- `structured` (JSON object)
-- `proseSummary` (string)
+Notes:
+- The committed event intentionally stores **only** the compaction text; prompt/debug metadata stays in observed events.
 
 ---
 
@@ -159,7 +180,7 @@ Suggested committed payload fields:
 
 When rendering the next prompt for a thread:
 
-1) If there is a `CompactionCommitted`, render its output as a **system message** at the top (after any always-injected system messages).
+1) If there is a `ThreadCompacted`, render its `text` as a **system message** at the top (after any always-injected system messages).
 2) Append the last `CompactionTailMessageCount` messages verbatim.
 
 ### Special tail rule: tool results without assistant follow-up
@@ -183,7 +204,7 @@ Implementation sketch:
 ### 2) Boundary ordering test
 - When compaction due, assert committed sequence contains:
   - `TurnEnded`
-  - `CompactionCommitted`
+  - `ThreadCompacted`
   - `TurnStarted`
   - and no other committed events between them.
 
@@ -197,6 +218,7 @@ Implementation sketch:
 
 ### 4) Compaction input prompt shape
 - Verify tool outputs are excluded; args + status included.
+- Verify huge file contents in `write_text_file` / `patch_text_file` args are omitted (placeholder) to avoid prompt bloat.
 - Verify chronological ordering preserved.
 
 ### 5) Tail rendering rule
