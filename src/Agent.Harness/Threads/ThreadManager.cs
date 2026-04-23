@@ -51,14 +51,20 @@ public sealed class ThreadManager : IThreadTools
     public ImmutableArray<ThreadInfo> List()
     {
         return _store.ListThreads(_sessionId)
+            .Where(m => string.IsNullOrWhiteSpace(m.ClosedAtIso))
             .Select(m => new ThreadInfo(
                 ThreadId: m.ThreadId,
                 ParentThreadId: m.ParentThreadId,
                 Status: ProjectStatus(m.ThreadId),
+                Mode: m.Mode,
                 Intent: m.Intent,
                 Model: string.IsNullOrWhiteSpace(m.Model) ? "default" : m.Model))
             .ToImmutableArray();
     }
+
+    public ThreadMetadata? TryGetThreadMetadata(string threadId)
+        => _store.TryLoadThreadMetadata(_sessionId, threadId);
+
 
     // Thread lifecycle (create/fork) is owned by ThreadOrchestrator in the unified model.
     // ThreadManager remains as a projector/utility facade over the thread store (list/read/inbox status).

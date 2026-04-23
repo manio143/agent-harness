@@ -186,6 +186,9 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
             // Do not gate execution purely on inbox state: inbox may already have been dequeued/promoted
             // into first-class events (and still require a model call).
             var meta = _threadStore.TryLoadThreadMetadata(_sessionId, threadId);
+            if (meta is not null && !string.IsNullOrWhiteSpace(meta.ClosedAtIso))
+                return;
+
             var parentId = meta?.ParentThreadId;
 
             var tools = GetToolCatalogSnapshot();
@@ -257,10 +260,11 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
     public Task RequestForkChildThreadAsync(
         string parentThreadId,
         string childThreadId,
+        ThreadMode mode,
         ImmutableArray<SessionEvent> seedCommitted,
         CancellationToken cancellationToken = default)
     {
-        return ForkChildThreadAsync(parentThreadId, childThreadId, seedCommitted, cancellationToken);
+        return ForkChildThreadAsync(parentThreadId, childThreadId, mode, seedCommitted, cancellationToken);
     }
 
     public async Task RequestSetThreadModelAsync(
@@ -276,9 +280,35 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         await sink.OnCommittedAsync(new SetModel(model), cancellationToken).ConfigureAwait(false);
     }
 
+    public Task RequestStopThreadAsync(
+        string threadId,
+        string? reason,
+        CancellationToken cancellationToken = default)
+    {
+        var meta = _threadStore.TryLoadThreadMetadata(_sessionId, threadId);
+        if (meta is null)
+            throw new InvalidOperationException($"unknown_thread:{threadId}");
+
+        if (!string.IsNullOrWhiteSpace(meta.ClosedAtIso))
+            return Task.CompletedTask;
+
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        _threadStore.SaveThreadMetadata(_sessionId, meta with
+        {
+            ClosedAtIso = now,
+            ClosedReason = string.IsNullOrWhiteSpace(reason) ? "stopped" : reason,
+            UpdatedAtIso = now,
+        });
+
+        // Best-effort: notify parent immediately, including last assistant message.
+        // (Even if the child is currently running, this provides immediate context.)
+        return NotifyParentThreadStoppedAsync(threadId, cancellationToken);
+    }
+
     private async Task ForkChildThreadAsync(
         string parentThreadId,
         string childThreadId,
+        ThreadMode mode,
         ImmutableArray<SessionEvent> seedCommitted,
         CancellationToken cancellationToken)
     {
@@ -290,6 +320,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
             Intent: null,
             CreatedAtIso: now,
             UpdatedAtIso: now,
+            Mode: mode,
             Model: ResolveModelFromCommitted(seedCommitted),
             CompactionCount: 0);
 
@@ -316,10 +347,16 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
 
     public string GetModel(string threadId) => _threads.GetModel(threadId);
 
+    public ThreadMetadata? TryGetThreadMetadata(string threadId) => _threads.TryGetThreadMetadata(threadId);
+
     private async Task NotifyParentIfChildFullyIdleAsync(string threadId, CancellationToken cancellationToken)
     {
         var meta = _threadStore.TryLoadThreadMetadata(_sessionId, threadId);
         if (meta?.ParentThreadId is null) return;
+
+        // Closed threads are terminal; do not emit idle notifications.
+        if (!string.IsNullOrWhiteSpace(meta.ClosedAtIso))
+            return;
 
         // Only notify if truly nothing pending.
         // "Pending" includes:
@@ -339,6 +376,8 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
             return;
 
         var intent = meta.Intent ?? string.Empty;
+        var lastAssistant = GetLastAssistantMessageText(threadId);
+        var lastAssistantSnippet = Truncate(lastAssistant, maxChars: 500);
 
         // IMPORTANT invariant: committed events MUST only be appended from within the reducer loop.
         // So we do not write to the parent's committed log directly here.
@@ -347,6 +386,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         {
             [ThreadInboxMetaKeys.ChildThreadId] = threadId,
             [ThreadInboxMetaKeys.LastIntent] = intent,
+            ["lastAssistantMessage"] = lastAssistantSnippet,
         });
 
         var arrived = new ObservedInboxMessageArrived(
@@ -357,10 +397,66 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
             EnqueuedAtIso: DateTimeOffset.UtcNow.ToString("O"),
             Source: "thread",
             SourceThreadId: threadId,
-            Text: $"Child thread became idle. Last intent: {intent}",
+            Text: $"Child thread became idle. Last intent: {intent}\nLast assistant: {lastAssistantSnippet}",
             Meta: metaDict);
 
         await ObserveAsync(meta.ParentThreadId, arrived, cancellationToken).ConfigureAwait(false);
 
+        // Single-mode threads are one-shot: once they reach full idle they are closed and removed from the list.
+        if (meta.Mode == ThreadMode.Single)
+        {
+            var now = DateTimeOffset.UtcNow.ToString("O");
+            _threadStore.SaveThreadMetadata(_sessionId, meta with
+            {
+                ClosedAtIso = now,
+                ClosedReason = "completed",
+                UpdatedAtIso = now,
+            });
+        }
+    }
+
+    private Task NotifyParentThreadStoppedAsync(string threadId, CancellationToken cancellationToken)
+    {
+        var meta = _threadStore.TryLoadThreadMetadata(_sessionId, threadId);
+        if (meta?.ParentThreadId is null) return Task.CompletedTask;
+
+        var intent = meta.Intent ?? string.Empty;
+        var reason = meta.ClosedReason ?? "stopped";
+        var lastAssistant = GetLastAssistantMessageText(threadId);
+        var lastAssistantSnippet = Truncate(lastAssistant, maxChars: 500);
+
+        var metaDict = ImmutableDictionary.CreateRange(new Dictionary<string, string>
+        {
+            [ThreadInboxMetaKeys.ChildThreadId] = threadId,
+            [ThreadInboxMetaKeys.LastIntent] = intent,
+            ["closedReason"] = reason,
+            ["lastAssistantMessage"] = lastAssistantSnippet,
+        });
+
+        var arrived = new ObservedInboxMessageArrived(
+            ThreadId: meta.ParentThreadId,
+            Kind: ThreadInboxMessageKind.ThreadIdleNotification,
+            Delivery: InboxDelivery.Immediate,
+            EnvelopeId: ThreadEnvelopes.NewEnvelopeId(),
+            EnqueuedAtIso: DateTimeOffset.UtcNow.ToString("O"),
+            Source: "thread",
+            SourceThreadId: threadId,
+            Text: $"Child thread was stopped. Reason: {reason}. Last intent: {intent}\nLast assistant: {lastAssistantSnippet}",
+            Meta: metaDict);
+
+        return ObserveAsync(meta.ParentThreadId, arrived, cancellationToken);
+    }
+
+    private string GetLastAssistantMessageText(string threadId)
+    {
+        var committed = _threadStore.LoadCommittedEvents(_sessionId, threadId);
+        return committed.OfType<AssistantMessage>().LastOrDefault()?.Text ?? string.Empty;
+    }
+
+    private static string Truncate(string? text, int maxChars)
+    {
+        if (string.IsNullOrEmpty(text)) return string.Empty;
+        if (text.Length <= maxChars) return text;
+        return text.Substring(0, maxChars) + $"… [truncated, original_length={text.Length}]";
     }
 }

@@ -87,6 +87,7 @@ public sealed class ThreadOrchestratorForkSeedsFromProvidedSnapshotIntegrationTe
         await orch.RequestForkChildThreadAsync(
             parentThreadId: ThreadIds.Main,
             childThreadId: childId,
+            mode: ThreadMode.Multi,
             seedCommitted: seed,
             cancellationToken: CancellationToken.None);
 

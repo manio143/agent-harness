@@ -46,6 +46,7 @@ public sealed class JsonlThreadStoreTests
             Intent: null,
             CreatedAtIso: "2026-01-01T00:00:00Z",
             UpdatedAtIso: "2026-01-01T00:00:00Z",
+            Mode: ThreadMode.Multi,
             Model: null);
 
         store.CreateThread("s1", meta);
@@ -66,6 +67,7 @@ public sealed class JsonlThreadStoreTests
             Intent: "do stuff",
             CreatedAtIso: "2026-01-01T00:00:00Z",
             UpdatedAtIso: "2026-01-01T00:00:00Z",
+            Mode: ThreadMode.Multi,
             Model: "alt");
 
         store.SaveThreadMetadata("s1", meta);
@@ -89,6 +91,7 @@ public sealed class JsonlThreadStoreTests
             Intent: null,
             CreatedAtIso: "2026-01-02T00:00:00Z",
             UpdatedAtIso: "2026-01-02T00:00:00Z",
+            Mode: ThreadMode.Multi,
             Model: null));
 
         store.SaveThreadMetadata("s1", new ThreadMetadata(
@@ -97,6 +100,7 @@ public sealed class JsonlThreadStoreTests
             Intent: null,
             CreatedAtIso: "2026-01-01T00:00:00Z",
             UpdatedAtIso: "2026-01-01T00:00:00Z",
+            Mode: ThreadMode.Multi,
             Model: null));
 
         var list = store.ListThreads("s1");

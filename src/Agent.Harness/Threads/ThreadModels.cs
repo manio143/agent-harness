@@ -13,6 +13,12 @@ public enum ThreadStatus
     Idle,
 }
 
+public enum ThreadMode
+{
+    Multi,
+    Single,
+}
+
 /// <summary>
 /// Persisted thread metadata. Treated as a cache/projection artifact; the source of truth is the
 /// committed thread event log (events.jsonl).
@@ -23,8 +29,11 @@ public sealed record ThreadMetadata(
     string? Intent,
     string CreatedAtIso,
     string UpdatedAtIso,
+    ThreadMode Mode,
     string? Model,
-    int CompactionCount = 0);
+    int CompactionCount = 0,
+    string? ClosedAtIso = null,
+    string? ClosedReason = null);
 
 public enum ThreadInboxMessageKind
 {
@@ -45,6 +54,7 @@ public sealed record ThreadInfo(
     string ThreadId,
     string? ParentThreadId,
     ThreadStatus Status,
+    ThreadMode Mode,
     string? Intent,
     string Model);
 

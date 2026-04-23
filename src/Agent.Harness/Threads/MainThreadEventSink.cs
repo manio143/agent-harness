@@ -62,6 +62,7 @@ public sealed class MainThreadEventSink : IEventSink
                         Intent: null,
                         CreatedAtIso: now,
                         UpdatedAtIso: now,
+                        Mode: ThreadMode.Multi,
                         Model: set.Model,
                         CompactionCount: 0)
                     : meta with { Model = set.Model, UpdatedAtIso = now };

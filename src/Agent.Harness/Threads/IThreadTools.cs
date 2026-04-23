@@ -16,4 +16,9 @@ public interface IThreadTools
     /// Return the currently projected model for a thread.
     /// </summary>
     string GetModel(string threadId);
+
+    /// <summary>
+    /// Best-effort metadata lookup used by tool executors for validation (e.g. closed threads).
+    /// </summary>
+    ThreadMetadata? TryGetThreadMetadata(string threadId);
 }

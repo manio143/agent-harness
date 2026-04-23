@@ -20,6 +20,7 @@ public sealed class ThreadReadForkWindowTests
             Intent: null,
             CreatedAtIso: "t0",
             UpdatedAtIso: "t0",
+            Mode: ThreadMode.Multi,
             Model: null));
 
         store.AppendCommittedEvent(sessionId, childId, new UserMessage("before"));
@@ -53,6 +54,7 @@ public sealed class ThreadReadForkWindowTests
             Intent: null,
             CreatedAtIso: "t0",
             UpdatedAtIso: "t0",
+            Mode: ThreadMode.Multi,
             Model: null));
 
         store.AppendCommittedEvent(sessionId, childId, new UserMessage("before"));

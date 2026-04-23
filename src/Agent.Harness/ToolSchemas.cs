@@ -147,11 +147,12 @@ public static class ToolSchemas
           "properties": {
             "name": { "type": "string", "description": "Mandatory unique name/id for the new child thread (unique within the session). Use a short, stable identifier like 'research' or 'fix_deadlock'." },
             "context": { "type": "string", "enum": ["new", "fork"], "description": "Whether to start from empty state or fork the current thread" },
+            "mode": { "type": "string", "enum": ["multi", "single"], "description": "Thread mode. multi: long-lived; can accept multiple tasks/messages. single: one-shot; thread is closed when it becomes idle with an empty inbox." },
             "message": { "type": "string", "description": "Initial message to attach to the child thread" },
             "delivery": { "type": "string", "enum": ["enqueue", "immediate"], "description": "Whether the message should be delivered immediately or enqueued until idle" },
             "model": { "type": "string", "description": "Optional model friendly name for the child thread (or 'default')" }
           },
-          "required": ["name", "context", "message"]
+          "required": ["name", "context", "mode", "message"]
         }
         """));
 
@@ -167,6 +168,20 @@ public static class ToolSchemas
             "delivery": { "type": "string", "enum": ["enqueue", "immediate"], "description": "Whether the message should be delivered immediately or enqueued until idle" }
           },
           "required": ["threadId", "message"]
+        }
+        """));
+
+    public static ToolDefinition ThreadStop { get; } = new(
+        Name: "thread_stop",
+        Description: "Stop/close a thread so it can no longer receive messages and is removed from the thread list.",
+        InputSchema: ParseSchema("""
+        {
+          "type": "object",
+          "properties": {
+            "threadId": { "type": "string", "description": "Thread id to stop" },
+            "reason": { "type": "string", "description": "Optional reason for stopping" }
+          },
+          "required": ["threadId"]
         }
         """));
 

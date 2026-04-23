@@ -145,6 +145,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             ToolSchemas.ThreadConfig,
             ToolSchemas.ThreadStart,
             ToolSchemas.ThreadSend,
+            ToolSchemas.ThreadStop,
             ToolSchemas.ThreadRead);
 
         // Capability-gated built-ins derived from negotiated client capabilities.

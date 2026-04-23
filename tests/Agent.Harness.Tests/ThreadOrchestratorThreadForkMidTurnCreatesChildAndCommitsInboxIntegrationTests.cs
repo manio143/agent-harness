@@ -107,7 +107,7 @@ public sealed class ThreadOrchestratorThreadStartForkMidTurnCreatesChildAndCommi
                         new MeaiFunctionCallContent("call_1", "thread_start", new Dictionary<string, object?>
                         {
                             ["name"] = "child",
-                            ["context"] = "fork",
+                            ["context"] = "fork", ["mode"] = "multi",
                             ["message"] = "child hello",
                             ["delivery"] = "immediate",
                         }),

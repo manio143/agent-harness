@@ -102,6 +102,7 @@ public static class Core
         builder.Add(ToolSchemas.ThreadList);
         builder.Add(ToolSchemas.ThreadStart);
         builder.Add(ToolSchemas.ThreadSend);
+        builder.Add(ToolSchemas.ThreadStop);
         builder.Add(ToolSchemas.ThreadRead);
         builder.Add(ToolSchemas.ThreadConfig);
 

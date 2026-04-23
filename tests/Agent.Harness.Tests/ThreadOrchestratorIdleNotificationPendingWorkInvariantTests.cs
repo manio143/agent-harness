@@ -36,6 +36,7 @@ public sealed class ThreadOrchestratorIdleNotificationPendingWorkInvariantTests
             Intent: "doing work",
             CreatedAtIso: now,
             UpdatedAtIso: now,
+            Mode: ThreadMode.Multi,
             Model: null));
 
         var chat = new MinimalChatClient();

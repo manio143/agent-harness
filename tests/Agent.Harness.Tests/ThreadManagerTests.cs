@@ -122,6 +122,7 @@ public sealed class ThreadManagerTests
             Intent: null,
             CreatedAtIso: "2026-01-01T00:00:00Z",
             UpdatedAtIso: "2026-01-01T00:00:00Z",
+            Mode: ThreadMode.Multi,
             Model: ""));
 
         var mgr = new ThreadManager("s1", store);

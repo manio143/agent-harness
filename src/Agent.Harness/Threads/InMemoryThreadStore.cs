@@ -17,6 +17,7 @@ public sealed class InMemoryThreadStore : IThreadStore, IThreadCommittedEventApp
             Intent: null,
             CreatedAtIso: DateTimeOffset.UtcNow.ToString("O"),
             UpdatedAtIso: DateTimeOffset.UtcNow.ToString("O"),
+            Mode: ThreadMode.Multi,
             Model: null,
             CompactionCount: 0));
     }

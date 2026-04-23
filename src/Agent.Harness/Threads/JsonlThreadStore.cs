@@ -23,6 +23,7 @@ public sealed class JsonlThreadStore : IThreadStore, IThreadCommittedEventAppend
             Intent: null,
             CreatedAtIso: DateTimeOffset.UtcNow.ToString("O"),
             UpdatedAtIso: DateTimeOffset.UtcNow.ToString("O"),
+            Mode: ThreadMode.Multi,
             Model: null,
             CompactionCount: 0));
     }

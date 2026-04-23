@@ -143,6 +143,7 @@ public sealed class SessionTitleMainThreadPersistenceIntegrationTests
             Intent: null,
             CreatedAtIso: DateTimeOffset.UtcNow.ToString("O"),
             UpdatedAtIso: DateTimeOffset.UtcNow.ToString("O"),
+            Mode: ThreadMode.Multi,
             Model: null));
 
         var sink = new ThreadEventSink(sessionId, childThreadId, threads, threads);

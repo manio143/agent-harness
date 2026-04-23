@@ -45,6 +45,7 @@ public sealed class ThreadOrchestratorCommitBoundaryInvariantTests
             Intent: "demo",
             CreatedAtIso: now,
             UpdatedAtIso: now,
+            Mode: ThreadMode.Multi,
             Model: "default"));
 
         // Run child once (it will stabilize/end and then notify parent).

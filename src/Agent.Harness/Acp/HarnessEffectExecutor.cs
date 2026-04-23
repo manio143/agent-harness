@@ -81,6 +81,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
             new ToolCallingPolicySystemPromptContributor(),
             new SessionEnvelopeSystemPromptContributor(),
             new ThreadEnvelopeSystemPromptContributor(),
+            new ThreadingGuidanceSystemPromptContributor(),
         });
         _threadTools = threadTools;
         _observer = observer;

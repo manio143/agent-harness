@@ -50,6 +50,7 @@ public sealed class ThreadOrchestratorSingleInFlightModelCallChildIntegrationTes
         await orchestrator.RequestForkChildThreadAsync(
             parentThreadId: ThreadIds.Main,
             childThreadId: childId,
+            mode: ThreadMode.Multi,
             seedCommitted: ImmutableArray<SessionEvent>.Empty,
             cancellationToken: CancellationToken.None);
 

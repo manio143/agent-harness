@@ -7,7 +7,13 @@ public interface IThreadLifecycle
     Task RequestForkChildThreadAsync(
         string parentThreadId,
         string childThreadId,
+        ThreadMode mode,
         ImmutableArray<SessionEvent> seedCommitted,
+        CancellationToken cancellationToken = default);
+
+    Task RequestStopThreadAsync(
+        string threadId,
+        string? reason,
         CancellationToken cancellationToken = default);
 
     Task RequestSetThreadModelAsync(

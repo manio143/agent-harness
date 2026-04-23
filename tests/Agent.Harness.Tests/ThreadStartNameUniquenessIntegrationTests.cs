@@ -84,7 +84,7 @@ public sealed class ThreadStartNameUniquenessIntegrationTests
             isKnownModel: null,
             threadId: ThreadIds.Main);
 
-        var args = new { name = "child", context = "new", message = "do work", delivery = "immediate" };
+        var args = new { name = "child", context = "new", mode = "multi", message = "do work", delivery = "immediate" };
 
         // Act
         var first = await exec.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t1", "thread_start", args), CancellationToken.None);

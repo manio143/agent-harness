@@ -59,6 +59,7 @@ public sealed class ThreadCompactionCountProjectionTests
             Intent: null,
             CreatedAtIso: "now",
             UpdatedAtIso: "now",
+            Mode: ThreadMode.Multi,
             Model: "default",
             CompactionCount: 0));
 

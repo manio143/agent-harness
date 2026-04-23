@@ -15,6 +15,7 @@ public sealed class ThreadEnvelopeSystemPromptContributorTests
             Intent: null,
             CreatedAtIso: "2026-01-01T00:00:00Z",
             UpdatedAtIso: "2026-01-01T00:00:00Z",
+            Mode: ThreadMode.Multi,
             Model: null,
             CompactionCount: 2);
 
@@ -28,5 +29,6 @@ public sealed class ThreadEnvelopeSystemPromptContributorTests
         var frag = new ThreadEnvelopeSystemPromptContributor().Build(ctx).Single();
 
         frag.Content.Should().Contain("\"compactionCount\":2");
+        frag.Content.Should().Contain("\"mode\":\"multi\"");
     }
 }

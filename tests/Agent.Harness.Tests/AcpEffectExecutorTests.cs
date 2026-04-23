@@ -66,10 +66,14 @@ public sealed class HarnessEffectExecutorTests
         actual[2].Text.Should().Contain("<thread>");
         actual[2].Text.Should().Contain("\"createdAtIso\":\"t-threads\"");
 
-        actual.Length.Should().Be(expected.Length + 3);
+        actual[3].Role.Should().Be(Microsoft.Extensions.AI.ChatRole.System);
+        actual[3].Text.Should().Contain("<threading>");
+        actual[3].Text.Should().Contain("Thread modes");
+
+        actual.Length.Should().Be(expected.Length + 4);
         for (var i = 0; i < expected.Length; i++)
         {
-            actual[i + 3].Role.Should().Be(expected[i]);
+            actual[i + 4].Role.Should().Be(expected[i]);
         }
     }
 

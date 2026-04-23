@@ -122,7 +122,7 @@ public sealed class EngineChildThreadIdleNotificationIntegrationTests
                     Contents = new List<MeaiAIContent>
                     {
                         new MeaiFunctionCallContent("call_mhi_0", "report_intent", new Dictionary<string, object?> { ["intent"] = "create child" }),
-                        new MeaiFunctionCallContent("call_mhi_1", "thread_start", new Dictionary<string, object?> { ["name"] = "child", ["context"] = "fork", ["message"] = "do work", ["delivery"] = "immediate" }),
+                        new MeaiFunctionCallContent("call_mhi_1", "thread_start", new Dictionary<string, object?> { ["name"] = "child", ["context"] = "fork", ["mode"] = "multi", ["message"] = "do work", ["delivery"] = "immediate" }),
                     }
                 };
                 await Task.CompletedTask;

@@ -25,6 +25,8 @@ public sealed class ToolExecutorCoverageTests
         public ImmutableArray<Agent.Harness.Threads.ThreadMessage> ReadThreadMessages(string threadId) => Messages;
 
         public string GetModel(string threadId) => "default";
+
+        public Agent.Harness.Threads.ThreadMetadata? TryGetThreadMetadata(string threadId) => null;
     }
 
     private sealed class CapturingObserver : Agent.Harness.Threads.IThreadObserver
@@ -35,10 +37,13 @@ public sealed class ToolExecutorCoverageTests
 
     private sealed class CapturingLifecycle : Agent.Harness.Threads.IThreadLifecycle
     {
-        public Task RequestForkChildThreadAsync(string parentThreadId, string childThreadId, ImmutableArray<SessionEvent> seed, CancellationToken cancellationToken)
+        public Task RequestForkChildThreadAsync(string parentThreadId, string childThreadId, Agent.Harness.Threads.ThreadMode mode, ImmutableArray<SessionEvent> seed, CancellationToken cancellationToken)
             => Task.CompletedTask;
 
         public Task RequestSetThreadModelAsync(string threadId, string model, CancellationToken cancellationToken)
+            => Task.CompletedTask;
+
+        public Task RequestStopThreadAsync(string threadId, string? reason, CancellationToken cancellationToken)
             => Task.CompletedTask;
     }
 
@@ -142,7 +147,7 @@ public sealed class ToolExecutorCoverageTests
 
         var obs = await exec.ExecuteAsync(
             SessionState.Empty,
-            new ExecuteToolCall("t1", "thread_start", new { name = "child", context = "bad", message = "hi" }),
+            new ExecuteToolCall("t1", "thread_start", new { name = "child", context = "bad", mode = "multi", message = "hi" }),
             CancellationToken.None);
 
         obs.OfType<ObservedToolCallFailed>().Single().Error.Should().Be("thread_start.invalid_context");
@@ -172,7 +177,7 @@ public sealed class ToolExecutorCoverageTests
     {
         var tools = new CapturingThreadTools
         {
-            Threads = ImmutableArray.Create(new Agent.Harness.Threads.ThreadInfo("thr_1", ParentThreadId: null, Status: Agent.Harness.Threads.ThreadStatus.Idle, Intent: null, Model: "default")),
+            Threads = ImmutableArray.Create(new Agent.Harness.Threads.ThreadInfo("thr_1", ParentThreadId: null, Status: Agent.Harness.Threads.ThreadStatus.Idle, Mode: Agent.Harness.Threads.ThreadMode.Multi, Intent: null, Model: "default")),
             Messages = ImmutableArray.Create(new Agent.Harness.Threads.ThreadMessage(Role: "assistant", Text: "hi")),
         };
 

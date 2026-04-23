@@ -18,6 +18,7 @@ public sealed class ThreadEnvelopeSystemPromptContributor : ISystemPromptContrib
             threadId = meta.ThreadId,
             parentThreadId = meta.ParentThreadId,
             createdAtIso = meta.CreatedAtIso,
+            mode = meta.Mode.ToString().ToLowerInvariant(),
             compactionCount = meta.CompactionCount,
         }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 

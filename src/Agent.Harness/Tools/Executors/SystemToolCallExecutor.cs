@@ -29,7 +29,7 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
     }
 
     public bool CanExecute(string toolName)
-        => toolName is "report_intent" or "thread_list" or "thread_read" or "thread_send" or "thread_start" or "thread_config";
+        => toolName is "report_intent" or "thread_list" or "thread_read" or "thread_send" or "thread_stop" or "thread_start" or "thread_config";
 
     public async Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, ExecuteToolCall tool, CancellationToken cancellationToken)
     {
@@ -111,8 +111,16 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
                 {
                     var name = GetRequiredString(args, "name");
                     var context = GetRequiredString(args, "context");
+                    var modeText = GetRequiredString(args, "mode");
                     var message = GetRequiredString(args, "message");
                     var delivery = ParseDelivery(args);
+
+                    var mode = modeText switch
+                    {
+                        "multi" => Agent.Harness.Threads.ThreadMode.Multi,
+                        "single" => Agent.Harness.Threads.ThreadMode.Single,
+                        _ => throw new InvalidOperationException("thread_start.invalid_mode"),
+                    };
 
                     if (!IsValidThreadName(name))
                         throw new InvalidOperationException("thread_start.invalid_name");
@@ -137,6 +145,7 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
                     await _lifecycle.RequestForkChildThreadAsync(
                         _threadId,
                         id,
+                        mode,
                         seed,
                         cancellationToken).ConfigureAwait(false);
 
@@ -176,6 +185,19 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
                     var message = GetRequiredString(args, "message");
                     var delivery = ParseDelivery(args);
 
+                    if (threadId != _threadId)
+                    {
+                        if (_threadTools is null)
+                            throw new InvalidOperationException("thread_tools_require_orchestrator");
+
+                        var meta = _threadTools.TryGetThreadMetadata(threadId);
+                        if (meta is null)
+                            throw new InvalidOperationException($"unknown_thread:{threadId}");
+
+                        if (!string.IsNullOrWhiteSpace(meta.ClosedAtIso))
+                            throw new InvalidOperationException($"thread_closed:{threadId}");
+                    }
+
                     var inboxArrived = Agent.Harness.Threads.ThreadInboxArrivals.InterThreadMessage(
                         threadId: threadId,
                         text: message,
@@ -203,6 +225,20 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
 
                     return ImmutableArray.Create<ObservedChatEvent>(
                         new ObservedToolCallCompleted(tool.ToolId, JsonSerializer.SerializeToElement(new { ok = true })));
+                }
+
+                case "thread_stop":
+                {
+                    var threadId = GetRequiredString(args, "threadId");
+                    var reason = args.TryGetValue("reason", out var r) && r.ValueKind == JsonValueKind.String ? r.GetString() : null;
+
+                    if (_lifecycle is null)
+                        throw new InvalidOperationException("thread_tools_require_orchestrator");
+
+                    await _lifecycle.RequestStopThreadAsync(threadId, reason, cancellationToken).ConfigureAwait(false);
+
+                    return ImmutableArray.Create<ObservedChatEvent>(
+                        new ObservedToolCallCompleted(tool.ToolId, JsonSerializer.SerializeToElement(new { ok = true, threadId })));
                 }
 
                 default:

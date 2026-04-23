@@ -31,7 +31,18 @@ public sealed class HarnessEffectExecutorThreadToolRequiresOrchestratorTests
             CreatedAtIso: "t0",
             UpdatedAtIso: "t1"));
 
-        var threads = new ThreadManager("s1", new InMemoryThreadStore());
+        var threadStore = new InMemoryThreadStore();
+        threadStore.CreateMainIfMissing("s1");
+        threadStore.CreateThread("s1", new ThreadMetadata(
+            ThreadId: "thr_x",
+            ParentThreadId: ThreadIds.Main,
+            Intent: null,
+            CreatedAtIso: "t0",
+            UpdatedAtIso: "t0",
+            Mode: ThreadMode.Multi,
+            Model: "default"));
+
+        var threads = new ThreadManager("s1", threadStore);
 
         // Intentionally omit scheduler/orchestrator to verify we don't fall back to ThreadManager.Send.
         var exec = new HarnessEffectExecutor("s1", new FakeCaller(), new NoopChatClient(), store: store, threadTools: threads, scheduler: null);
