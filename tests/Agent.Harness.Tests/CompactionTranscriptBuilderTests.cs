@@ -28,6 +28,26 @@ public sealed class CompactionTranscriptBuilderTests
     }
 
     [Fact]
+    public void Build_WhenWriteTextFileHasHugeContent_OmitsLargeContentFromArgs()
+    {
+        var huge = new string('x', 10_000);
+
+        var committed = ImmutableArray.Create<SessionEvent>(
+            new UserMessage("hi"),
+            new ToolCallRequested("call_1", "write_text_file", J(new { path = "/tmp/a.txt", content = huge })),
+            new ToolCallCompleted("call_1", J(new { ok = true })),
+            new AssistantMessage("ok"));
+
+        var text = CompactionTranscriptBuilder.Build(committed);
+
+        text.Should().Contain("write_text_file");
+        text.Should().Contain("/tmp/a.txt");
+        text.Should().NotContain(huge);
+        // JSON escapes '<' as '\u003C' in raw text.
+        text.Should().Contain("omitted length=10000");
+    }
+
+    [Fact]
     public void Build_WhenPriorCompactionExists_StartsAfterLastThreadCompacted()
     {
         var committed = ImmutableArray.Create<SessionEvent>(

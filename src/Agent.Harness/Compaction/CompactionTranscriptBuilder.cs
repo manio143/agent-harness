@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Agent.Harness.Compaction;
 
@@ -40,7 +41,7 @@ public static class CompactionTranscriptBuilder
                     break;
 
                 case ToolCallRequested r:
-                    sb.AppendLine($"tool_call: id={r.ToolId} name={r.ToolName} args={Json(r.Args)}");
+                    sb.AppendLine($"tool_call: id={r.ToolId} name={r.ToolName} args={Json(SummarizeArgsIfNeeded(r.ToolName, r.Args))}");
                     break;
 
                 case ToolCallCompleted c:
@@ -76,6 +77,72 @@ public static class CompactionTranscriptBuilder
         catch
         {
             return el.ToString();
+        }
+    }
+
+    private const int MaxLargeStringChars = 2000;
+
+    private static JsonElement SummarizeArgsIfNeeded(string toolName, JsonElement args)
+    {
+        // Only skip large file contents for known file-writing tools.
+        // For all other tools (including MCP tools), args are preserved as-is.
+        if (!string.Equals(toolName, ToolSchemas.WriteTextFile.Name, StringComparison.Ordinal) &&
+            !string.Equals(toolName, ToolSchemas.PatchTextFile.Name, StringComparison.Ordinal))
+            return args;
+
+        try
+        {
+            var node = JsonNode.Parse(args.GetRawText());
+            if (node is not JsonObject obj)
+                return args;
+
+            if (string.Equals(toolName, ToolSchemas.WriteTextFile.Name, StringComparison.Ordinal))
+            {
+                if (obj["content"] is JsonValue v && v.TryGetValue<string>(out var content) && content is not null && content.Length > MaxLargeStringChars)
+                    obj["content"] = $"<omitted length={content.Length}>";
+            }
+
+            if (string.Equals(toolName, ToolSchemas.PatchTextFile.Name, StringComparison.Ordinal))
+            {
+                // Patch payload can be large: omit large strings inside edits.
+                TruncateLargeStrings(obj);
+            }
+
+            return JsonSerializer.SerializeToElement(obj);
+        }
+        catch
+        {
+            return args;
+        }
+
+        static void TruncateLargeStrings(JsonNode? node)
+        {
+            switch (node)
+            {
+                case JsonObject o:
+                    foreach (var key in o.Select(kvp => kvp.Key).ToArray())
+                    {
+                        var child = o[key];
+                        if (child is JsonValue v && v.TryGetValue<string>(out var s) && s is not null && s.Length > MaxLargeStringChars)
+                            o[key] = $"<omitted length={s.Length}>";
+                        else
+                            TruncateLargeStrings(child);
+                    }
+
+                    break;
+
+                case JsonArray a:
+                    for (var i = 0; i < a.Count; i++)
+                    {
+                        var child = a[i];
+                        if (child is JsonValue v && v.TryGetValue<string>(out var s) && s is not null && s.Length > MaxLargeStringChars)
+                            a[i] = $"<omitted length={s.Length}>";
+                        else
+                            TruncateLargeStrings(child);
+                    }
+
+                    break;
+            }
         }
     }
 }
