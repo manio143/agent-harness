@@ -130,6 +130,10 @@ public static class Core
                     {
                         IntentReportedThisTurn = false,
                         TurnStartedFromIdle = startedFromIdle,
+                        CompactionDue = false,
+                        // ContinuationPending may be set by the previous turn to request an immediate
+                        // continuation after an inter-turn operation (e.g., compaction). Do not clear it here.
+                        CompactionSuppressedThisTurn = state.Committed.LastOrDefault() is CompactionCommitted,
                     }
                 };
 
@@ -266,6 +270,7 @@ public static class Core
 
                 // Compaction trigger (latched per turn). Unknown limit => no compaction.
                 if (!next.Buffer.CompactionDue &&
+                    !next.Buffer.CompactionSuppressedThisTurn &&
                     usage.TotalTokens is not null &&
                     !string.IsNullOrWhiteSpace(usage.ProviderModel) &&
                     options.ContextWindowTokensByProviderModel?.Invoke(usage.ProviderModel!) is { } limit &&

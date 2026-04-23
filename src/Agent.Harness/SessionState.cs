@@ -24,7 +24,8 @@ public sealed record TurnBuffer(
     bool IntentReportedThisTurn,
     bool TurnStartedFromIdle,
     bool CompactionDue = false,
-    bool ContinuationPending = false)
+    bool ContinuationPending = false,
+    bool CompactionSuppressedThisTurn = false)
 {
     public static TurnBuffer Empty { get; } = new(
         AssistantText: "",
@@ -36,7 +37,8 @@ public sealed record TurnBuffer(
         IntentReportedThisTurn: true,
         TurnStartedFromIdle: false,
         CompactionDue: false,
-        ContinuationPending: false);
+        ContinuationPending: false,
+        CompactionSuppressedThisTurn: false);
 }
 
 public sealed record ReduceResult(
