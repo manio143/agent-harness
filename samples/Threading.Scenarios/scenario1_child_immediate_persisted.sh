@@ -32,15 +32,21 @@ Allowed tools: report_intent, thread_start.
 Tool rules:
 - You may call at most 2 tools per invocation.
 - If you call any tools, you MUST call report_intent first, then thread_start.
-- Do NOT call thread_start more than once in this request.
+- When calling thread_start you MUST include: "mode":"single". Copy the arguments EXACTLY.
 
 Rules (apply in order):
-1) If the history already contains a tool result for thread_start:
+1) If the history contains a successful tool result for thread_start (it includes a "threadId"):
    - You MUST NOT call any tools.
    - Output EXACTLY: OK
    - Stop.
 
-2) Else (first invocation):
+2) Else if the history shows thread_start failed with "missing_required:mode":
+   - Call tool report_intent with arguments: {"intent":"retry thread_start with mode"}.
+   - Then call tool thread_start with arguments: {"name":"perm_boundary","context":"new","mode":"single","delivery":"immediate","message":"In 1 paragraph, explain how the tool catalog acts as the permission boundary in this harness. Do NOT call any tools. Do NOT ask questions."}.
+   - Then output EXACTLY: OK
+   - Stop.
+
+3) Else (first invocation):
    - Call tool report_intent with arguments: {"intent":"create child"}.
    - Then call tool thread_start with arguments: {"name":"perm_boundary","context":"new","mode":"single","delivery":"immediate","message":"In 1 paragraph, explain how the tool catalog acts as the permission boundary in this harness. Do NOT call any tools. Do NOT ask questions."}.
    - Then output EXACTLY: OK
@@ -55,10 +61,10 @@ if [[ "$TURN1_CODE" != "0" ]]; then
 fi
 
 THREADS_DIR=".agent/sessions/$SESSION_ID/threads"
-CHILD_ID="$(echo "$TURN1_OUT" | rg -o '"threadId":\s*"[^"]+"' | tail -n 1 | sed 's/"threadId":\s*"//; s/"$//')"
+CHILD_ID="$(echo "$TURN1_OUT" | rg -o '"threadId":\s*"[^"]+"' | tail -n 1 | sed 's/"threadId":\s*"//; s/"$//' || true)"
 
 if [[ -z "$CHILD_ID" ]]; then
-  echo "Failed to parse child threadId from Turn 1 output" >&2
+  echo "Failed to parse child threadId from Turn 1 output (model likely did not call thread_start)." >&2
   exit 1
 fi
 
@@ -77,15 +83,33 @@ echo "---"
 
 # Turn 2: read child explicitly.
 acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
-  "You MUST follow these rules exactly:
-1) You may call at most 2 tools in this turn.
-2) You may ONLY call: report_intent, thread_read.
-3) You MUST NOT call any other tools (especially thread_start, thread_send, thread_list).
-4) After the 2 tool calls complete, output EXACTLY: DONE (nothing else).
+  "You MUST follow these rules exactly.
 
-Now do the work:
-Call tool report_intent with arguments: {\"intent\":\"read child\"}.
-The child threadId is: $CHILD_ID.
-Then call tool thread_read with arguments: {\"threadId\":\"${CHILD_ID}\"}.
-Then paste the child assistant message text verbatim.
-Then output EXACTLY: DONE"
+This single request may invoke you MULTIPLE TIMES. Each time you are invoked, inspect the conversation history and follow the FIRST matching rule.
+
+Allowed tools: report_intent, thread_read.
+Tool rules:
+- You may call at most 2 tools per invocation.
+- If you call any tools, you MUST call report_intent first, then thread_read.
+- When calling thread_read you MUST include: \"threadId\":\"$CHILD_ID\". Copy the arguments EXACTLY.
+
+Rules (apply in order):
+1) If the history contains a successful tool result for thread_read (it includes a \"messages\" array):
+   - You MUST NOT call any tools.
+   - Paste the child assistant message text verbatim.
+   - Then output EXACTLY: DONE
+   - Stop.
+
+2) Else if the history shows thread_read failed with \"missing_required:threadId\":
+   - Call tool report_intent with arguments: {\"intent\":\"retry thread_read with threadId\"}.
+   - Then call tool thread_read with arguments: {\"threadId\":\"$CHILD_ID\"}.
+   - Then paste the child assistant message text verbatim.
+   - Then output EXACTLY: DONE
+   - Stop.
+
+3) Else:
+   - Call tool report_intent with arguments: {\"intent\":\"read child\"}.
+   - Then call tool thread_read with arguments: {\"threadId\":\"$CHILD_ID\"}.
+   - Then paste the child assistant message text verbatim.
+   - Then output EXACTLY: DONE
+   - Stop."
