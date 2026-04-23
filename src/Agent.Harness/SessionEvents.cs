@@ -63,7 +63,11 @@ public sealed record ModelInvoked(ImmutableArray<ChatMessage> RenderedMessages) 
 // Token usage reported by the underlying provider (when available).
 public sealed record TokenUsage(long? InputTokens, long? OutputTokens, long? TotalTokens, string? ProviderModel = null) : SessionEvent;
 
-public sealed record CompactionCommitted(JsonElement Structured, string ProseSummary) : SessionEvent;
+/// <summary>
+/// A compaction boundary marker containing the compaction text produced by the compactor.
+/// Stored in the committed event log and injected into subsequent prompts.
+/// </summary>
+public sealed record ThreadCompacted(string Text) : SessionEvent;
 
 // --- Turn lifecycle ---
 // Invariant: TurnStart is informative only; TurnEnd is committed when the core decides the turn has stabilized.

@@ -133,7 +133,7 @@ public static class Core
                         CompactionDue = false,
                         // ContinuationPending may be set by the previous turn to request an immediate
                         // continuation after an inter-turn operation (e.g., compaction). Do not clear it here.
-                        CompactionSuppressedThisTurn = state.Committed.LastOrDefault() is CompactionCommitted,
+                        CompactionSuppressedThisTurn = state.Committed.LastOrDefault() is ThreadCompacted,
                     }
                 };
 
@@ -284,15 +284,15 @@ public static class Core
                 return new ReduceResult(next, ImmutableArray.Create<SessionEvent>(evtUsage), ImmutableArray<Effect>.Empty);
             }
 
-            case ObservedCompactionGenerated compacted:
+            case ObservedThreadCompactedGenerated compacted:
             {
-                var compaction = new CompactionCommitted(compacted.Structured, compacted.ProseSummary);
-                var committed = state.Committed.Add(compaction);
+                var compactedEvt = new ThreadCompacted(compacted.Text);
+                var committed = state.Committed.Add(compactedEvt);
 
                 // Once we have compacted, compaction is no longer due. (ContinuationPending is handled at turn start.)
                 var next = state with { Committed = committed, Buffer = state.Buffer with { CompactionDue = false } };
 
-                return new ReduceResult(next, ImmutableArray.Create<SessionEvent>(compaction), ImmutableArray<Effect>.Empty);
+                return new ReduceResult(next, ImmutableArray.Create<SessionEvent>(compactedEvt), ImmutableArray<Effect>.Empty);
             }
 
             case ObservedTurnStabilized stabilized:

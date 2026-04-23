@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Agent.Harness.Compaction;
 using FluentAssertions;
 
@@ -7,49 +6,40 @@ namespace Agent.Harness.Tests;
 public sealed class CompactionResponseParserTests
 {
     [Fact]
-    public void Parse_WhenLeadingTextExists_ExtractsJsonObject()
+    public void Parse_WhenCompactionBlockExists_ExtractsIt()
     {
         var text = """
-<think>
-reasoning
-</think>
+noise
+<compaction>
+## Overview
+X
+</compaction>
+more noise
+""";
 
+        var parsed = CompactionResponseParser.Parse(text);
+
+        parsed.Should().Be("<compaction>\n## Overview\nX\n</compaction>");
+    }
+
+    [Fact]
+    public void Parse_WhenJsonWithProseSummaryExists_UsesProseSummary()
+    {
+        var text = """
 {
   "structured": { "a": 1 },
   "proseSummary": "ok"
 }
 """;
 
-        var (structured, prose) = CompactionResponseParser.Parse(text);
+        var parsed = CompactionResponseParser.Parse(text);
 
-        structured.GetProperty("a").GetInt32().Should().Be(1);
-        prose.Should().Be("ok");
+        parsed.Should().Be("ok");
     }
 
     [Fact]
-    public void Parse_WhenReasoningContainsExampleBraces_PicksJsonObjectWithStructuredProseSummary()
+    public void Parse_WhenNotStructured_FallsBackToTrimmedText()
     {
-        var text = """
-<think>
-Here is an example: structured: { not json }
-And another block: { "notOurSchema": true }
-</think>
-
-{"structured": {"a": 2}, "proseSummary": "ok2"}
-""";
-
-        var (structured, prose) = CompactionResponseParser.Parse(text);
-
-        structured.GetProperty("a").GetInt32().Should().Be(2);
-        prose.Should().Be("ok2");
-    }
-
-    [Fact]
-    public void Parse_WhenNotJson_FallsBackToRawTextSummary()
-    {
-        var (structured, prose) = CompactionResponseParser.Parse("not json");
-
-        structured.ValueKind.Should().Be(JsonValueKind.Object);
-        prose.Should().Be("not json");
+        CompactionResponseParser.Parse("  hi  ").Should().Be("hi");
     }
 }

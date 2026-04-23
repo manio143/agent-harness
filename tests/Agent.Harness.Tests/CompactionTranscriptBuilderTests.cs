@@ -28,11 +28,11 @@ public sealed class CompactionTranscriptBuilderTests
     }
 
     [Fact]
-    public void Build_WhenPriorCompactionExists_StartsAfterLastCompactionCommitted()
+    public void Build_WhenPriorCompactionExists_StartsAfterLastThreadCompacted()
     {
         var committed = ImmutableArray.Create<SessionEvent>(
             new UserMessage("old"),
-            new CompactionCommitted(JsonSerializer.SerializeToElement(new { s = 1 }), "old summary"),
+            new ThreadCompacted("<compaction>old</compaction>"),
             new UserMessage("new"));
 
         var text = CompactionTranscriptBuilder.Build(committed);

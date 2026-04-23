@@ -47,17 +47,16 @@ public static class MeaiPromptRenderer
         var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         var messages = new List<Microsoft.Extensions.AI.ChatMessage>();
 
-        var lastCompaction = state.Committed.OfType<CompactionCommitted>().LastOrDefault();
+        // Compaction memory is rendered as a system message. Always-injected system fragments
+        // (model catalog, thread envelope, etc.) are prepended later by the executor.
+        //
+        // Back-compat: if older sessions still contain CompactionCommitted, prefer ThreadCompacted.
+        var lastCompaction = state.Committed.OfType<ThreadCompacted>().LastOrDefault();
         if (lastCompaction is not null)
         {
-            // Compaction summary is rendered as a system message. Always-injected system fragments
-            // (model catalog, thread envelope, etc.) are prepended later by the executor.
-            var structured = SafeRawJson(lastCompaction.Structured);
-            var prose = lastCompaction.ProseSummary ?? string.Empty;
-
             messages.Add(new Microsoft.Extensions.AI.ChatMessage(
                 Microsoft.Extensions.AI.ChatRole.System,
-                $"<compaction>\n<structured>{structured}</structured>\n<summary>{prose}</summary>\n</compaction>"));
+                lastCompaction.Text ?? string.Empty));
 
             // Tail selection: last N user/assistant messages, plus tool-call tail if tool results exist
             // after the last assistant message (no assistant follow-up).
@@ -100,8 +99,8 @@ public static class MeaiPromptRenderer
 
             foreach (var evt in state.Committed.Skip(tailStart))
             {
-                // The summary is already injected.
-                if (evt is CompactionCommitted)
+                // The compaction memory is already injected.
+                if (evt is ThreadCompacted)
                     continue;
 
                 RenderEvent(messages, evt, json, maxTailMessageChars);

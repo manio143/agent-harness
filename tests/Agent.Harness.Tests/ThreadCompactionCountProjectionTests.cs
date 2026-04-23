@@ -26,7 +26,7 @@ public sealed class ThreadCompactionCountProjectionTests
     }
 
     [Fact]
-    public async Task MainThreadEventSink_WhenCompactionCommitted_IncrementsCompactionCount()
+    public async Task MainThreadEventSink_WhenThreadCompacted_IncrementsCompactionCount()
     {
         var store = new InMemoryThreadStore();
         var sessionStore = new FakeSessionStore();
@@ -43,14 +43,14 @@ public sealed class ThreadCompactionCountProjectionTests
         var before = store.TryLoadThreadMetadata("s1", ThreadIds.Main)!;
         before.CompactionCount.Should().Be(0);
 
-        await sink.OnCommittedAsync(new CompactionCommitted(JsonSerializer.SerializeToElement(new { a = 1 }), "x"));
+        await sink.OnCommittedAsync(new ThreadCompacted("<compaction>x</compaction>"));
 
         var after = store.TryLoadThreadMetadata("s1", ThreadIds.Main)!;
         after.CompactionCount.Should().Be(1);
     }
 
     [Fact]
-    public async Task ThreadEventSink_WhenCompactionCommitted_IncrementsCompactionCount()
+    public async Task ThreadEventSink_WhenThreadCompacted_IncrementsCompactionCount()
     {
         var store = new InMemoryThreadStore();
         store.CreateThread("s1", new ThreadMetadata(
@@ -64,7 +64,7 @@ public sealed class ThreadCompactionCountProjectionTests
 
         var sink = new ThreadEventSink("s1", "t1", store, store);
 
-        await sink.OnCommittedAsync(new CompactionCommitted(JsonSerializer.SerializeToElement(new { a = 1 }), "x"), CancellationToken.None);
+        await sink.OnCommittedAsync(new ThreadCompacted("<compaction>x</compaction>"), CancellationToken.None);
 
         var after = store.TryLoadThreadMetadata("s1", "t1")!;
         after.CompactionCount.Should().Be(1);

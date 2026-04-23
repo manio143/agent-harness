@@ -26,7 +26,7 @@ public static class SessionEventJson
 
             TokenUsage u => new { type = "token_usage", inputTokens = u.InputTokens, outputTokens = u.OutputTokens, totalTokens = u.TotalTokens, providerModel = u.ProviderModel },
 
-            CompactionCommitted c => new { type = "compaction_committed", structured = c.Structured, proseSummary = c.ProseSummary },
+            ThreadCompacted c => new { type = "thread_compacted", text = c.Text },
 
             ToolCallRequested r => new { type = "tool_call_requested", toolId = r.ToolId, toolName = r.ToolName, args = r.Args },
             ToolCallPermissionApproved a => new { type = "tool_call_permission_approved", toolId = a.ToolId, reason = a.Reason },
@@ -147,10 +147,14 @@ public static class SessionEventJson
                     ProviderModel: ReadOptionalString(root, "providerModel"));
             }
 
+            case "thread_compacted":
+                return new ThreadCompacted(
+                    Text: root.GetProperty("text").GetString() ?? string.Empty);
+
+            // Back-compat: older logs used compaction_committed. Preserve proseSummary as text.
             case "compaction_committed":
-                return new CompactionCommitted(
-                    Structured: root.GetProperty("structured").Clone(),
-                    ProseSummary: root.GetProperty("proseSummary").GetString() ?? string.Empty);
+                return new ThreadCompacted(
+                    Text: root.GetProperty("proseSummary").GetString() ?? string.Empty);
 
             case "tool_call_requested":
                 return new ToolCallRequested(

@@ -15,7 +15,7 @@ public sealed class MeaiPromptRendererTruncationTests
         var state = SessionState.Empty with
         {
             Committed = ImmutableArray.Create<SessionEvent>(
-                new CompactionCommitted(System.Text.Json.JsonSerializer.SerializeToElement(new { s = 1 }), "sum"),
+                new ThreadCompacted("<compaction>sum</compaction>"),
                 new UserMessage(huge))
         };
 

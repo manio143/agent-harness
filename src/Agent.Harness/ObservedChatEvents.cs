@@ -60,7 +60,21 @@ public sealed record ObservedAssistantMessageCompleted(string? FinishReason = nu
 // Emitted by the MEAI streaming layer when the provider reports token usage.
 public sealed record ObservedTokenUsage(long? InputTokens, long? OutputTokens, long? TotalTokens, string? ProviderModel = null) : ObservedChatEvent;
 
-public sealed record ObservedCompactionGenerated(JsonElement Structured, string ProseSummary) : ObservedChatEvent;
+/// <summary>
+/// Debug observation emitted before a compaction model call.
+/// Carries the system prompt used so compaction runs can be reproduced.
+/// </summary>
+public sealed record ObservedThreadCompactionStarted(
+    string ThreadId,
+    string Model,
+    string? ProviderModel,
+    string SystemPrompt) : ObservedChatEvent;
+
+/// <summary>
+/// Compaction model produced a compaction block.
+/// The reducer commits a <see cref="ThreadCompacted"/> event.
+/// </summary>
+public sealed record ObservedThreadCompactedGenerated(string ThreadId, string Text) : ObservedChatEvent;
 
 // --- Tool Call Observations ---
 // Invariant: These are fed TO the reducer from the imperative shell (SessionRunner, model provider).

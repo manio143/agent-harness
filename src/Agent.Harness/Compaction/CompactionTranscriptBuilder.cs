@@ -14,11 +14,11 @@ public static class CompactionTranscriptBuilder
 {
     public static string Build(ImmutableArray<SessionEvent> committed)
     {
-        // Range: start after last CompactionCommitted (if any)
+        // Range: start after last ThreadCompacted (if any)
         var start = 0;
         for (var i = committed.Length - 1; i >= 0; i--)
         {
-            if (committed[i] is CompactionCommitted)
+            if (committed[i] is ThreadCompacted)
             {
                 start = i + 1;
                 break;

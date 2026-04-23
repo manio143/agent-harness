@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Text.Json;
 using Agent.Harness;
 using Agent.Harness.Llm;
 using FluentAssertions;
@@ -9,17 +8,15 @@ namespace Agent.Harness.Tests;
 
 public sealed class MeaiPromptRendererCompactionTests
 {
-    private static JsonElement J(object value) => JsonSerializer.SerializeToElement(value);
-
     [Fact]
-    public void Render_WhenCompactionCommitted_PrependsSummarySystemMessage_AndTrimsToTailMessages()
+    public void Render_WhenThreadCompacted_PrependsCompactionSystemMessage_AndTrimsToTailMessages()
     {
         var state = SessionState.Empty with
         {
             Committed = ImmutableArray.Create<SessionEvent>(
                 new UserMessage("u1"),
                 new AssistantMessage("a1"),
-                new CompactionCommitted(J(new { k = 1 }), "SUMMARY"),
+                new ThreadCompacted("<compaction>\n## Overview\nX\n</compaction>"),
                 new UserMessage("u2"),
                 new AssistantMessage("a2"),
                 new UserMessage("u3"),
@@ -32,7 +29,7 @@ public sealed class MeaiPromptRendererCompactionTests
 
         // Summary system message is first (after always-injected system prompts, which are added later).
         msgs[0].Role.ToString().Should().Be("system");
-        msgs[0].Text.Should().Contain("SUMMARY");
+        msgs[0].Text.Should().Contain("## Overview");
 
         // Tail should include only the last 4 user/assistant messages: u3,a3,u4,a4.
         var tailTexts = msgs.Skip(1).Select(m => m.Text).ToList();
@@ -48,9 +45,9 @@ public sealed class MeaiPromptRendererCompactionTests
             Committed = ImmutableArray.Create<SessionEvent>(
                 new UserMessage("before"),
                 new AssistantMessage("planning"),
-                new ToolCallRequested("call_1", "read_text_file", J(new { path = "/tmp/a.txt" })),
-                new ToolCallCompleted("call_1", J(new { body = "VERY_BIG_SHOULD_NOT_MATTER" })),
-                new CompactionCommitted(J(new { s = 1 }), "SUMMARY"))
+                new ToolCallRequested("call_1", "read_text_file", System.Text.Json.JsonSerializer.SerializeToElement(new { path = "/tmp/a.txt" })),
+                new ToolCallCompleted("call_1", System.Text.Json.JsonSerializer.SerializeToElement(new { body = "VERY_BIG_SHOULD_NOT_MATTER" })),
+                new ThreadCompacted("<compaction>SUM</compaction>"))
         };
 
         var msgs = MeaiPromptRenderer.Render(state, compactionTailMessageCount: 1);

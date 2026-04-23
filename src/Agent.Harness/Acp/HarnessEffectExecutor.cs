@@ -136,17 +136,23 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
             {
                 var model = string.IsNullOrWhiteSpace(_compactionModel) ? ResolveModelFriendly(state) : _compactionModel;
                 var chat = _chatByModel is null ? _chat : _chatByModel(model);
+                var providerModel = _providerModelByFriendlyName?.Invoke(model);
 
                 var transcript = Agent.Harness.Compaction.CompactionTranscriptBuilder.Build(state.Committed);
 
+                yield return new ObservedThreadCompactionStarted(c.ThreadId, model, providerModel, CompactionSystemPrompt);
+
                 var system = new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.System, CompactionSystemPrompt);
-                var user = new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.User, "<transcript>\n" + transcript + "\n</transcript>");
+                var user = new Microsoft.Extensions.AI.ChatMessage(
+                    Microsoft.Extensions.AI.ChatRole.User,
+                    "<transcript>\n" + transcript + "\n</transcript>\n\n" +
+                    "<task>Return exactly one <compaction>...</compaction> block.</task>");
 
                 var resp = await chat.GetResponseAsync(new[] { system, user }, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-                var (structured, prose) = Agent.Harness.Compaction.CompactionResponseParser.Parse(resp.Text);
+                var text = Agent.Harness.Compaction.CompactionResponseParser.Parse(resp.Text);
 
-                yield return new ObservedCompactionGenerated(structured, prose);
+                yield return new ObservedThreadCompactedGenerated(c.ThreadId, text);
                 yield break;
             }
 
@@ -288,9 +294,40 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
     }
 
     private const string CompactionSystemPrompt =
-        "You are a session compactor. You will be given a transcript of conversation + tool activity. " +
-        "Output ONLY valid JSON with shape: {\"structured\": <object>, \"proseSummary\": <string>} . " +
-        "Do not include tool output bodies; summarize them.";
+        "You are a session compactor. You will be given a transcript of conversation + tool activity.\n" +
+        "Your job is to produce high-quality memory so the agent can continue work.\n\n" +
+        "OUTPUT FORMAT (REQUIRED):\n" +
+        "- Return EXACTLY ONE <compaction>...</compaction> block and nothing else.\n" +
+        "- Use markdown headings inside the block, in this exact order:\n" +
+        "  1) ## Overview\n" +
+        "  2) ## Intent\n" +
+        "  3) ## Actions\n" +
+        "  4) ## Decisions\n" +
+        "  5) ## Important facts + details\n" +
+        "  6) ## Open questions\n" +
+        "  7) ## Next steps\n\n" +
+        "QUALITY RULES:\n" +
+        "- Focus on intent, actions, outcomes, artifacts, constraints, and what to do next.\n" +
+        "- Do NOT include tool call ids.\n" +
+        "- Do NOT paste raw tool output bodies. Summarize them.\n" +
+        "- If tool args are huge, summarize rather than repeating them verbatim.\n\n" +
+        "GOOD EXAMPLE (shape only):\n" +
+        "<compaction>\n" +
+        "## Overview\n" +
+        "...\n\n" +
+        "## Intent\n" +
+        "- primary: ...\n\n" +
+        "## Actions\n" +
+        "- Did X (purpose: Y). Outcome: success/failure.\n\n" +
+        "## Decisions\n" +
+        "- ...\n\n" +
+        "## Important facts + details\n" +
+        "- ...\n\n" +
+        "## Open questions\n" +
+        "- ...\n\n" +
+        "## Next steps\n" +
+        "1. ...\n" +
+        "</compaction>";
 
     private static string ResolveModelFriendly(SessionState state)
     {

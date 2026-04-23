@@ -167,17 +167,28 @@ public sealed class SessionEventJsonTests
     }
 
     [Fact]
-    public void SerializeDeserialize_CompactionCommitted_RoundTrips()
+    public void SerializeDeserialize_ThreadCompacted_RoundTrips()
     {
-        var evt = new CompactionCommitted(System.Text.Json.JsonSerializer.SerializeToElement(new { a = 1 }), "summary");
+        var evt = new ThreadCompacted("<compaction>hi</compaction>");
 
         var json = SessionEventJson.Serialize(evt);
         var decoded = SessionEventJson.Deserialize(json);
 
-        decoded.Should().BeOfType<CompactionCommitted>();
-        var c = (CompactionCommitted)decoded;
-        c.Structured.GetProperty("a").GetInt32().Should().Be(1);
-        c.ProseSummary.Should().Be("summary");
+        decoded.Should().BeOfType<ThreadCompacted>();
+        ((ThreadCompacted)decoded).Text.Should().Be("<compaction>hi</compaction>");
+    }
+
+    [Fact]
+    public void Deserialize_CompactionCommitted_BackCompat_MapsToThreadCompacted()
+    {
+        var json = """
+        {"type":"compaction_committed","structured":{},"proseSummary":"old"}
+        """;
+
+        var decoded = SessionEventJson.Deserialize(json);
+
+        decoded.Should().BeOfType<ThreadCompacted>();
+        ((ThreadCompacted)decoded).Text.Should().Be("old");
     }
 }
 

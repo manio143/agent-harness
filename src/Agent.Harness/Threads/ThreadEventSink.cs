@@ -41,7 +41,7 @@ public sealed class ThreadEventSink : IEventSink
                 _store.SaveThreadMetadata(_sessionId, meta with { Model = setModel.Model, UpdatedAtIso = now });
                 break;
 
-            case CompactionCommitted:
+            case ThreadCompacted:
                 _store.SaveThreadMetadata(_sessionId, meta with { CompactionCount = meta.CompactionCount + 1, UpdatedAtIso = now });
                 break;
         }

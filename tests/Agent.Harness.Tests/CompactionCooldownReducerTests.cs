@@ -7,12 +7,12 @@ namespace Agent.Harness.Tests;
 public sealed class CompactionCooldownReducerTests
 {
     [Fact]
-    public void Reduce_TurnStarted_AfterCompactionCommitted_SuppressesCompactionForThisTurn()
+    public void Reduce_TurnStarted_AfterThreadCompacted_SuppressesCompactionForThisTurn()
     {
         var state = new SessionState(
             Committed: ImmutableArray.Create<SessionEvent>(
                 new TurnEnded(),
-                new CompactionCommitted(System.Text.Json.JsonSerializer.SerializeToElement(new { s = 1 }), "sum")),
+                new ThreadCompacted("<compaction>sum</compaction>")),
             Buffer: TurnBuffer.Empty,
             Tools: ImmutableArray<ToolDefinition>.Empty);
 
@@ -31,7 +31,7 @@ public sealed class CompactionCooldownReducerTests
         var state = new SessionState(
             Committed: ImmutableArray.Create<SessionEvent>(
                 new TurnEnded(),
-                new CompactionCommitted(System.Text.Json.JsonSerializer.SerializeToElement(new { s = 1 }), "sum"),
+                new ThreadCompacted("<compaction>sum</compaction>"),
                 new TurnStarted()),
             Buffer: TurnBuffer.Empty with { CompactionSuppressedThisTurn = true },
             Tools: ImmutableArray<ToolDefinition>.Empty);

@@ -44,11 +44,20 @@ public static class ObservedEventJson
                 ["meta"] = m.Meta,
             },
 
-            ObservedCompactionGenerated c => new Dictionary<string, object?>
+            ObservedThreadCompactionStarted c => new Dictionary<string, object?>
             {
-                ["type"] = "obs_compaction_generated",
-                ["structured"] = c.Structured,
-                ["proseSummary"] = c.ProseSummary,
+                ["type"] = "obs_thread_compaction_started",
+                ["threadId"] = c.ThreadId,
+                ["model"] = c.Model,
+                ["providerModel"] = c.ProviderModel,
+                ["systemPrompt"] = c.SystemPrompt,
+            },
+
+            ObservedThreadCompactedGenerated c => new Dictionary<string, object?>
+            {
+                ["type"] = "obs_thread_compacted_generated",
+                ["threadId"] = c.ThreadId,
+                ["text"] = c.Text,
             },
 
             ObservedToolCallDetected t => new Dictionary<string, object?>

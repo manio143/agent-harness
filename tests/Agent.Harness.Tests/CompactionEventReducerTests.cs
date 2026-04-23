@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Agent.Harness;
 using FluentAssertions;
 
@@ -7,23 +6,21 @@ namespace Agent.Harness.Tests;
 public sealed class CompactionEventReducerTests
 {
     [Fact]
-    public void Reduce_ObservedCompactionGenerated_CommitsCompactionCommitted()
+    public void Reduce_ObservedThreadCompactedGenerated_CommitsThreadCompacted()
     {
-        var state = SessionState.Empty;
-
-        var payload = JsonSerializer.SerializeToElement(new
+        var state = SessionState.Empty with
         {
-            facts = new[] { "x" },
-            proseSummary = "hello",
-        });
+            Buffer = TurnBuffer.Empty with { CompactionDue = true },
+        };
 
-        var result = Core.Reduce(state, new ObservedCompactionGenerated(payload, "hello"));
+        var result = Core.Reduce(state, new ObservedThreadCompactedGenerated("main", "<compaction>hello</compaction>"));
 
         result.NewlyCommitted.Should().ContainSingle();
-        result.NewlyCommitted[0].Should().BeOfType<CompactionCommitted>();
+        result.NewlyCommitted[0].Should().BeOfType<ThreadCompacted>();
 
-        var committed = (CompactionCommitted)result.NewlyCommitted[0];
-        committed.Structured.GetProperty("facts")[0].GetString().Should().Be("x");
-        committed.ProseSummary.Should().Be("hello");
+        var committed = (ThreadCompacted)result.NewlyCommitted[0];
+        committed.Text.Should().Be("<compaction>hello</compaction>");
+
+        result.Next.Buffer.CompactionDue.Should().BeFalse();
     }
 }

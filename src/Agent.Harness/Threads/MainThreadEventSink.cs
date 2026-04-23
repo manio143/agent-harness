@@ -70,7 +70,7 @@ public sealed class MainThreadEventSink : IEventSink
                 break;
             }
 
-            case CompactionCommitted:
+            case ThreadCompacted:
             {
                 var meta = _threadStore.TryLoadThreadMetadata(_sessionId, ThreadIds.Main);
                 if (meta is not null)

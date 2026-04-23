@@ -40,11 +40,11 @@ public sealed class CompactionContinuationIntegrationTests
             "run_compaction",
             "call_model#2");
 
-        // Boundary invariant: TurnEnded -> CompactionCommitted -> TurnStarted (no other committed between).
+        // Boundary invariant: TurnEnded -> ThreadCompacted -> TurnStarted (no other committed between).
         var iTurnEnded = committed.FindIndex(e => e is TurnEnded);
         iTurnEnded.Should().BeGreaterThanOrEqualTo(0);
 
-        var iCompaction = committed.FindIndex(e => e is CompactionCommitted);
+        var iCompaction = committed.FindIndex(e => e is ThreadCompacted);
         iCompaction.Should().Be(iTurnEnded + 1);
 
         var iTurnStarted2 = committed.FindIndex(iCompaction + 1, e => e is TurnStarted);
@@ -77,10 +77,10 @@ public sealed class CompactionContinuationIntegrationTests
                     Sequence.Add($"execute_tool:{t.ToolName}");
                     return Task.FromResult(ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(t.ToolId, new { ok = true })));
 
-                case RunCompaction:
+                case RunCompaction rc:
                     Sequence.Add("run_compaction");
                     return Task.FromResult(ImmutableArray.Create<ObservedChatEvent>(
-                        new ObservedCompactionGenerated(System.Text.Json.JsonSerializer.SerializeToElement(new { summary = "s" }), "s")));
+                        new ObservedThreadCompactedGenerated(rc.ThreadId, "<compaction>ok</compaction>")));
 
                 default:
                     return Task.FromResult(ImmutableArray<ObservedChatEvent>.Empty);
