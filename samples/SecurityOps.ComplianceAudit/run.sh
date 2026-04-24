@@ -8,10 +8,26 @@ SESSION="secops-$(date +%s)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SAMPLE_DIR="$SCRIPT_DIR"
 
+# User-secrets (including Groq config) are loaded only when DOTNET_ENVIRONMENT=Development.
+# For sample runs we default to Development unless the caller overrides it.
+if [[ -z "${DOTNET_ENVIRONMENT:-}" ]]; then
+  export DOTNET_ENVIRONMENT=Development
+fi
+
+# We run the agent with --cwd "$SAMPLE_DIR" so relative paths like data/*.csv work.
+# That would break a relative Agent.Server.dll path passed from the repo root, so normalize it.
+REPO_ROOT="$(cd "$SAMPLE_DIR/../.." && pwd)"
+read -r -a _agent_words <<<"$AGENT_CMD"
+if [[ "${_agent_words[0]:-}" == "dotnet" && "${_agent_words[1]:-}" != "" && "${_agent_words[1]}" != /* ]]; then
+  _agent_words[1]="$REPO_ROOT/${_agent_words[1]}"
+  AGENT_CMD="${_agent_words[*]}"
+fi
+unset _agent_words
+
 echo "[scenario] SecurityOps Compliance Audit - Session: $SESSION"
 
 # Create new session
-NEW_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" sessions new --name "$SESSION")"
+NEW_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" sessions new --name "$SESSION")"
 SESSION_ID="$(echo "$NEW_OUT" | sed -n 's/.*(\([0-9a-f-]\{36\}\)).*/\1/p' | tail -n 1)"
 if [[ -z "$SESSION_ID" ]]; then
   SESSION_ID="$(echo "$NEW_OUT" | tr -d '[:space:]')"
@@ -34,7 +50,7 @@ echo ""
 echo "========== PHASE 1: Data Collection & Validation =========="
 
 set +e
-PHASE1_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+PHASE1_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" --allowed-tools "report_intent,read_text_file,write_text_file,execute_command,everything__echo" prompt -s "$SESSION" \
 "You are a security compliance agent performing a SOC2 audit.
 
 CONTEXT:
@@ -77,8 +93,32 @@ if [[ "$PHASE1_CODE" != "0" && "$PHASE1_CODE" != "124" ]]; then
 fi
 
 if ! echo "$PHASE1_OUT" | grep -q "PHASE_1_COMPLETE"; then
-  echo "[scenario] Phase 1 did not complete successfully" >&2
-  exit 1
+  echo "[scenario] Phase 1 missing completion sentinel; nudging once..." >&2
+
+  set +e
+  PHASE1_OUT_2="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" --allowed-tools "report_intent,read_text_file,write_text_file,execute_command,everything__echo" prompt -s "$SESSION" \
+"Continue Phase 1 now.
+
+Do NOT stop after the report_intent tool call. Keep using tools until:
+- out/phase1_inventory.json exists and contains a summary (audit_id, server/user counts, data_quality)
+- out/errors.log exists (write parsing errors from users_malformed.ndjson)
+
+Then output exactly: PHASE_1_COMPLETE")"
+  PHASE1_CODE_2=$?
+  set -e
+
+  echo "$PHASE1_OUT_2"
+  PHASE1_OUT="$PHASE1_OUT"$'\n'"$PHASE1_OUT_2"
+
+  if [[ "$PHASE1_CODE_2" != "0" && "$PHASE1_CODE_2" != "124" ]]; then
+    echo "[scenario] Phase 1 retry failed with exit code $PHASE1_CODE_2" >&2
+    exit "$PHASE1_CODE_2"
+  fi
+
+  if ! echo "$PHASE1_OUT" | grep -q "PHASE_1_COMPLETE"; then
+    echo "[scenario] Phase 1 did not complete successfully" >&2
+    exit 1
+  fi
 fi
 
 echo "[scenario] Validating Phase 1 output..."
@@ -91,7 +131,7 @@ echo ""
 echo "========== PHASE 2: Policy Compliance Checks =========="
 
 set +e
-PHASE2_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+PHASE2_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" --allowed-tools "report_intent,thread_start,thread_send,thread_read,thread_list,read_text_file,write_text_file" prompt -s "$SESSION" \
 "You are continuing the SOC2 compliance audit.
 
 CONTEXT:
@@ -145,8 +185,33 @@ if [[ "$PHASE2_CODE" != "0" && "$PHASE2_CODE" != "124" ]]; then
 fi
 
 if ! echo "$PHASE2_OUT" | grep -q "PHASE_2_COMPLETE"; then
-  echo "[scenario] Phase 2 did not complete successfully" >&2
-  exit 1
+  echo "[scenario] Phase 2 missing completion sentinel; nudging once..." >&2
+
+  set +e
+  PHASE2_OUT_2="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" --allowed-tools "report_intent,thread_start,thread_send,thread_read,thread_list,read_text_file,write_text_file" prompt -s "$SESSION" \
+"Continue Phase 2 now.
+
+Do NOT stop after the report_intent tool call. Keep using tools until:
+- out/phase2_user_findings.json exists
+- out/phase2_server_findings.json exists
+- out/thread_log.md exists and references both child threads
+
+Then output exactly: PHASE_2_COMPLETE")"
+  PHASE2_CODE_2=$?
+  set -e
+
+  echo "$PHASE2_OUT_2"
+  PHASE2_OUT="$PHASE2_OUT"$'\n'"$PHASE2_OUT_2"
+
+  if [[ "$PHASE2_CODE_2" != "0" && "$PHASE2_CODE_2" != "124" ]]; then
+    echo "[scenario] Phase 2 retry failed with exit code $PHASE2_CODE_2" >&2
+    exit "$PHASE2_CODE_2"
+  fi
+
+  if ! echo "$PHASE2_OUT" | grep -q "PHASE_2_COMPLETE"; then
+    echo "[scenario] Phase 2 did not complete successfully" >&2
+    exit 1
+  fi
 fi
 
 # Allow child threads time to complete
@@ -162,7 +227,7 @@ echo ""
 echo "========== PHASE 3: Risk Assessment & Report =========="
 
 set +e
-PHASE3_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+PHASE3_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" --allowed-tools "report_intent,read_text_file,write_text_file,everything__echo" prompt -s "$SESSION" \
 "You are finalizing the SOC2 compliance audit.
 
 CONTEXT:
@@ -227,8 +292,32 @@ if [[ "$PHASE3_CODE" != "0" && "$PHASE3_CODE" != "124" ]]; then
 fi
 
 if ! echo "$PHASE3_OUT" | grep -q "AUDIT_COMPLETE"; then
-  echo "[scenario] Phase 3 did not complete successfully" >&2
-  exit 1
+  echo "[scenario] Phase 3 missing completion sentinel; nudging once..." >&2
+
+  set +e
+  PHASE3_OUT_2="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" --allowed-tools "report_intent,read_text_file,write_text_file,everything__echo" prompt -s "$SESSION" \
+"Continue Phase 3 now.
+
+Do NOT stop after the report_intent tool call. Keep using tools until:
+- out/compliance_report.md exists (executive summary + findings + remediation roadmap)
+- out/phase3_risk_register.json exists (risk-scored items)
+
+Then output exactly: AUDIT_COMPLETE")"
+  PHASE3_CODE_2=$?
+  set -e
+
+  echo "$PHASE3_OUT_2"
+  PHASE3_OUT="$PHASE3_OUT"$'\n'"$PHASE3_OUT_2"
+
+  if [[ "$PHASE3_CODE_2" != "0" && "$PHASE3_CODE_2" != "124" ]]; then
+    echo "[scenario] Phase 3 retry failed with exit code $PHASE3_CODE_2" >&2
+    exit "$PHASE3_CODE_2"
+  fi
+
+  if ! echo "$PHASE3_OUT" | grep -q "AUDIT_COMPLETE"; then
+    echo "[scenario] Phase 3 did not complete successfully" >&2
+    exit 1
+  fi
 fi
 
 echo "[scenario] Validating Phase 3 output..."
