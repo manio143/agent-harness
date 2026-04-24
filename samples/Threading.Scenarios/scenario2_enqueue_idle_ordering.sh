@@ -22,7 +22,7 @@ echo "[scenario2] sessionId=$SESSION_ID"
 # Turn 1: create child.
 # NOTE: We intentionally parse the created threadId from the tool output instead of assuming a fixed name.
 set +e
-TURN1_OUT="$(acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+TURN1_OUT="$(acpx --approve-all --non-interactive-permissions fail --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
   'You MUST follow these rules exactly.
 
 This single request may invoke you MULTIPLE TIMES. Each time you are invoked, inspect the conversation history and follow the FIRST matching rule.
@@ -41,13 +41,13 @@ Rules (apply in order):
 
 2) Else if the history shows thread_start failed with "missing_required:mode":
    - Call tool report_intent with arguments: {"intent":"retry thread_start with mode"}.
-   - Then call tool thread_start with arguments: {"name":"child_ready","context":"new","mode":"single","delivery":"immediate","message":"Say READY. Do NOT call any tools."}.
+   - Then call tool thread_start with arguments: {"name":"child_ready","context":"new","mode":"single","delivery":"immediate","message":"Say READY. Do NOT call any tools.","capabilities":{"deny":["*"]}}.
    - Then output EXACTLY: OK
    - Stop.
 
 3) Else:
    - Call tool report_intent with arguments: {"intent":"create child"}.
-   - Then call tool thread_start with arguments: {"name":"child_ready","context":"new","mode":"single","delivery":"immediate","message":"Say READY. Do NOT call any tools."}.
+   - Then call tool thread_start with arguments: {"name":"child_ready","context":"new","mode":"single","delivery":"immediate","message":"Say READY. Do NOT call any tools.","capabilities":{"deny":["*"]}}.
    - Then output EXACTLY: OK
    - Stop.')"
 TURN1_CODE=$?
@@ -72,7 +72,7 @@ echo "[scenario2] childThreadId=$CHILD_ID"
 echo "---"
 
 # Turn 2: enqueue follow-up to the child.
-acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+acpx --approve-all --non-interactive-permissions fail --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
   "You MUST follow these rules exactly.
 
 This single request may invoke you MULTIPLE TIMES. Each time you are invoked, inspect the conversation history and follow the FIRST matching rule.
@@ -104,7 +104,7 @@ Rules (apply in order):
 echo "---"
 
 # Turn 3: wait for idle notification and summarize.
-acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+acpx --approve-all --non-interactive-permissions fail --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
   'You MUST follow these rules exactly:
 1) You may call at most 1 tool in this turn.
 2) You may ONLY call: report_intent.

@@ -16,6 +16,11 @@ AGENT_CMD="dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll"
 
 # Default ACP timeouts (seconds) for acpx calls in scenarios.
 : "${ACP_TIMEOUT:=600}"
+export ACP_TIMEOUT
+
+# Retry transient prompt failures (e.g. agent reconnect / local model flakiness).
+: "${ACP_PROMPT_RETRIES:=2}"
+export ACP_PROMPT_RETRIES
 
 # Make RPC logging opt-in (can be noisy). Set to true in environment to debug.
 : "${LOG_RPC:=false}"

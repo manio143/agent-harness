@@ -22,7 +22,7 @@ echo "[scenario3] sessionId=$SESSION_ID"
 # Turn 1: self-send enqueue (historical deadlock class)
 # NOTE: A single `acpx prompt` request may invoke the model multiple times as the harness drains work.
 # This prompt intentionally handles that multi-invocation behavior.
-acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+acpx --approve-all --non-interactive-permissions fail --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
   'You MUST follow these rules exactly.
 
 This single request may invoke you MULTIPLE TIMES. Each time you are invoked, inspect the conversation history and follow the FIRST matching rule.
@@ -54,7 +54,7 @@ Rules (apply in order):
 echo "---"
 
 # Turn 2: ensure tools still work in same session (catalog stability)
-acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+acpx --approve-all --non-interactive-permissions fail --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
   'You MUST follow these rules exactly:
 1) You may call at most 2 tools in this turn.
 2) You may ONLY call: report_intent, thread_list.

@@ -23,7 +23,7 @@ echo "[scenario1] sessionId=$SESSION_ID"
 # Turn 1: create child.
 # NOTE: Parse the created threadId from the tool output instead of assuming a fixed name.
 set +e
-TURN1_OUT="$(acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+TURN1_OUT="$(acpx --approve-all --non-interactive-permissions fail --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
   'You MUST follow these rules exactly.
 
 This single request may invoke you MULTIPLE TIMES. Each time you are invoked, inspect the conversation history and follow the FIRST matching rule.
@@ -42,13 +42,13 @@ Rules (apply in order):
 
 2) Else if the history shows thread_start failed with "missing_required:mode":
    - Call tool report_intent with arguments: {"intent":"retry thread_start with mode"}.
-   - Then call tool thread_start with arguments: {"name":"perm_boundary","context":"new","mode":"single","delivery":"immediate","message":"In 1 paragraph, explain how the tool catalog acts as the permission boundary in this harness. Do NOT call any tools. Do NOT ask questions."}.
+   - Then call tool thread_start with arguments: {"name":"perm_boundary","context":"new","mode":"single","delivery":"immediate","message":"In 1 paragraph, explain how the tool catalog acts as the permission boundary in this harness. Do NOT call any tools. Do NOT ask questions.","capabilities":{"deny":["*"]}}.
    - Then output EXACTLY: OK
    - Stop.
 
 3) Else (first invocation):
    - Call tool report_intent with arguments: {"intent":"create child"}.
-   - Then call tool thread_start with arguments: {"name":"perm_boundary","context":"new","mode":"single","delivery":"immediate","message":"In 1 paragraph, explain how the tool catalog acts as the permission boundary in this harness. Do NOT call any tools. Do NOT ask questions."}.
+   - Then call tool thread_start with arguments: {"name":"perm_boundary","context":"new","mode":"single","delivery":"immediate","message":"In 1 paragraph, explain how the tool catalog acts as the permission boundary in this harness. Do NOT call any tools. Do NOT ask questions.","capabilities":{"deny":["*"]}}.
    - Then output EXACTLY: OK
    - Stop.')"
 TURN1_CODE=$?
@@ -82,7 +82,7 @@ done
 echo "---"
 
 # Turn 2: read child explicitly.
-acpx --approve-all --non-interactive-permissions fail --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+acpx --approve-all --non-interactive-permissions fail --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
   "You MUST follow these rules exactly.
 
 This single request may invoke you MULTIPLE TIMES. Each time you are invoked, inspect the conversation history and follow the FIRST matching rule.
