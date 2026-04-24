@@ -1,0 +1,5 @@
+# Scenario outputs - generated during execution
+*.json
+*.md
+*.log
+!.gitkeep

@@ -1,0 +1,51 @@
+compliance:
+  framework: "SOC2-Type2"
+  audit_id: "AUD-2026-Q2-001"
+  audit_date: "2026-04-24"
+  auditor: "security-team"
+  
+requirements:
+  password_policy:
+    max_age_days: 90
+    min_length: 12
+    require_complexity: true
+    
+  mfa_policy:
+    required_for:
+      - admin
+      - prod-access
+    exceptions:
+      - service  # service accounts can use certificate-based auth
+      
+  patching_policy:
+    max_age_days: 60
+    critical_max_age_days: 14
+    
+  access_control:
+    review_frequency_days: 90
+    contractor_max_access_days: 180
+    inactive_account_days: 90
+    
+  network_security:
+    ssh_standard_port: 22
+    approved_non_standard_ports: [2222]
+    require_bastion: true
+
+exemptions:
+  - user: "svc-deploy"
+    reason: "CI/CD service account uses SSH key authentication"
+    approved_by: "eve"
+    expires: "2026-06-30"
+    
+  - user: "svc-backup"
+    reason: "Backup service uses certificate-based authentication"
+    approved_by: "eve"
+    expires: "2026-06-30"
+
+findings_template:
+  severity_levels:
+    - critical
+    - high
+    - medium
+    - low
+    - info

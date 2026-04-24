@@ -1,0 +1,6 @@
+{"user_id": "X001", "username": "broken1", "role": "developer", mfa_enabled: true, "last_login": "invalid-date"}
+{"user_id": "X002", "username": "broken2", "role": "developer", "mfa_enabled": "not_a_boolean", "last_login": "2026-04-23T14:30:00Z"}
+this is not valid JSON at all - just garbage text here
+{"user_id": "X003", "username": null, "role": , "groups": ["missing-values"]}
+{"user_id": "X004", "username": "incomplete"
+{"user_id": "X005", "username": "extra_comma", "role": "developer", "mfa_enabled": true,}

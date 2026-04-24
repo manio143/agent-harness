@@ -1,0 +1,29 @@
+{
+  "audit_id": "AUD-2026-Q2-001",
+  "audit_type": "SOC2-Type2",
+  "start_date": "2026-04-24",
+  "due_date": "2026-04-30",
+  "status": "in_progress",
+  "scope": {
+    "environments": ["production"],
+    "systems": ["servers", "iam"],
+    "excluded": ["development", "staging"]
+  },
+  "auditor_info": {
+    "lead": "eve",
+    "team": ["security"],
+    "contact": "security@example.com"
+  },
+  "previous_audit": {
+    "id": "AUD-2026-Q1-001",
+    "date": "2026-01-24",
+    "score": 87,
+    "open_findings": 3
+  },
+  "deliverables": [
+    "phase1_inventory.json",
+    "phase2_user_findings.json",
+    "phase2_server_findings.json",
+    "compliance_report.md"
+  ]
+}

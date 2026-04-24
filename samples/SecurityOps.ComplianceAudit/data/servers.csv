@@ -1,0 +1,11 @@
+hostname,ip_address,os,ssh_port,last_patched,owner,department
+web-prod-01,10.0.1.10,Ubuntu 22.04,22,2026-04-01,alice,engineering
+web-prod-02,10.0.1.11,Ubuntu 22.04,22,2026-04-01,alice,engineering
+api-prod-01,10.0.2.20,Debian 12,22,2026-03-15,bob,backend
+api-prod-02,10.0.2.21,Debian 12,22,2026-01-10,bob,backend
+db-prod-01,10.0.3.30,Rocky Linux 9,22,2026-04-10,carol,data
+db-prod-02,10.0.3.31,Rocky Linux 9,22,2026-02-20,carol,data
+cache-prod-01,10.0.4.40,Ubuntu 22.04,22,2026-04-05,dave,infrastructure
+monitor-prod-01,10.0.5.50,Ubuntu 22.04,22,2026-03-28,eve,security
+bastion-prod-01,10.0.6.60,CentOS Stream 9,2222,2026-04-12,eve,security
+jump-prod-01,10.0.6.61,CentOS Stream 9,2222,2026-04-12,eve,security

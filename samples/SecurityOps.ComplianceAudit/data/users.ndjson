@@ -1,0 +1,10 @@
+{"user_id": "U001", "username": "alice", "role": "developer", "mfa_enabled": true, "last_login": "2026-04-23T14:30:00Z", "password_age_days": 45, "groups": ["engineering", "prod-access"]}
+{"user_id": "U002", "username": "bob", "role": "developer", "mfa_enabled": true, "last_login": "2026-04-22T09:15:00Z", "password_age_days": 67, "groups": ["backend", "prod-access"]}
+{"user_id": "U003", "username": "carol", "role": "dba", "mfa_enabled": false, "last_login": "2026-04-20T16:45:00Z", "password_age_days": 120, "groups": ["data", "prod-access", "admin"]}
+{"user_id": "U004", "username": "dave", "role": "sre", "mfa_enabled": true, "last_login": "2026-04-24T08:00:00Z", "password_age_days": 30, "groups": ["infrastructure", "prod-access"]}
+{"user_id": "U005", "username": "eve", "role": "security", "mfa_enabled": true, "last_login": "2026-04-24T10:30:00Z", "password_age_days": 15, "groups": ["security", "admin", "prod-access"]}
+{"user_id": "U006", "username": "frank", "role": "developer", "mfa_enabled": false, "last_login": "2026-01-15T11:20:00Z", "password_age_days": 200, "groups": ["engineering"]}
+{"user_id": "U007", "username": "grace", "role": "contractor", "mfa_enabled": true, "last_login": "2026-04-21T13:00:00Z", "password_age_days": 25, "groups": ["engineering", "contractor"]}
+{"user_id": "U008", "username": "svc-deploy", "role": "service", "mfa_enabled": false, "last_login": "2026-04-24T00:05:00Z", "password_age_days": 365, "groups": ["ci-cd", "prod-access"]}
+{"user_id": "U009", "username": "svc-backup", "role": "service", "mfa_enabled": false, "last_login": "2026-04-23T03:00:00Z", "password_age_days": 180, "groups": ["backup", "data"]}
+{"user_id": "U010", "username": "test-admin", "role": "admin", "mfa_enabled": false, "last_login": "2025-12-01T09:00:00Z", "password_age_days": 400, "groups": ["admin", "prod-access"]}
