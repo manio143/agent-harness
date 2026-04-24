@@ -83,11 +83,15 @@ if [[ "$LOG_RPC" == "true" ]]; then
 fi
 
 # Force a tool-capable local model for scenarios (some Ollama models reject tool usage).
-# Also helps reduce OOM risk by keeping DefaultModel and QuickWorkModel aligned.
-export AGENTSERVER_AgentServer__Models__DefaultModel="granite"
-export AGENTSERVER_AgentServer__Models__QuickWorkModel="granite"
+# Defaults are chosen to reduce OOM risk; override via environment if needed.
+: "${SCENARIO_DEFAULT_MODEL:=qwen}"
+: "${SCENARIO_QUICKWORK_MODEL:=qwen}"
+: "${SCENARIO_OPENAI_MODEL:=qwen2.5:3b}"
+
+export AGENTSERVER_AgentServer__Models__DefaultModel="$SCENARIO_DEFAULT_MODEL"
+export AGENTSERVER_AgentServer__Models__QuickWorkModel="$SCENARIO_QUICKWORK_MODEL"
 # Back-compat (some components still read AgentServer:OpenAI)
-export AGENTSERVER_AgentServer__OpenAI__Model="granite4:3b"
+export AGENTSERVER_AgentServer__OpenAI__Model="$SCENARIO_OPENAI_MODEL"
 
 run_scenario() {
   local name="$1"
