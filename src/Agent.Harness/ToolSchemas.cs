@@ -149,20 +149,8 @@ public static class ToolSchemas
         }
         """));
 
-    public static ToolDefinition ThreadSend { get; } = new(
-        Name: "thread_send",
-        Description: "Send a message to another thread by enqueuing it in that thread's inbox.",
-        InputSchema: ParseSchema("""
-        {
-          "type": "object",
-          "properties": {
-            "threadId": { "type": "string", "description": "Target thread id" },
-            "message": { "type": "string", "description": "Message to enqueue" },
-            "delivery": { "type": "string", "enum": ["enqueue", "immediate"], "description": "Whether the message should be delivered immediately or enqueued until idle" }
-          },
-          "required": ["threadId", "message"]
-        }
-        """));
+    public static ToolDefinition ThreadSend { get; }
+        = Agent.Harness.Tools.Handlers.ThreadSendToolHandler.Definition;
 
     public static ToolDefinition ThreadStop { get; }
         = Agent.Harness.Tools.Handlers.ThreadStopToolHandler.Definition;

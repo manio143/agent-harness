@@ -7,6 +7,17 @@ public sealed class RegistryToolCallExecutor(ToolRegistry registry) : IToolCallE
 {
     public bool CanExecute(string toolName) => registry.CanExecute(toolName);
 
-    public Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, ExecuteToolCall tool, CancellationToken cancellationToken)
-        => registry.GetRequired(tool.ToolName).ExecuteAsync(state, tool, cancellationToken);
+    public async Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, ExecuteToolCall tool, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await registry.GetRequired(tool.ToolName)
+                .ExecuteAsync(state, tool, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallFailed(tool.ToolId, ex.Message));
+        }
+    }
 }
