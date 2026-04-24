@@ -386,7 +386,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         {
             [ThreadInboxMetaKeys.ChildThreadId] = threadId,
             [ThreadInboxMetaKeys.LastIntent] = intent,
-            ["lastAssistantMessage"] = lastAssistantSnippet,
+            [ThreadInboxMetaKeys.LastAssistantMessage] = lastAssistantSnippet,
         });
 
         var arrived = new ObservedInboxMessageArrived(
@@ -429,8 +429,8 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         {
             [ThreadInboxMetaKeys.ChildThreadId] = threadId,
             [ThreadInboxMetaKeys.LastIntent] = intent,
-            ["closedReason"] = reason,
-            ["lastAssistantMessage"] = lastAssistantSnippet,
+            [ThreadInboxMetaKeys.ClosedReason] = reason,
+            [ThreadInboxMetaKeys.LastAssistantMessage] = lastAssistantSnippet,
         });
 
         var arrived = new ObservedInboxMessageArrived(
