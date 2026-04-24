@@ -95,12 +95,23 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
                 ? new Agent.Harness.Threads.RandomSuffixThreadIdAllocator(_threadTools, new Agent.Harness.Threads.GuidHexSuffixGenerator(), suffixChars: 4)
                 : null);
 
+        Func<SessionState, ExecuteToolCall, bool>? gate = null;
+        if (_threadStore is not null)
+        {
+            gate = (state, tool) => Agent.Harness.Threads.ThreadCapabilitiesEvaluator.IsToolAllowed(
+                _sessionId,
+                _threadId,
+                tool.ToolName,
+                state.Tools,
+                _threadStore);
+        }
+
         _toolRouter = new ToolCallRouter(new IToolCallExecutor[]
         {
             new SystemToolCallExecutor(_threadTools, _observer, _lifecycle, _scheduler, allocator, _isKnownModel, _threadId),
             new McpToolCallExecutor(_mcp),
             new AcpHostToolCallExecutor(_sessionId, _client, sessionCwd: _sessionCwd, store: _store),
-        });
+        }, gate);
     }
 
     public async Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
@@ -213,7 +224,11 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
             Tools = new List<Microsoft.Extensions.AI.AITool>(),
         };
 
-        foreach (var t in state.Tools)
+        var toolsForThread = state.Tools;
+        if (_threadStore is not null)
+            toolsForThread = Agent.Harness.Threads.ThreadCapabilitiesEvaluator.FilterToolsForThread(_sessionId, _threadId, state.Tools, _threadStore);
+
+        foreach (var t in toolsForThread)
         {
             // Declare tools to the LLM (invocation handled by the harness).
             options.Tools.Add(Microsoft.Extensions.AI.AIFunctionFactory.CreateDeclaration(

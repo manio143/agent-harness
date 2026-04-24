@@ -86,6 +86,7 @@ public sealed class ThreadOrchestratorRequestForkChildThreadIntegrationTests
             childThreadId: childId,
             mode: ThreadMode.Multi,
             seedCommitted: threadStore.LoadCommittedEvents(sessionId, ThreadIds.Main),
+            capabilities: null,
             cancellationToken: CancellationToken.None);
         await orchestrator.RunUntilQuiescentAsync(CancellationToken.None);
 

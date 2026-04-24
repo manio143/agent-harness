@@ -72,6 +72,7 @@ public sealed class ThreadOrchestratorCreateBeforeChildInboxIntegrationTests
             childThreadId: childId,
             mode: ThreadMode.Multi,
             seedCommitted: threadStore.LoadCommittedEvents(sessionId, ThreadIds.Main),
+            capabilities: null,
             cancellationToken: CancellationToken.None);
 
         await orch.ObserveAsync(

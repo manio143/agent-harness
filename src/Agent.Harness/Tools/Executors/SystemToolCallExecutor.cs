@@ -162,11 +162,14 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
 
                     var id = _threadIdAllocator.AllocateThreadId(name);
 
+                    var capabilities = TryParseCapabilities(args);
+
                     await _lifecycle.RequestForkChildThreadAsync(
                         _threadId,
                         id,
                         mode,
                         seed,
+                        capabilities,
                         cancellationToken).ConfigureAwait(false);
 
                     if (args.TryGetValue("model", out var modelVal) && modelVal.ValueKind == JsonValueKind.String)
@@ -269,6 +272,31 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
         {
             return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallFailed(tool.ToolId, ex.Message));
         }
+    }
+
+    private static Agent.Harness.Threads.ThreadCapabilitiesSpec? TryParseCapabilities(Dictionary<string, JsonElement> args)
+    {
+        if (!args.TryGetValue("capabilities", out var caps) || caps.ValueKind != JsonValueKind.Object)
+            return null;
+
+        ImmutableArray<string> ReadList(string name)
+        {
+            if (!caps.TryGetProperty(name, out var el) || el.ValueKind != JsonValueKind.Array)
+                return ImmutableArray<string>.Empty;
+
+            var b = ImmutableArray.CreateBuilder<string>();
+            foreach (var v in el.EnumerateArray())
+            {
+                if (v.ValueKind != JsonValueKind.String) continue;
+                var s = v.GetString();
+                if (!string.IsNullOrWhiteSpace(s)) b.Add(s);
+            }
+            return b.ToImmutable();
+        }
+
+        return new Agent.Harness.Threads.ThreadCapabilitiesSpec(
+            Allow: ReadList("allow"),
+            Deny: ReadList("deny"));
     }
 
     private static Agent.Harness.Threads.InboxDelivery ParseDelivery(Dictionary<string, JsonElement> args)

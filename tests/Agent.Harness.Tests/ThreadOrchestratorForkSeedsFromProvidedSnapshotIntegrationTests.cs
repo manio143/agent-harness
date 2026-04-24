@@ -89,6 +89,7 @@ public sealed class ThreadOrchestratorForkSeedsFromProvidedSnapshotIntegrationTe
             childThreadId: childId,
             mode: ThreadMode.Multi,
             seedCommitted: seed,
+            capabilities: null,
             cancellationToken: CancellationToken.None);
 
         var childCommitted = threadStore.LoadCommittedEvents(sessionId, childId);

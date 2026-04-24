@@ -52,6 +52,7 @@ public sealed class ThreadOrchestratorSingleInFlightModelCallChildIntegrationTes
             childThreadId: childId,
             mode: ThreadMode.Multi,
             seedCommitted: ImmutableArray<SessionEvent>.Empty,
+            capabilities: null,
             cancellationToken: CancellationToken.None);
 
         // Enqueue work for the child.

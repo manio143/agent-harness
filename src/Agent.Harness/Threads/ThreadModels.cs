@@ -23,6 +23,15 @@ public enum ThreadMode
 /// Persisted thread metadata. Treated as a cache/projection artifact; the source of truth is the
 /// committed thread event log (events.jsonl).
 /// </summary>
+public sealed record ThreadCapabilitiesSpec(
+    ImmutableArray<string> Allow,
+    ImmutableArray<string> Deny)
+{
+    public static ThreadCapabilitiesSpec Empty { get; } = new(
+        Allow: ImmutableArray<string>.Empty,
+        Deny: ImmutableArray<string>.Empty);
+}
+
 public sealed record ThreadMetadata(
     string ThreadId,
     string? ParentThreadId,
@@ -33,7 +42,8 @@ public sealed record ThreadMetadata(
     string? Model,
     int CompactionCount = 0,
     string? ClosedAtIso = null,
-    string? ClosedReason = null);
+    string? ClosedReason = null,
+    ThreadCapabilitiesSpec? Capabilities = null);
 
 public enum ThreadInboxMessageKind
 {

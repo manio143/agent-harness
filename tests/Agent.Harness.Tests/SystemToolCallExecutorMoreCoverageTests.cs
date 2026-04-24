@@ -219,7 +219,7 @@ public sealed class SystemToolCallExecutorMoreCoverageTests
         public bool Forked { get; private set; }
         public ImmutableArray<SessionEvent> Seed { get; private set; } = ImmutableArray<SessionEvent>.Empty;
 
-        public Task RequestForkChildThreadAsync(string parentThreadId, string childThreadId, ThreadMode mode, ImmutableArray<SessionEvent> seedCommitted, CancellationToken cancellationToken = default)
+        public Task RequestForkChildThreadAsync(string parentThreadId, string childThreadId, ThreadMode mode, ImmutableArray<SessionEvent> seedCommitted, ThreadCapabilitiesSpec? capabilities, CancellationToken cancellationToken = default)
         {
             Forked = true;
             Seed = seedCommitted;

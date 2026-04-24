@@ -238,6 +238,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 observer: this,
                 lifecycle: this,
                 scheduler: this,
+                threadStore: _threadStore,
                 threadId: threadId);
 
             var runner = new SessionRunner(_coreOptions, titleGen, effects);
@@ -262,9 +263,10 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         string childThreadId,
         ThreadMode mode,
         ImmutableArray<SessionEvent> seedCommitted,
+        ThreadCapabilitiesSpec? capabilities,
         CancellationToken cancellationToken = default)
     {
-        return ForkChildThreadAsync(parentThreadId, childThreadId, mode, seedCommitted, cancellationToken);
+        return ForkChildThreadAsync(parentThreadId, childThreadId, mode, seedCommitted, capabilities, cancellationToken);
     }
 
     public async Task RequestSetThreadModelAsync(
@@ -310,6 +312,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         string childThreadId,
         ThreadMode mode,
         ImmutableArray<SessionEvent> seedCommitted,
+        ThreadCapabilitiesSpec? capabilities,
         CancellationToken cancellationToken)
     {
         // Create child thread metadata (owned by orchestrator).
@@ -322,7 +325,8 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
             UpdatedAtIso: now,
             Mode: mode,
             Model: ResolveModelFromCommitted(seedCommitted),
-            CompactionCount: 0);
+            CompactionCount: 0,
+            Capabilities: capabilities);
 
         _threadStore.CreateThread(_sessionId, meta);
 

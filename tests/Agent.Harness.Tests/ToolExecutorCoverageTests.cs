@@ -37,7 +37,7 @@ public sealed class ToolExecutorCoverageTests
 
     private sealed class CapturingLifecycle : Agent.Harness.Threads.IThreadLifecycle
     {
-        public Task RequestForkChildThreadAsync(string parentThreadId, string childThreadId, Agent.Harness.Threads.ThreadMode mode, ImmutableArray<SessionEvent> seed, CancellationToken cancellationToken)
+        public Task RequestForkChildThreadAsync(string parentThreadId, string childThreadId, Agent.Harness.Threads.ThreadMode mode, ImmutableArray<SessionEvent> seed, Agent.Harness.Threads.ThreadCapabilitiesSpec? capabilities, CancellationToken cancellationToken)
             => Task.CompletedTask;
 
         public Task RequestSetThreadModelAsync(string threadId, string model, CancellationToken cancellationToken)

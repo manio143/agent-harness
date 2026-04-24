@@ -150,7 +150,14 @@ public static class ToolSchemas
             "mode": { "type": "string", "enum": ["multi", "single"], "description": "Thread mode. multi: long-lived; can accept multiple tasks/messages. single: one-shot; thread is closed when it becomes idle with an empty inbox." },
             "message": { "type": "string", "description": "Initial message to attach to the child thread" },
             "delivery": { "type": "string", "enum": ["enqueue", "immediate"], "description": "Whether the message should be delivered immediately or enqueued until idle" },
-            "model": { "type": "string", "description": "Optional model friendly name for the child thread (or 'default')" }
+            "model": { "type": "string", "description": "Optional model friendly name for the child thread (or 'default')" },
+            "capabilities": {
+              "type": "object",
+              "properties": {
+                "allow": { "type": "array", "items": { "type": "string" }, "description": "Capability allow selectors (e.g. 'fs.read', 'threads', 'mcp:*', 'mcp:everything', '*')" },
+                "deny": { "type": "array", "items": { "type": "string" }, "description": "Capability deny selectors (deny wins)" }
+              }
+            }
           },
           "required": ["name", "context", "mode", "message"]
         }

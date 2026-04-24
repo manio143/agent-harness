@@ -9,6 +9,7 @@ public interface IThreadLifecycle
         string childThreadId,
         ThreadMode mode,
         ImmutableArray<SessionEvent> seedCommitted,
+        ThreadCapabilitiesSpec? capabilities,
         CancellationToken cancellationToken = default);
 
     Task RequestStopThreadAsync(
