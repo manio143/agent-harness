@@ -68,8 +68,9 @@ export ACP_TIMEOUT
 : "${ACP_PROMPT_RETRIES:=2}"
 export ACP_PROMPT_RETRIES
 
-# Queue-owner idle TTL (seconds). Keeping this low prevents leaking long-lived agent processes.
-: "${ACPX_TTL:=30}"
+# Queue-owner idle TTL (seconds). Must be high enough to survive slow model/tool runs.
+# (If too low, acpx may SIGTERM the queue-owner mid-scenario.)
+: "${ACPX_TTL:=300}"
 export ACPX_TTL
 
 # Hard wall-time timeout (seconds) wrapping each acpx invocation to avoid indefinite hangs.
@@ -96,11 +97,44 @@ export AGENTSERVER_AgentServer__Models__QuickWorkModel="$SCENARIO_QUICKWORK_MODE
 # Back-compat (some components still read AgentServer:OpenAI)
 export AGENTSERVER_AgentServer__OpenAI__Model="$SCENARIO_OPENAI_MODEL"
 
+dump_acpx_stream_tail() {
+  local log_file="$1"
+  local session_id
+  session_id="$(rg -o 'sessionId=[0-9a-f-]{36}' "$log_file" | tail -n 1 | sed 's/sessionId=//' || true)"
+
+  if [[ -z "$session_id" ]]; then
+    echo "[diagnostics] Could not parse sessionId from scenario log." | tee -a "$log_file"
+    return 0
+  fi
+
+  local stream="$HOME/.acpx/sessions/${session_id}.stream.ndjson"
+  if [[ ! -f "$stream" ]]; then
+    echo "[diagnostics] No stream file found at: $stream" | tee -a "$log_file"
+    return 0
+  fi
+
+  echo "" | tee -a "$log_file"
+  echo "[diagnostics] Tail of $stream (last 200 lines):" | tee -a "$log_file"
+  tail -n 200 "$stream" | tee -a "$log_file"
+}
+
 run_scenario() {
   local name="$1"
-  echo "" | tee "$OUT_DIR/${name}.log"
-  echo "========== $name ==========" | tee -a "$OUT_DIR/${name}.log"
-  bash "$ROOT_DIR/${name}.sh" "$AGENT_CMD" 2>&1 | tee -a "$OUT_DIR/${name}.log"
+  local log="$OUT_DIR/${name}.log"
+
+  echo "" | tee "$log"
+  echo "========== $name ==========" | tee -a "$log"
+
+  set +e
+  bash "$ROOT_DIR/${name}.sh" "$AGENT_CMD" 2>&1 | tee -a "$log"
+  local code="${PIPESTATUS[0]}"
+  set -e
+
+  if [[ "$code" != "0" ]]; then
+    echo "[run_all] $name failed with exit code $code" | tee -a "$log"
+    dump_acpx_stream_tail "$log"
+    exit "$code"
+  fi
 }
 
 run_scenario "scenario1_child_immediate_persisted"
