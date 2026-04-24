@@ -107,8 +107,14 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
                 _threadStore);
         }
 
+        var systemRegistry = new Agent.Harness.Tools.Handlers.ToolRegistry(new Agent.Harness.Tools.Handlers.IToolHandler[]
+        {
+            new Agent.Harness.Tools.Handlers.ReportIntentToolHandler(_threadTools, _threadId),
+        });
+
         _toolRouter = new ToolCallRouter(new IToolCallExecutor[]
         {
+            new Agent.Harness.Tools.Executors.RegistryToolCallExecutor(systemRegistry),
             new SystemToolCallExecutor(_threadTools, _observer, _lifecycle, _scheduler, allocator, _isKnownModel, _threadId),
             new McpToolCallExecutor(_mcp),
             new AcpHostToolCallExecutor(_sessionId, _client, sessionCwd: _sessionCwd, store: _store),

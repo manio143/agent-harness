@@ -118,18 +118,8 @@ public static class ToolSchemas
 
     // --- Harness internal coordination tools ---
 
-    public static ToolDefinition ReportIntent { get; } = new(
-        Name: "report_intent",
-        Description: "Report the thread's current intent (short, single sentence). Must be called before other tools.",
-        InputSchema: ParseSchema("""
-        {
-          "type": "object",
-          "properties": {
-            "intent": { "type": "string", "description": "Short sentence describing what you are trying to do" }
-          },
-          "required": ["intent"]
-        }
-        """));
+    public static ToolDefinition ReportIntent { get; }
+        = Agent.Harness.Tools.Handlers.ReportIntentToolHandler.Definition;
 
     public static ToolDefinition ThreadList { get; } = new(
         Name: "thread_list",
