@@ -1,6 +1,6 @@
 # `NewThreadTask` / `thread_created` + fork read-window (implementation notes)
 
-> Note (2026-04-20): `thread_start` now requires a `name` parameter. The provided name becomes the child thread’s `ThreadId` (instead of a generated `thr_...` id).
+> Note (2026-04-20): `thread_start` now requires a `name` parameter. The provided name is a **prefix**; the system allocates a unique child `threadId` like `{name}-{hhhh}` and returns it in the tool result.
 
 
 ## Quick implementation checklist (likely touch points)
@@ -44,7 +44,7 @@ Introduce a first-class **NewThreadTask** concept so that:
   - Added `ThreadInboxArrivals.NewThreadTask(...)`
   - Core wake/stabilization now treats `NewThreadTask` as a model-waking committed event
   - Updated integration tests to detect child prompts via `<thread_created` instead of `<inter_thread`
-  - Tests: `SystemToolCallExecutorMoreCoverageTests.ThreadStart_WhenSuccessful_EnqueuesNewThreadTask_InChildThread`
+  - Tests: `ThreadOrchestratorThreadNewMidTurnCreatesChildAndCommitsInboxIntegrationTests` / `ThreadOrchestratorThreadForkMidTurnCreatesChildAndCommitsInboxIntegrationTests`
 - [x] Phase 4 — `thread_read` fork window filtering
   - `ThreadManager.ReadThreadMessages` now filters to the first `NewThreadTask` marker when `IsFork==true`
   - `thread_read` includes a `system` message for `NewThreadTask` with the same markup used in prompts
