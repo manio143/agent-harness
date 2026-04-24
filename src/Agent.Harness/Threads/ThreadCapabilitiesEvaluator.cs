@@ -62,18 +62,47 @@ public static class ThreadCapabilitiesEvaluator
                 default:
                     if (sel.StartsWith("mcp:", StringComparison.Ordinal))
                     {
-                        var server = sel[4..];
-                        if (server == "*")
+                        var rest = sel[4..];
+                        if (rest == "*")
                         {
                             foreach (var n in toolNames)
                                 if (n.Contains("__", StringComparison.Ordinal))
                                     result.Add(n);
                         }
-                        else if (server.Length > 0)
+                        else
                         {
-                            foreach (var n in toolNames)
-                                if (n.StartsWith(server + "__", StringComparison.Ordinal))
-                                    result.Add(n);
+                            var colon = rest.IndexOf(':');
+                            if (colon >= 0)
+                            {
+                                var server = rest[..colon];
+                                var tool = rest[(colon + 1)..];
+
+                                if (server.Length > 0 && tool.Length > 0)
+                                {
+                                    if (tool == "*")
+                                    {
+                                        foreach (var n in toolNames)
+                                            if (n.StartsWith(server + "__", StringComparison.Ordinal))
+                                                result.Add(n);
+                                    }
+                                    else
+                                    {
+                                        var exact = server + "__" + tool;
+                                        if (toolNames.Contains(exact))
+                                            result.Add(exact);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                var server = rest;
+                                if (server.Length > 0)
+                                {
+                                    foreach (var n in toolNames)
+                                        if (n.StartsWith(server + "__", StringComparison.Ordinal))
+                                            result.Add(n);
+                                }
+                            }
                         }
                     }
                     break;

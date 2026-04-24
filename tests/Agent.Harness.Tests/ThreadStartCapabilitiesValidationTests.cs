@@ -76,6 +76,39 @@ public sealed class ThreadStartCapabilitiesValidationTests
         lifecycle.Forked.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task ThreadStart_WhenCapabilitiesContainInvalidMcpToolSelector_FailsWithInvalidCapabilitySelector()
+    {
+        var lifecycle = new FakeLifecycle();
+        var observer = new FakeObserver();
+        var scheduler = new FakeScheduler();
+        var tools = new FakeThreadTools(model: "default");
+
+        var exec = new SystemToolCallExecutor(
+            threadTools: tools,
+            observer: observer,
+            lifecycle: lifecycle,
+            scheduler: scheduler,
+            threadIdAllocator: new TestThreadIdAllocator("0000"),
+            isKnownModel: _ => true,
+            threadId: "thr_main");
+
+        var obs = await exec.ExecuteAsync(
+            SessionState.Empty,
+            new ExecuteToolCall("t1", "thread_start", new
+            {
+                name = "child",
+                context = "new",
+                mode = "multi",
+                message = "hi",
+                capabilities = new { deny = new[] { "mcp:files:" } },
+            }),
+            CancellationToken.None);
+
+        obs.OfType<ObservedToolCallFailed>().Single().Error.Should().Be("thread_start.invalid_capability_selector:mcp:files:");
+        lifecycle.Forked.Should().BeFalse();
+    }
+
     private sealed class FakeThreadTools(string model) : IThreadTools
     {
         public void ReportIntent(string threadId, string intent) { }

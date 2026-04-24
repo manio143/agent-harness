@@ -287,21 +287,43 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
             if (!s.StartsWith("mcp:", StringComparison.Ordinal))
                 return false;
 
-            var server = s[4..];
-            if (server.Length == 0)
+            var rest = s[4..];
+            if (rest.Length == 0)
                 return false;
 
-            if (server == "*")
+            if (rest == "*")
                 return true;
 
-            foreach (var ch in server)
+            static bool IsValidId(string id)
             {
-                if (char.IsLetterOrDigit(ch)) continue;
-                if (ch is '_' or '-') continue;
-                return false;
+                if (id.Length == 0) return false;
+                foreach (var ch in id)
+                {
+                    if (char.IsLetterOrDigit(ch)) continue;
+                    if (ch is '_' or '-') continue;
+                    return false;
+                }
+                return true;
             }
 
-            return true;
+            var colon = rest.IndexOf(':');
+            if (colon < 0)
+            {
+                // mcp:<server>
+                return IsValidId(rest);
+            }
+
+            // mcp:<server>:<tool> or mcp:<server>:*
+            var server = rest[..colon];
+            var tool = rest[(colon + 1)..];
+
+            if (!IsValidId(server))
+                return false;
+
+            if (tool == "*")
+                return true;
+
+            return IsValidId(tool);
         }
 
         ImmutableArray<string> ReadList(string name)
