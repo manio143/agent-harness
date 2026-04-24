@@ -153,6 +153,14 @@ This must apply to:
 - host tools (fs + exec)
 - MCP tools
 
+### System prompt gating / guidance
+
+In addition to tool catalog filtering, the system prompt should avoid presenting guidance for tools that are not available.
+
+- Always include a short reminder that **capabilities restrict the per-thread tool surface** and the model must only call tools present in the tool catalog.
+- Gate thread-specific guidance (e.g. threading instructions) based on the offered tools. In particular:
+  - If no `thread_*` tools are offered to the current thread, skip the threading guidance fragment.
+
 ### Always-allowed tool(s)
 
 `report_intent` remains **always allowed**.
