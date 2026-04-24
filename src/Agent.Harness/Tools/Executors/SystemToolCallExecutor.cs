@@ -279,6 +279,31 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
         if (!args.TryGetValue("capabilities", out var caps) || caps.ValueKind != JsonValueKind.Object)
             return null;
 
+        static bool IsValidSelector(string s)
+        {
+            if (s is "*" or "threads" or "fs.read" or "fs.write" or "host.exec" or "mcp:*")
+                return true;
+
+            if (!s.StartsWith("mcp:", StringComparison.Ordinal))
+                return false;
+
+            var server = s[4..];
+            if (server.Length == 0)
+                return false;
+
+            if (server == "*")
+                return true;
+
+            foreach (var ch in server)
+            {
+                if (char.IsLetterOrDigit(ch)) continue;
+                if (ch is '_' or '-') continue;
+                return false;
+            }
+
+            return true;
+        }
+
         ImmutableArray<string> ReadList(string name)
         {
             if (!caps.TryGetProperty(name, out var el) || el.ValueKind != JsonValueKind.Array)
@@ -288,8 +313,14 @@ public sealed class SystemToolCallExecutor : IToolCallExecutor
             foreach (var v in el.EnumerateArray())
             {
                 if (v.ValueKind != JsonValueKind.String) continue;
-                var s = v.GetString();
-                if (!string.IsNullOrWhiteSpace(s)) b.Add(s);
+                var raw = v.GetString();
+                if (string.IsNullOrWhiteSpace(raw)) continue;
+
+                var s = raw.Trim();
+                if (!IsValidSelector(s))
+                    throw new InvalidOperationException($"thread_start.invalid_capability_selector:{s}");
+
+                b.Add(s);
             }
             return b.ToImmutable();
         }
