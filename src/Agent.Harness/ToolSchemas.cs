@@ -121,12 +121,8 @@ public static class ToolSchemas
     public static ToolDefinition ReportIntent { get; }
         = Agent.Harness.Tools.Handlers.ReportIntentToolHandler.Definition;
 
-    public static ToolDefinition ThreadList { get; } = new(
-        Name: "thread_list",
-        Description: "List threads in the current session, including their current intent, status, and model.",
-        InputSchema: ParseSchema("""
-        { "type": "object", "properties": { }, "required": [ ] }
-        """));
+    public static ToolDefinition ThreadList { get; }
+        = Agent.Harness.Tools.Handlers.ThreadListToolHandler.Definition;
 
     public static ToolDefinition ThreadStart { get; } = new(
         Name: "thread_start",
