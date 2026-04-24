@@ -5,11 +5,11 @@ namespace Agent.Harness.Tools.Handlers;
 
 using Agent.Harness.Threads;
 
-public sealed class ThreadStopToolHandler(IThreadLifecycle lifecycle, string currentThreadId) : IToolHandler
+public sealed class ThreadStopToolHandler(IThreadLifecycle? lifecycle) : IToolHandler
 {
     public static ToolDefinition Definition { get; } = new(
         Name: "thread_stop",
-        Description: "Stop/close a thread.",
+        Description: "Stop/close a thread so it can no longer receive messages and is removed from the thread list.",
         InputSchema: ParseSchema("""
         {
           "type": "object",
@@ -27,25 +27,26 @@ public sealed class ThreadStopToolHandler(IThreadLifecycle lifecycle, string cur
     {
         var args = Agent.Harness.Tools.ToolArgs.Normalize(tool.Args);
 
-        if (!args.TryGetValue("threadId", out var tidVal) || tidVal.ValueKind != JsonValueKind.String)
-            throw new InvalidOperationException("thread_stop.threadId_required");
+        var threadId = GetRequiredString(args, "threadId");
+        var reason = args.TryGetValue("reason", out var r) && r.ValueKind == JsonValueKind.String ? r.GetString() : null;
 
-        var threadId = tidVal.GetString();
-        if (string.IsNullOrWhiteSpace(threadId))
-            throw new InvalidOperationException("thread_stop.threadId_required");
-
-        if (threadId == currentThreadId)
-            throw new InvalidOperationException("thread_stop.cannot_stop_current_thread");
-
-        string? reason = null;
-        if (args.TryGetValue("reason", out var reasonVal) && reasonVal.ValueKind == JsonValueKind.String)
-            reason = reasonVal.GetString();
+        if (lifecycle is null)
+            throw new InvalidOperationException("thread_tools_require_orchestrator");
 
         await lifecycle.RequestStopThreadAsync(threadId, reason, cancellationToken).ConfigureAwait(false);
 
         return ImmutableArray.Create<ObservedChatEvent>(
-            new ObservedToolCallCompleted(tool.ToolId, JsonSerializer.SerializeToElement(new { ok = true })));
+            new ObservedToolCallCompleted(tool.ToolId, JsonSerializer.SerializeToElement(new { ok = true, threadId })));
     }
 
-    private static JsonElement ParseSchema(string json) => JsonDocument.Parse(json).RootElement;
+    private static string GetRequiredString(Dictionary<string, JsonElement> obj, string name)
+    {
+        if (!obj.TryGetValue(name, out var v) || v.ValueKind != JsonValueKind.String)
+            throw new InvalidOperationException($"missing_required:{name}");
+
+        return v.GetString() ?? "";
+    }
+
+    private static JsonElement ParseSchema(string json)
+        => JsonDocument.Parse(json).RootElement.Clone();
 }

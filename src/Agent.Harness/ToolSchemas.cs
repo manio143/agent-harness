@@ -164,36 +164,14 @@ public static class ToolSchemas
         }
         """));
 
-    public static ToolDefinition ThreadStop { get; } = new(
-        Name: "thread_stop",
-        Description: "Stop/close a thread so it can no longer receive messages and is removed from the thread list.",
-        InputSchema: ParseSchema("""
-        {
-          "type": "object",
-          "properties": {
-            "threadId": { "type": "string", "description": "Thread id to stop" },
-            "reason": { "type": "string", "description": "Optional reason for stopping" }
-          },
-          "required": ["threadId"]
-        }
-        """));
+    public static ToolDefinition ThreadStop { get; }
+        = Agent.Harness.Tools.Handlers.ThreadStopToolHandler.Definition;
 
     public static ToolDefinition ThreadRead { get; }
         = Agent.Harness.Tools.Handlers.ThreadReadToolHandler.Definition;
 
-    public static ToolDefinition ThreadConfig { get; } = new(
-        Name: "thread_config",
-        Description: "Get or set thread configuration (currently: model).",
-        InputSchema: ParseSchema("""
-        {
-          "type": "object",
-          "properties": {
-            "threadId": { "type": "string", "description": "Thread id (defaults to current thread)" },
-            "model": { "type": "string", "description": "Model friendly name to use for this thread (or 'default')" }
-          },
-          "required": [ ]
-        }
-        """));
+    public static ToolDefinition ThreadConfig { get; }
+        = Agent.Harness.Tools.Handlers.ThreadConfigToolHandler.Definition;
 
     private static JsonElement ParseSchema(string json)
         => JsonDocument.Parse(json).RootElement.Clone();

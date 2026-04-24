@@ -8,11 +8,30 @@ namespace Agent.Harness.Tests;
 public sealed class ThreadConfigToolHandlerTests
 {
     [Fact]
-    public async Task ExecuteAsync_SetsModelOnTargetThread_AndReturnsCompleted()
+    public async Task ExecuteAsync_WhenModelProvidedOnSameThread_EmitsObservedSetModel()
+    {
+        var handler = new ThreadConfigToolHandler(
+            threadTools: null,
+            lifecycle: null,
+            currentThreadId: "main",
+            isKnownModel: _ => true);
+
+        var obs = await handler.ExecuteAsync(
+            SessionState.Empty,
+            new ExecuteToolCall("t1", "thread_config", new { model = "m2" }),
+            CancellationToken.None);
+
+        obs.Should().ContainSingle(o => o is ObservedSetModel);
+        obs.Should().ContainSingle(o => o is ObservedToolCallCompleted);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenCrossThreadAndModelProvided_PersistsViaLifecycle()
     {
         var lifecycle = new FakeLifecycle();
         var handler = new ThreadConfigToolHandler(
-            lifecycle,
+            threadTools: null,
+            lifecycle: lifecycle,
             currentThreadId: "main",
             isKnownModel: _ => true);
 
@@ -22,7 +41,8 @@ public sealed class ThreadConfigToolHandlerTests
             CancellationToken.None);
 
         lifecycle.SetModelCalls.Should().ContainSingle().Which.Should().Be(("child", "default"));
-        obs.Should().ContainSingle().Which.Should().BeOfType<ObservedToolCallCompleted>();
+        obs.Should().ContainSingle(o => o is ObservedToolCallCompleted);
+        obs.Should().NotContain(o => o is ObservedSetModel);
     }
 
     private sealed class FakeLifecycle : IThreadLifecycle

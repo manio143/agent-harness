@@ -11,7 +11,7 @@ public sealed class ThreadStopToolHandlerTests
     public async Task ExecuteAsync_StopsTargetThread_AndReturnsCompleted()
     {
         var lifecycle = new FakeLifecycle();
-        var handler = new ThreadStopToolHandler(lifecycle, currentThreadId: "main");
+        var handler = new ThreadStopToolHandler(lifecycle);
 
         var obs = await handler.ExecuteAsync(
             SessionState.Empty,
