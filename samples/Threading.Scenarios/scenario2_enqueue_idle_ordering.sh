@@ -96,8 +96,12 @@ fi
 THREADS_DIR=".agent/sessions/$SESSION_ID/threads"
 CHILD_ID="$(echo "$TURN1_OUT" | rg -o '"threadId":\s*"[^"]+"' | tail -n 1 | sed 's/"threadId":\s*"//; s/"$//' || true)"
 
-if [[ -z "$CHILD_ID" && "$TURN1_CODE" == "124" ]]; then
-  echo "[scenario2] Turn 1 timed out (124); attempting recovery from committed logs..." >&2
+if [[ -z "$CHILD_ID" ]]; then
+  if [[ "$TURN1_CODE" == "124" ]]; then
+    echo "[scenario2] Turn 1 timed out (124); attempting recovery from committed logs..." >&2
+  else
+    echo "[scenario2] Turn 1 produced no threadId in stdout; attempting recovery from committed logs..." >&2
+  fi
   for _ in $(seq 1 10); do
     CHILD_ID="$(recover_child_thread_id_from_committed "$SESSION_ID" | tr -d '[:space:]' || true)"
     if [[ -n "$CHILD_ID" ]]; then
