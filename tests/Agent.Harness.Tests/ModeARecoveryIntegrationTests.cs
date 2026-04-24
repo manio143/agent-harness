@@ -33,6 +33,32 @@ public sealed class ModeARecoveryIntegrationTests
         Assert.Equal(2, effects.Executed.Count(e => e is CallModel));
     }
 
+    [Fact]
+    public async Task RunTurnAsync_ToolFailed_RePrompts_And_ProducesAssistantMessage()
+    {
+        var state = SessionState.Empty with
+        {
+            Tools = ImmutableArray.Create(ToolSchemas.ReportIntent, ToolSchemas.ReadTextFile),
+        };
+
+        var effects = new ToolFailsThenAnswerEffectExecutor();
+        var runner = new SessionRunner(new CoreOptions(), new SessionTitleGenerator(new FixedResponseChatClient("Some title")), effects);
+
+        async IAsyncEnumerable<ObservedChatEvent> Observed()
+        {
+            yield return new ObservedUserMessage("Read /tmp/a.txt");
+        }
+
+        var result = await runner.RunTurnAsync(Agent.Harness.Threads.ThreadIds.Main, state, Observed(), CancellationToken.None);
+
+        Assert.Contains(result.NewlyCommitted, e => e is ToolCallFailed { ToolId: "call_1", Error: "boom" });
+        Assert.Contains(result.NewlyCommitted, e => e is AssistantMessage { Text: "Ok." });
+        Assert.Contains(result.NewlyCommitted, e => e is TurnEnded);
+
+        // We should have prompted the model twice.
+        Assert.Equal(2, effects.Executed.Count(e => e is CallModel));
+    }
+
     private sealed class InvalidArgsThenAnswerEffectExecutor : IStreamingEffectExecutor
     {
         private int _modelCalls;
@@ -71,6 +97,70 @@ public sealed class ModeARecoveryIntegrationTests
                 return ImmutableArray.Create<ObservedChatEvent>(
                     new ObservedToolCallDetected("call_0", "report_intent", new { intent = "read a file" }),
                     new ObservedToolCallDetected("call_1", "read_text_file", new { }));
+            }
+
+            return ImmutableArray.Create<ObservedChatEvent>(
+                new ObservedAssistantTextDelta("Ok."),
+                new ObservedAssistantMessageCompleted());
+        }
+    }
+
+    private sealed class ToolFailsThenAnswerEffectExecutor : IStreamingEffectExecutor
+    {
+        private int _modelCalls;
+        public List<Effect> Executed { get; } = new();
+
+        public Task<ImmutableArray<ObservedChatEvent>> ExecuteAsync(SessionState state, Effect effect, CancellationToken cancellationToken)
+        {
+            Executed.Add(effect);
+
+            if (effect is CallModel)
+                throw new InvalidOperationException("call_model_must_be_streamed_in_tests");
+
+            if (effect is CheckPermission p)
+            {
+                return Task.FromResult(ImmutableArray.Create<ObservedChatEvent>(
+                    new ObservedPermissionApproved(p.ToolId, "tool_in_catalog")));
+            }
+
+            if (effect is ExecuteToolCall t)
+            {
+                if (t.ToolName == ToolSchemas.ReportIntent.Name)
+                {
+                    return Task.FromResult(ImmutableArray.Create<ObservedChatEvent>(
+                        new ObservedToolCallCompleted(t.ToolId, new { ok = true })));
+                }
+
+                // Simulate a real executor failure.
+                return Task.FromResult(ImmutableArray.Create<ObservedChatEvent>(
+                    new ObservedToolCallFailed(t.ToolId, "boom")));
+            }
+
+            return Task.FromResult(ImmutableArray<ObservedChatEvent>.Empty);
+        }
+
+        public async IAsyncEnumerable<ObservedChatEvent> ExecuteStreamingAsync(SessionState state, Effect effect, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            Executed.Add(effect);
+
+            if (effect is not CallModel)
+                yield break;
+
+            foreach (var o in ModelStep())
+                yield return o;
+
+            await Task.CompletedTask;
+        }
+
+        private ImmutableArray<ObservedChatEvent> ModelStep()
+        {
+            _modelCalls++;
+
+            if (_modelCalls == 1)
+            {
+                return ImmutableArray.Create<ObservedChatEvent>(
+                    new ObservedToolCallDetected("call_0", "report_intent", new { intent = "read a file" }),
+                    new ObservedToolCallDetected("call_1", "read_text_file", new { path = "/tmp/a.txt" }));
             }
 
             return ImmutableArray.Create<ObservedChatEvent>(
