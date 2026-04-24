@@ -44,6 +44,12 @@ public sealed class SystemPromptComposerTests
         // Thread envelope comes after session.
         new ThreadEnvelopeSystemPromptContributor().Build(ctx)
             .Should().BeEmpty();
+
+        new ThreadCapabilitiesSystemPromptContributor().Build(ctx)
+            .Single().Order.Should().Be(2550);
+
+        new ThreadingGuidanceSystemPromptContributor().Build(ctx)
+            .Single().Order.Should().Be(2600);
     }
 
     [Fact]

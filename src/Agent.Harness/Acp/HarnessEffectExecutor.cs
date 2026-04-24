@@ -82,6 +82,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
             new ToolCallingPolicySystemPromptContributor(),
             new SessionEnvelopeSystemPromptContributor(),
             new ThreadEnvelopeSystemPromptContributor(),
+            new ThreadCapabilitiesSystemPromptContributor(),
             new ThreadingGuidanceSystemPromptContributor(),
         });
         _threadTools = threadTools;
@@ -204,12 +205,17 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
             var meta = _store?.TryLoadMetadata(_sessionId);
             var threadMeta = _threadStore?.TryLoadThreadMetadata(_sessionId, _threadId);
 
+            var toolsForThread = state.Tools;
+            if (_threadStore is not null)
+                toolsForThread = Agent.Harness.Threads.ThreadCapabilitiesEvaluator.FilterToolsForThread(_sessionId, _threadId, state.Tools, _threadStore);
+
             var ctx = new SystemPromptContext(
                 SessionId: _sessionId,
                 SessionMetadata: meta,
                 ModelCatalogPrompt: _modelCatalogSystemPrompt,
                 ThreadId: _threadId,
-                ThreadMetadata: threadMeta);
+                ThreadMetadata: threadMeta,
+                OfferedToolNames: toolsForThread.Select(t => t.Name).ToImmutableHashSet(StringComparer.Ordinal));
 
             // Stable, deterministic order (provider prefix-cache friendly).
             var fragments = _systemPromptComposer.Compose(ctx);
@@ -223,10 +229,6 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
             AllowMultipleToolCalls = true,
             Tools = new List<Microsoft.Extensions.AI.AITool>(),
         };
-
-        var toolsForThread = state.Tools;
-        if (_threadStore is not null)
-            toolsForThread = Agent.Harness.Threads.ThreadCapabilitiesEvaluator.FilterToolsForThread(_sessionId, _threadId, state.Tools, _threadStore);
 
         foreach (var t in toolsForThread)
         {

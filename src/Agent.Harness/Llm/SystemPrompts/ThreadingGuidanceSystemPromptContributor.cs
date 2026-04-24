@@ -20,6 +20,15 @@ public sealed class ThreadingGuidanceSystemPromptContributor : ISystemPromptCont
 
     public IEnumerable<SystemPromptFragment> Build(SystemPromptContext ctx)
     {
+        // Capability gating: if this thread cannot see any thread_* tools, skip threading guidance.
+        // Back-compat: if tool names were not supplied, keep the previous behavior (always include).
+        if (ctx.OfferedToolNames is not null)
+        {
+            var hasThreadTools = ctx.OfferedToolNames.Any(n => n.StartsWith("thread_", StringComparison.Ordinal));
+            if (!hasThreadTools)
+                yield break;
+        }
+
         yield return new SystemPromptFragment(FragmentId, Order: 2600, $"<threading>{Text}</threading>");
     }
 }

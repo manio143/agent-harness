@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Agent.Harness.Persistence;
 
 namespace Agent.Harness.Llm.SystemPrompts;
@@ -9,4 +10,5 @@ public sealed record SystemPromptContext(
     SessionMetadata? SessionMetadata,
     string? ModelCatalogPrompt,
     string ThreadId,
-    ThreadMetadata? ThreadMetadata);
+    ThreadMetadata? ThreadMetadata,
+    ImmutableHashSet<string>? OfferedToolNames = null);

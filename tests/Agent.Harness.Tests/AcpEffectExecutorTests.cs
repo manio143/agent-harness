@@ -16,6 +16,14 @@ public sealed class HarnessEffectExecutorTests
     {
         var state = SessionState.Empty with
         {
+            Tools = ImmutableArray.Create(
+                Agent.Harness.ToolSchemas.ReportIntent,
+                Agent.Harness.ToolSchemas.ThreadList,
+                Agent.Harness.ToolSchemas.ThreadStart,
+                Agent.Harness.ToolSchemas.ThreadRead,
+                Agent.Harness.ToolSchemas.ThreadSend,
+                Agent.Harness.ToolSchemas.ThreadStop,
+                Agent.Harness.ToolSchemas.ThreadConfig),
             Committed = ImmutableArray.Create<SessionEvent>(
                 new TurnStarted(),
                 new UserMessage("hi"),
@@ -67,13 +75,17 @@ public sealed class HarnessEffectExecutorTests
         actual[2].Text.Should().Contain("\"createdAtIso\":\"t-threads\"");
 
         actual[3].Role.Should().Be(Microsoft.Extensions.AI.ChatRole.System);
-        actual[3].Text.Should().Contain("<threading>");
-        actual[3].Text.Should().Contain("Thread modes");
+        actual[3].Text.Should().Contain("<capabilities>");
+        actual[3].Text.Should().Contain("Thread capabilities");
 
-        actual.Length.Should().Be(expected.Length + 4);
+        actual[4].Role.Should().Be(Microsoft.Extensions.AI.ChatRole.System);
+        actual[4].Text.Should().Contain("<threading>");
+        actual[4].Text.Should().Contain("Thread modes");
+
+        actual.Length.Should().Be(expected.Length + 5);
         for (var i = 0; i < expected.Length; i++)
         {
-            actual[i + 4].Role.Should().Be(expected[i]);
+            actual[i + 5].Role.Should().Be(expected[i]);
         }
     }
 
