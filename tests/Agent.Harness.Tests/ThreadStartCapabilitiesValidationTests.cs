@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using Agent.Harness;
 using Agent.Harness.Threads;
 using Agent.Harness.Tools.Executors;
+using Agent.Harness.Tools.Handlers;
 using FluentAssertions;
 
 namespace Agent.Harness.Tests;
@@ -16,14 +17,16 @@ public sealed class ThreadStartCapabilitiesValidationTests
         var scheduler = new FakeScheduler();
         var tools = new FakeThreadTools(model: "default");
 
-        var exec = new SystemToolCallExecutor(
+        var handler = new ThreadStartToolHandler(
             threadTools: tools,
-            observer: observer,
             lifecycle: lifecycle,
+            observer: observer,
             scheduler: scheduler,
             threadIdAllocator: new TestThreadIdAllocator("0000"),
             isKnownModel: _ => true,
-            threadId: "thr_main");
+            currentThreadId: "thr_main");
+
+        var exec = new RegistryToolCallExecutor(new ToolRegistry(new IToolHandler[] { handler }));
 
         var obs = await exec.ExecuteAsync(
             SessionState.Empty,
@@ -51,14 +54,16 @@ public sealed class ThreadStartCapabilitiesValidationTests
         var scheduler = new FakeScheduler();
         var tools = new FakeThreadTools(model: "default");
 
-        var exec = new SystemToolCallExecutor(
+        var handler = new ThreadStartToolHandler(
             threadTools: tools,
-            observer: observer,
             lifecycle: lifecycle,
+            observer: observer,
             scheduler: scheduler,
             threadIdAllocator: new TestThreadIdAllocator("0000"),
             isKnownModel: _ => true,
-            threadId: "thr_main");
+            currentThreadId: "thr_main");
+
+        var exec = new RegistryToolCallExecutor(new ToolRegistry(new IToolHandler[] { handler }));
 
         var obs = await exec.ExecuteAsync(
             SessionState.Empty,
@@ -84,14 +89,16 @@ public sealed class ThreadStartCapabilitiesValidationTests
         var scheduler = new FakeScheduler();
         var tools = new FakeThreadTools(model: "default");
 
-        var exec = new SystemToolCallExecutor(
+        var handler = new ThreadStartToolHandler(
             threadTools: tools,
-            observer: observer,
             lifecycle: lifecycle,
+            observer: observer,
             scheduler: scheduler,
             threadIdAllocator: new TestThreadIdAllocator("0000"),
             isKnownModel: _ => true,
-            threadId: "thr_main");
+            currentThreadId: "thr_main");
+
+        var exec = new RegistryToolCallExecutor(new ToolRegistry(new IToolHandler[] { handler }));
 
         var obs = await exec.ExecuteAsync(
             SessionState.Empty,

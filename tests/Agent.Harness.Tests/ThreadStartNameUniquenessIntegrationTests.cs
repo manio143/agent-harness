@@ -6,6 +6,7 @@ using Agent.Harness.Persistence;
 using Agent.Harness.Threads;
 using Agent.Harness.Tools;
 using Agent.Harness.Tools.Executors;
+using Agent.Harness.Tools.Handlers;
 using FluentAssertions;
 
 namespace Agent.Harness.Tests;
@@ -76,20 +77,22 @@ public sealed class ThreadStartNameUniquenessIntegrationTests
 
         orchestrator.SetToolCatalog(ImmutableArray<ToolDefinition>.Empty);
 
-        var exec = new SystemToolCallExecutor(
+        var handler = new ThreadStartToolHandler(
             threadTools: orchestrator,
-            observer: orchestrator,
             lifecycle: orchestrator,
+            observer: orchestrator,
             scheduler: orchestrator,
             threadIdAllocator: new TestThreadIdAllocator("0000"),
             isKnownModel: null,
-            threadId: ThreadIds.Main);
+            currentThreadId: ThreadIds.Main);
+
+        var router = new RegistryToolCallExecutor(new ToolRegistry(new IToolHandler[] { handler }));
 
         var args = new { name = "child", context = "new", mode = "multi", message = "do work", delivery = "immediate" };
 
         // Act
-        var first = await exec.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t1", "thread_start", args), CancellationToken.None);
-        var second = await exec.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t2", "thread_start", args), CancellationToken.None);
+        var first = await router.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t1", "thread_start", args), CancellationToken.None);
+        var second = await router.ExecuteAsync(SessionState.Empty, new ExecuteToolCall("t2", "thread_start", args), CancellationToken.None);
 
         // Assert
         first.Should().ContainSingle(e => e is ObservedToolCallCompleted);
