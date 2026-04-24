@@ -9,6 +9,37 @@ mkdir -p "$OUT_DIR"
 
 cd "$REPO_DIR"
 
+cleanup_acpx_stale_locks() {
+  # Best-effort: remove stale queue-owner locks/sockets when the owning pid is dead.
+  # This helps avoid hangs where acpx thinks a queue-owner exists but it is wedged.
+  local qdir="$HOME/.acpx/queues"
+  if [[ ! -d "$qdir" ]]; then
+    return 0
+  fi
+
+  shopt -s nullglob
+  for lock in "$qdir"/*.lock; do
+    local pid socket
+    pid="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("pid",""))' "$lock" 2>/dev/null || true)"
+    socket="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("socketPath",""))' "$lock" 2>/dev/null || true)"
+
+    if [[ -z "$pid" ]]; then
+      continue
+    fi
+
+    if ! kill -0 "$pid" 2>/dev/null; then
+      rm -f "$lock" 2>/dev/null || true
+      if [[ -n "$socket" ]]; then
+        rm -f "$socket" 2>/dev/null || true
+      fi
+    fi
+  done
+  shopt -u nullglob
+}
+
+# Try to start clean.
+cleanup_acpx_stale_locks
+
 echo "[build] Building Agent.Server (Release)" | tee "$OUT_DIR/build.log"
 dotnet build src/Agent.Server/Agent.Server.csproj -c Release | tee -a "$OUT_DIR/build.log"
 
