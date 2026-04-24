@@ -112,6 +112,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
             new Agent.Harness.Tools.Handlers.ReportIntentToolHandler(_threadTools, _threadId),
             new Agent.Harness.Tools.Handlers.ThreadListToolHandler(_threadTools),
             new Agent.Harness.Tools.Handlers.ThreadReadToolHandler(_threadTools),
+            new Agent.Harness.Tools.Handlers.ThreadConfigToolHandler(_lifecycle, _threadId, _isKnownModel),
         });
 
         _toolRouter = new ToolCallRouter(new IToolCallExecutor[]
