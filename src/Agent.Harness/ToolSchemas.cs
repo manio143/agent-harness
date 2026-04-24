@@ -178,18 +178,8 @@ public static class ToolSchemas
         }
         """));
 
-    public static ToolDefinition ThreadRead { get; } = new(
-        Name: "thread_read",
-        Description: "Read assistant messages from another thread.",
-        InputSchema: ParseSchema("""
-        {
-          "type": "object",
-          "properties": {
-            "threadId": { "type": "string", "description": "Thread id to read from" }
-          },
-          "required": ["threadId"]
-        }
-        """));
+    public static ToolDefinition ThreadRead { get; }
+        = Agent.Harness.Tools.Handlers.ThreadReadToolHandler.Definition;
 
     public static ToolDefinition ThreadConfig { get; } = new(
         Name: "thread_config",
