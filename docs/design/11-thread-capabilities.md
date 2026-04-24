@@ -47,11 +47,13 @@ Selectors can target:
   - `fs.write`
   - `host.exec`
 
-- MCP servers:
+- MCP servers / tools:
   - `mcp:*` (all MCP servers)
-  - `mcp:<serverId>` (a specific MCP server)
+  - `mcp:<serverId>` (all tools on a specific MCP server)
+  - `mcp:<serverId>:*` (same as `mcp:<serverId>`)
+  - `mcp:<serverId>:<toolId>` (a specific MCP tool on a specific server)
 
-The MCP server id is derived from tool names exposed by discovery: `${serverId}__${toolId}`.
+The MCP server/tool ids are derived from tool names exposed by discovery: `${serverId}__${toolId}`.
 
 ### 3) Precedence rules (allow + deny)
 
@@ -125,6 +127,8 @@ Extend `thread_start` args with optional `capabilities`:
 Notes:
 - Main thread may omit capabilities entirely.
 - Children default to inheriting parent capabilities.
+- Selectors are **validated** when parsing `thread_start` args; unknown/malformed selectors fail fast with:
+  - `thread_start.invalid_capability_selector:<selector>`
 
 ## Enforcement points
 
@@ -151,9 +155,12 @@ This must apply to:
 
 ### Always-allowed tool(s)
 
-`report_intent` should remain **always allowed** for any thread that is allowed to call tools at all.
+`report_intent` remains **always allowed**.
 
 Rationale: tool calling policy requires it before any other tool call.
+
+Implication: there is intentionally **no “no-tools mode”** today.
+Even with `deny:["*"]`, `report_intent` remains available (and no other tools are).
 
 ## Persistence / “metadata projected from event log”
 
@@ -193,7 +200,10 @@ If we ever want strict event-sourced thread metadata, we can introduce a committ
 - Do we want a dedicated error code namespace?
   - e.g. `thread_capability.tool_not_allowed:<tool>` vs generic `tool_not_allowed:<tool>`.
 
-- Should we support pattern selectors beyond server-level for MCP?
-  - e.g. `mcp:everything:get_sum` or `mcp:everything:*`.
+- Should we support richer pattern selectors for MCP beyond:
+  - server-level (`mcp:<serverId>`)
+  - tool-level (`mcp:<serverId>:<toolId>`) and star (`mcp:<serverId>:*`)
+
+  For example, suffix/prefix wildcards (`mcp:files:read_*`) or regex-like patterns.
 
 - Should `thread_start` default-deny `threads` in child threads (to avoid nesting) or keep current permissive behavior?
