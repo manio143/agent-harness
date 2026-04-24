@@ -238,6 +238,9 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         {
             ToolMode = Microsoft.Extensions.AI.ChatToolMode.Auto,
             AllowMultipleToolCalls = true,
+            // Groq free-tier TPM limits are easy to hit with large tool catalogs.
+            // Keep this modest; the agent can always continue in subsequent turns.
+            MaxOutputTokens = 1024,
             Tools = new List<Microsoft.Extensions.AI.AITool>(),
         };
 
