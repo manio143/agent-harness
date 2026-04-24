@@ -10,8 +10,12 @@ mkdir -p "$OUT_DIR"
 cd "$REPO_DIR"
 
 cleanup_acpx_stale_locks() {
-  # Best-effort: remove stale queue-owner locks/sockets when the owning pid is dead.
-  # This helps avoid hangs where acpx thinks a queue-owner exists but it is wedged.
+  # Best-effort: remove stale queue-owner locks/sockets.
+  # Mode:
+  # - dead (default): remove only when pid is dead
+  # - all: kill ALL queue-owners referenced by lock files (useful if acpx is wedged)
+  local mode="${ACPX_CLEANUP_MODE:-dead}"
+
   local qdir="$HOME/.acpx/queues"
   if [[ ! -d "$qdir" ]]; then
     return 0
@@ -24,6 +28,17 @@ cleanup_acpx_stale_locks() {
     socket="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("socketPath",""))' "$lock" 2>/dev/null || true)"
 
     if [[ -z "$pid" ]]; then
+      continue
+    fi
+
+    if [[ "$mode" == "all" ]]; then
+      kill -TERM "$pid" 2>/dev/null || true
+      sleep 0.05
+      kill -KILL "$pid" 2>/dev/null || true
+      rm -f "$lock" 2>/dev/null || true
+      if [[ -n "$socket" ]]; then
+        rm -f "$socket" 2>/dev/null || true
+      fi
       continue
     fi
 
@@ -52,6 +67,10 @@ export ACP_TIMEOUT
 # Retry transient prompt failures (e.g. agent reconnect / local model flakiness).
 : "${ACP_PROMPT_RETRIES:=2}"
 export ACP_PROMPT_RETRIES
+
+# Queue-owner idle TTL (seconds). Keeping this low prevents leaking long-lived agent processes.
+: "${ACPX_TTL:=30}"
+export ACPX_TTL
 
 # Make RPC logging opt-in (can be noisy). Set to true in environment to debug.
 : "${LOG_RPC:=false}"
