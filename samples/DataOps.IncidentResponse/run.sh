@@ -1,0 +1,314 @@
+#!/usr/bin/env bash
+# DataOps Incident Response Scenario
+# Multi-phase, multi-turn evaluation with thread coordination and tool failure recovery
+set -euo pipefail
+
+AGENT_CMD="${1:?usage: $0 <agent_cmd>}"
+SESSION="dataops-$(date +%s)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SAMPLE_DIR="$SCRIPT_DIR"
+
+echo "[scenario] DataOps Incident Response - Session: $SESSION"
+
+# Helper: Create new session
+NEW_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" sessions new --name "$SESSION")"
+SESSION_ID="$(echo "$NEW_OUT" | sed -n 's/.*(\([0-9a-f-]\{36\}\)).*/\1/p' | tail -n 1)"
+if [[ -z "$SESSION_ID" ]]; then
+  SESSION_ID="$(echo "$NEW_OUT" | tr -d '[:space:]')"
+fi
+
+if [[ ! "$SESSION_ID" =~ ^[0-9a-f-]{36}$ ]]; then
+  echo "Failed to parse session id from: $NEW_OUT" >&2
+  exit 1
+fi
+
+echo "[scenario] sessionId=$SESSION_ID"
+
+# Helper: Extract thread ID from events
+extract_thread_id() {
+  local sess_id="$1"
+  local events_file=".agent/sessions/$sess_id/threads/main/events.jsonl"
+  
+  if [[ ! -f "$events_file" ]]; then
+    echo ""
+    return
+  fi
+  
+  python3 - "$events_file" <<'PY'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1])
+lines = p.read_text(encoding='utf-8').splitlines()
+last_req = None
+for line in lines:
+    try:
+        o = json.loads(line)
+    except Exception:
+        continue
+    if o.get('type') == 'tool_call_requested' and o.get('toolName') == 'thread_start':
+        last_req = o.get('toolId')
+thread_id = None
+if last_req:
+    for line in lines:
+        try:
+            o = json.loads(line)
+        except Exception:
+            continue
+        if o.get('type') == 'tool_call_completed' and o.get('toolId') == last_req:
+            thread_id = (o.get('result') or {}).get('threadId')
+            break
+print(thread_id or '')
+PY
+}
+
+# ============================================================
+# PHASE 1: Data Validation with Intentional Failure Recovery
+# ============================================================
+echo ""
+echo "========== PHASE 1: Data Validation =========="
+
+set +e
+PHASE1_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+"You are a DataOps incident response agent. Follow these rules EXACTLY.
+
+CONTEXT:
+- Working directory: $SAMPLE_DIR
+- Incident: INC-2026-04-24-001 (temperature spike on sensors)
+- Your task: Phase 1 Data Validation
+
+ALLOWED TOOLS: report_intent, read_text_file, write_text_file, execute_command, everything__echo
+
+TOOL BUDGET: Maximum 15 tool calls for this phase.
+
+PHASE 1 REQUIREMENTS (execute in order):
+1. Report intent: {\"intent\": \"Phase 1: Data Validation\"}
+2. Read incident metadata: data/incident.json
+3. Read sensor data: data/sensors.csv
+4. ATTEMPT to read malformed data: data/sensors_malformed.csv
+   - This WILL fail with parsing errors
+   - When it fails, you MUST:
+     a) Report intent: {\"intent\": \"recovered from malformed data\"}
+     b) Log the error to out/errors.log using write_text_file
+     c) Continue with valid data only
+5. Parse and validate the sensor CSV data
+6. Identify sensors with critical status (temperature >30°C)
+7. Count status distribution (ok/warning/alert/critical)
+8. Create validation output: out/phase1_validation.json with this structure:
+   {
+     \"incident_id\": \"INC-2026-04-24-001\",
+     \"validation_timestamp\": \"<current_time>\",
+     \"data_sources\": {
+       \"sensors\": {\"path\": \"data/sensors.csv\", \"records\": <count>, \"valid\": true},
+       \"sensors_malformed\": {\"path\": \"data/sensors_malformed.csv\", \"valid\": false, \"error\": \"<error_msg>\"}
+     },
+     \"anomalies\": {
+       \"critical_sensors\": [\"sensor-001\", \"sensor-003\"],
+       \"warning_sensors\": [<list>]
+     },
+     \"status_summary\": {
+       \"ok\": <count>,
+       \"warning\": <count>,
+       \"alert\": <count>,
+       \"critical\": <count>
+     }
+   }
+9. Use MCP tool everything__echo with {\"message\": \"Phase 1 validation complete\"} as checkpoint
+10. Output EXACTLY: PHASE_1_COMPLETE
+
+FAILURE HANDLING:
+- If ANY tool fails (except sensors_malformed.csv which is expected), stop and output: PHASE_1_FAILED
+- If you exceed tool budget, output: PHASE_1_BUDGET_EXCEEDED
+
+NO natural language between tool calls. Only tool calls and the final status message.")"
+PHASE1_CODE=$?
+set -e
+
+echo "$PHASE1_OUT"
+
+if [[ "$PHASE1_CODE" != "0" && "$PHASE1_CODE" != "124" ]]; then
+  echo "[scenario] Phase 1 failed with exit code $PHASE1_CODE" >&2
+  exit "$PHASE1_CODE"
+fi
+
+if ! echo "$PHASE1_OUT" | grep -q "PHASE_1_COMPLETE"; then
+  echo "[scenario] Phase 1 did not complete successfully" >&2
+  exit 1
+fi
+
+echo "[scenario] Validating Phase 1 output..."
+bash "$SAMPLE_DIR/scripts/validate_phase1.sh"
+
+# ============================================================
+# PHASE 2: Multi-Thread Analysis (Isolation & Statistics)
+# ============================================================
+echo ""
+echo "========== PHASE 2: Multi-Thread Analysis =========="
+
+set +e
+PHASE2_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+"You are continuing incident response. Follow these rules EXACTLY.
+
+CONTEXT:
+- Working directory: $SAMPLE_DIR
+- Phase 1 completed successfully
+- Now executing Phase 2: Multi-Thread Analysis
+
+ALLOWED TOOLS: report_intent, thread_start, thread_send, thread_read, thread_list, read_text_file, write_text_file, execute_command
+
+TOOL BUDGET: Maximum 20 tool calls for this phase.
+
+PHASE 2 REQUIREMENTS (execute in order):
+1. Report intent: {\"intent\": \"Phase 2: Multi-Thread Analysis\"}
+2. Read validation results: out/phase1_validation.json
+3. Create TWO child threads (mode: \"single\") for parallel analysis:
+   Thread A: {\"name\": \"analyze-sensor-001\", \"mode\": \"single\", \"delivery\": \"immediate\", \"message\": \"Analyze sensor-001 from data/sensors.csv. Calculate: min/max/avg temperature, trend (increasing/decreasing), duration above 25°C. Output JSON to out/sensor-001-stats.json. Use only read_text_file and write_text_file. No other tools.\", \"capabilities\": {\"deny\": [\"*\"], \"allow\": [\"read_text_file\", \"write_text_file\"]}}
+   Thread B: {\"name\": \"analyze-sensor-003\", \"mode\": \"single\", \"delivery\": \"immediate\", \"message\": \"Analyze sensor-003 from data/sensors.csv. Calculate: min/max/avg temperature, trend (increasing/decreasing), duration above 25°C. Output JSON to out/sensor-003-stats.json. Use only read_text_file and write_text_file. No other tools.\", \"capabilities\": {\"deny\": [\"*\"], \"allow\": [\"read_text_file\", \"write_text_file\"]}}
+4. List all threads using thread_list to verify both children exist
+5. Read results from BOTH child threads using thread_read
+6. Read sensor configuration: data/sensor_config.yaml
+7. Aggregate findings and create analysis report: out/phase2_analysis.md
+   Include:
+   - Sensor Analysis section with statistics from both threads
+   - Cross-reference with sensor_config.yaml thresholds
+   - Recommendations (immediate actions, investigation steps)
+   - Trend analysis (temperature increasing on both affected sensors)
+8. Output EXACTLY: PHASE_2_COMPLETE
+
+FAILURE HANDLING:
+- If any thread_start fails, retry ONCE with corrected parameters
+- If child threads don't produce output within expected time, report and continue
+- If you exceed tool budget, output: PHASE_2_BUDGET_EXCEEDED
+
+NO natural language between tool calls. Only tool calls and the final status message.")"
+PHASE2_CODE=$?
+set -e
+
+echo "$PHASE2_OUT"
+
+if [[ "$PHASE2_CODE" != "0" && "$PHASE2_CODE" != "124" ]]; then
+  echo "[scenario] Phase 2 failed with exit code $PHASE2_CODE" >&2
+  exit "$PHASE2_CODE"
+fi
+
+if ! echo "$PHASE2_OUT" | grep -q "PHASE_2_COMPLETE"; then
+  echo "[scenario] Phase 2 did not complete successfully" >&2
+  exit 1
+fi
+
+# Wait for child threads to finish (they may still be processing)
+sleep 2
+
+echo "[scenario] Validating Phase 2 output..."
+bash "$SAMPLE_DIR/scripts/validate_phase2.sh"
+
+# ============================================================
+# PHASE 3: Incident Report Generation
+# ============================================================
+echo ""
+echo "========== PHASE 3: Incident Report =========="
+
+set +e
+PHASE3_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+"You are finalizing the incident response. Follow these rules EXACTLY.
+
+CONTEXT:
+- Working directory: $SAMPLE_DIR
+- Phases 1 & 2 completed successfully
+- Now executing Phase 3: Final Incident Report
+
+ALLOWED TOOLS: report_intent, read_text_file, write_text_file, execute_command, everything__echo
+
+TOOL BUDGET: Maximum 15 tool calls for this phase.
+
+PHASE 3 REQUIREMENTS (execute in order):
+1. Report intent: {\"intent\": \"Phase 3: Incident Report\"}
+2. Read all previous outputs:
+   - out/phase1_validation.json
+   - out/phase2_analysis.md
+   - data/runbook.md
+3. List all tool calls executed during this incident (search events if available, or summarize from context)
+4. Create comprehensive incident report: out/incident_report.md
+   Structure:
+   # Incident Report: INC-2026-04-24-001
+   
+   ## Incident Summary
+   - ID: INC-2026-04-24-001
+   - Severity: Critical
+   - Reported: 2026-04-24T00:35:00Z
+   - Status: <Resolved/Ongoing>
+   
+   ## Timeline
+   - Phase 1: Data Validation (completed)
+   - Phase 2: Multi-Thread Analysis (completed)
+   - Phase 3: Incident Report (in progress)
+   
+   ## Findings
+   - Affected Sensors: sensor-001, sensor-003
+   - Temperature Spike: <details from analysis>
+   - Trend: <increasing/stable/decreasing>
+   
+   ## Impact Assessment
+   - Data Centers affected
+   - SLA status
+   
+   ## Mitigation Actions
+   - Immediate actions taken
+   - Follow-up required
+   
+   ## Tool Calls Executed
+   - List all tools used during investigation
+   
+   ## Executive Summary
+   - Root cause (if identified)
+   - Current status
+   - Next steps
+5. Use MCP tool everything__echo with {\"message\": \"Incident response complete\"} as final checkpoint
+6. Output EXACTLY: INCIDENT_RESPONSE_COMPLETE
+
+FAILURE HANDLING:
+- If you exceed tool budget, output: PHASE_3_BUDGET_EXCEEDED
+
+NO natural language between tool calls. Only tool calls and the final status message.")"
+PHASE3_CODE=$?
+set -e
+
+echo "$PHASE3_OUT"
+
+if [[ "$PHASE3_CODE" != "0" && "$PHASE3_CODE" != "124" ]]; then
+  echo "[scenario] Phase 3 failed with exit code $PHASE3_CODE" >&2
+  exit "$PHASE3_CODE"
+fi
+
+if ! echo "$PHASE3_OUT" | grep -q "INCIDENT_RESPONSE_COMPLETE"; then
+  echo "[scenario] Phase 3 did not complete successfully" >&2
+  exit 1
+fi
+
+echo "[scenario] Validating Phase 3 output..."
+bash "$SAMPLE_DIR/scripts/validate_phase3.sh"
+
+# ============================================================
+# FINAL VERIFICATION
+# ============================================================
+echo ""
+echo "========== FINAL VERIFICATION =========="
+
+# Check all output files exist
+required_outputs=(
+  "out/phase1_validation.json"
+  "out/phase2_analysis.md"
+  "out/incident_report.md"
+  "out/errors.log"
+)
+
+for output in "${required_outputs[@]}"; do
+  if [[ ! -f "$SAMPLE_DIR/$output" ]]; then
+    echo "[scenario] Missing required output: $output" >&2
+    exit 1
+  fi
+done
+
+echo "[scenario] All phases completed successfully ✓"
+echo "[scenario] Outputs:"
+ls -lh "$SAMPLE_DIR/out/"
+
+exit 0

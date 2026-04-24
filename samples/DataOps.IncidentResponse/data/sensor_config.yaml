@@ -1,0 +1,75 @@
+sensors:
+  - id: sensor-001
+    location: "Data Center A - Rack 7"
+    type: "environmental"
+    thresholds:
+      temperature:
+        warning: 25.0
+        critical: 30.0
+      humidity:
+        max: 60.0
+      pressure:
+        min: 1012.0
+        max: 1014.0
+    maintenance_window: "Sunday 02:00-04:00 UTC"
+    
+  - id: sensor-002
+    location: "Data Center A - Rack 12"
+    type: "environmental"
+    thresholds:
+      temperature:
+        warning: 25.0
+        critical: 30.0
+      humidity:
+        max: 60.0
+      pressure:
+        min: 1012.0
+        max: 1014.0
+    maintenance_window: "Sunday 02:00-04:00 UTC"
+    
+  - id: sensor-003
+    location: "Data Center B - Rack 3"
+    type: "environmental"
+    thresholds:
+      temperature:
+        warning: 25.0
+        critical: 30.0
+      humidity:
+        max: 60.0
+      pressure:
+        min: 1012.0
+        max: 1014.0
+    maintenance_window: "Saturday 02:00-04:00 UTC"
+    
+  - id: sensor-004
+    location: "Data Center A - Rack 15"
+    type: "environmental"
+    thresholds:
+      temperature:
+        warning: 25.0
+        critical: 30.0
+      humidity:
+        max: 60.0
+      pressure:
+        min: 1012.0
+        max: 1014.0
+    maintenance_window: "Sunday 02:00-04:00 UTC"
+    
+  - id: sensor-005
+    location: "Data Center B - Rack 9"
+    type: "environmental"
+    thresholds:
+      temperature:
+        warning: 25.0
+        critical: 30.0
+      humidity:
+        max: 60.0
+      pressure:
+        min: 1012.0
+        max: 1014.0
+    maintenance_window: "Saturday 02:00-04:00 UTC"
+
+alert_routing:
+  critical: ["oncall-sre@example.com", "incident-channel"]
+  warning: ["data-ops@example.com"]
+  ok: []

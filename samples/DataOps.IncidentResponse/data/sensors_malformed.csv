@@ -1,0 +1,7 @@
+timestamp,sensor_id,temperature,humidity,pressure,status
+2026-04-24T00:00:00Z,sensor-006,invalid_temp,45.2,1013.25,ok
+2026-04-24T00:05:00Z,sensor-006,22.7,MISSING,1013.30,ok
+2026-04-24T00:10:00Z,sensor-006,23.1,46.5,NOT_A_NUMBER,ok
+This line is completely malformed and should cause parsing errors
+2026-04-24T00:15:00Z,sensor-006,24.8,47.2,1013.20
+2026-04-24T00:20:00Z,,27.3,48.1,1013.15,alert

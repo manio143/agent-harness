@@ -1,0 +1,8 @@
+# Ignore scenario outputs (generated during execution)
+*.json
+*.md
+*.log
+*.txt
+
+# Keep the directory structure
+!.gitkeep

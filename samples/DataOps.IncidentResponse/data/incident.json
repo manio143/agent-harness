@@ -1,0 +1,21 @@
+{
+  "incident_id": "INC-2026-04-24-001",
+  "severity": "critical",
+  "reported_at": "2026-04-24T00:35:00Z",
+  "affected_sensors": ["sensor-001", "sensor-003"],
+  "description": "Temperature spike detected on multiple sensors",
+  "assigned_team": "data-ops",
+  "sla_deadline": "2026-04-24T02:35:00Z",
+  "runbooks": [
+    "validate_sensor_data",
+    "isolate_affected_sensors",
+    "generate_incident_report"
+  ],
+  "escalation_required": false,
+  "metadata": {
+    "data_source": "sensors.csv",
+    "alert_threshold_temp": 25.0,
+    "critical_threshold_temp": 30.0,
+    "normal_pressure_range": [1012.0, 1014.0]
+  }
+}
