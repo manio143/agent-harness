@@ -72,6 +72,10 @@ export ACP_PROMPT_RETRIES
 : "${ACPX_TTL:=30}"
 export ACPX_TTL
 
+# Hard wall-time timeout (seconds) wrapping each acpx invocation to avoid indefinite hangs.
+: "${ACPX_WALL_TIMEOUT:=240}"
+export ACPX_WALL_TIMEOUT
+
 # Make RPC logging opt-in (can be noisy). Set to true in environment to debug.
 : "${LOG_RPC:=false}"
 if [[ "$LOG_RPC" == "true" ]]; then
