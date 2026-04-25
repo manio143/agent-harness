@@ -19,11 +19,11 @@ fi
 
 # For constrained providers (e.g., Groq free-tier), keep tool-result payloads small.
 # This caps *observed/committed* tool outputs and (for non-read tools) writes raw results to a thread file.
-: "${AgentServer__ToolResultCapping__Enabled:=true}"
-: "${AgentServer__ToolResultCapping__MaxStringChars:=128}"
-: "${AgentServer__ToolResultCapping__MaxArrayItems:=10}"
-: "${AgentServer__ToolResultCapping__MaxObjectProperties:=20}"
-export AgentServer__ToolResultCapping__Enabled AgentServer__ToolResultCapping__MaxStringChars AgentServer__ToolResultCapping__MaxArrayItems AgentServer__ToolResultCapping__MaxObjectProperties
+: "${AGENTSERVER_AgentServer__ToolResultCapping__Enabled:=true}"
+: "${AGENTSERVER_AgentServer__ToolResultCapping__MaxStringChars:=128}"
+: "${AGENTSERVER_AgentServer__ToolResultCapping__MaxArrayItems:=10}"
+: "${AGENTSERVER_AgentServer__ToolResultCapping__MaxObjectProperties:=20}"
+export AGENTSERVER_AgentServer__ToolResultCapping__Enabled AGENTSERVER_AgentServer__ToolResultCapping__MaxStringChars AGENTSERVER_AgentServer__ToolResultCapping__MaxArrayItems AGENTSERVER_AgentServer__ToolResultCapping__MaxObjectProperties
 
 # We run the agent with --cwd "$SAMPLE_DIR" so relative paths like data/*.csv work.
 # That would break a relative Agent.Server.dll path passed from the repo root, so normalize it.
