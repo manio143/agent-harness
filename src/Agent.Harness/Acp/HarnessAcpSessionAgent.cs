@@ -133,6 +133,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         string? modelCatalogSystemPrompt = null,
         Func<string, string?>? providerModelByFriendlyName = null,
         Func<string, int?>? maxOutputTokensByFriendlyName = null,
+        Agent.Harness.Llm.ToolResultCappingOptions? toolResultCapping = null,
         Agent.Harness.Threads.ThreadCapabilitiesSpec? mainThreadCapabilities = null,
         int compactionTailMessageCount = 5,
         int? compactionMaxTailMessageChars = null,
@@ -217,6 +218,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             modelCatalogSystemPrompt: _modelCatalogSystemPrompt,
             providerModelByFriendlyName: _providerModelByFriendlyName,
             maxOutputTokensByFriendlyName: _maxOutputTokensByFriendlyName,
+            toolResultCapping: toolResultCapping,
             compactionTailMessageCount: _compactionTailMessageCount,
             compactionMaxTailMessageChars: _compactionMaxTailMessageChars,
             compactionModel: _compactionModel);

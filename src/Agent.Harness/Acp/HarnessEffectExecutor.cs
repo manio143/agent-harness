@@ -36,6 +36,8 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
     private readonly Agent.Harness.Threads.IThreadScheduler? _scheduler;
     private readonly string _threadId;
 
+    private readonly Agent.Harness.Llm.ToolResultCappingOptions? _toolResultCapping;
+
     private readonly ToolCallRouter _toolRouter;
 
     public HarnessEffectExecutor(
@@ -51,6 +53,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         string? sessionCwd = null,
         Agent.Harness.Persistence.ISessionStore? store = null,
         string? modelCatalogSystemPrompt = null,
+        Agent.Harness.Llm.ToolResultCappingOptions? toolResultCapping = null,
         int compactionTailMessageCount = 5,
         int? compactionMaxTailMessageChars = null,
         string compactionModel = "default",
@@ -75,6 +78,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         _sessionCwd = sessionCwd;
         _store = store;
         _modelCatalogSystemPrompt = modelCatalogSystemPrompt;
+        _toolResultCapping = toolResultCapping;
         _compactionTailMessageCount = compactionTailMessageCount;
         _compactionMaxTailMessageChars = compactionMaxTailMessageChars;
         _compactionModel = compactionModel;
@@ -198,7 +202,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
 
     private ImmutableArray<ObservedChatEvent> CapToolResultsIfNeeded(SessionState state, ExecuteToolCall call, ImmutableArray<ObservedChatEvent> observations)
     {
-        if (!Agent.Harness.Llm.ToolResultSanitizer.IsEnabled)
+        if (_toolResultCapping is null || !_toolResultCapping.Enabled)
             return observations;
 
         // Only cap completed results (progress updates are already small and frequent).
@@ -220,7 +224,12 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
                 _ => JsonSerializer.Serialize(completed.Result, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
             };
 
-            var sanitized = Agent.Harness.Llm.ToolResultSanitizer.Sanitize(completed.Result);
+            var sanitized = Agent.Harness.Llm.ToolResultSanitizer.Sanitize(
+                completed.Result,
+                maxStringChars: _toolResultCapping.MaxStringChars,
+                maxArrayItems: _toolResultCapping.MaxArrayItems,
+                maxObjectProperties: _toolResultCapping.MaxObjectProperties,
+                maxDepth: _toolResultCapping.MaxDepth);
             if (!sanitized.WasTruncated)
             {
                 list.Add(o);

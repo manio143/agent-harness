@@ -38,6 +38,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
     private readonly Func<string, Microsoft.Extensions.AI.IChatClient> _chatByModel;
     private readonly Func<string, string?>? _providerModelByFriendlyName;
     private readonly Func<string, int?>? _maxOutputTokensByFriendlyName;
+    private readonly Agent.Harness.Llm.ToolResultCappingOptions? _toolResultCapping;
     private readonly string _quickWorkModel;
     private readonly Func<string, bool>? _isKnownModel;
     private readonly IMcpToolInvoker _mcp;
@@ -76,6 +77,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         string? modelCatalogSystemPrompt = null,
         Func<string, string?>? providerModelByFriendlyName = null,
         Func<string, int?>? maxOutputTokensByFriendlyName = null,
+        Agent.Harness.Llm.ToolResultCappingOptions? toolResultCapping = null,
         int compactionTailMessageCount = 5,
         int? compactionMaxTailMessageChars = null,
         string compactionModel = "default")
@@ -87,6 +89,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         _quickWorkModel = quickWorkModel;
         _providerModelByFriendlyName = providerModelByFriendlyName;
         _maxOutputTokensByFriendlyName = maxOutputTokensByFriendlyName;
+        _toolResultCapping = toolResultCapping;
         _isKnownModel = isKnownModel;
         _mcp = mcp;
         _coreOptions = coreOptions;
@@ -235,6 +238,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 sessionCwd: _sessionStore.TryLoadMetadata(_sessionId)?.Cwd,
                 store: _sessionStore,
                 modelCatalogSystemPrompt: _modelCatalogSystemPrompt,
+                toolResultCapping: _toolResultCapping,
                 compactionTailMessageCount: _compactionTailMessageCount,
                 compactionMaxTailMessageChars: _compactionMaxTailMessageChars,
                 compactionModel: _compactionModel,

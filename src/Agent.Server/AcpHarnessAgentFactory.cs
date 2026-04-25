@@ -317,6 +317,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             modelCatalogSystemPrompt: BuildModelCatalogSystemPrompt(_modelCatalog),
             providerModelByFriendlyName: friendly => _modelCatalog.Resolve(friendly).Model,
             maxOutputTokensByFriendlyName: friendly => _modelCatalog.TryGetMaxOutputTokensByFriendlyName(friendly),
+            toolResultCapping: _options.ToolResultCapping,
             mainThreadCapabilities: mainThreadCaps,
             compactionTailMessageCount: _options.Compaction.TailMessageCount,
             compactionMaxTailMessageChars: _options.Compaction.MaxTailMessageChars,

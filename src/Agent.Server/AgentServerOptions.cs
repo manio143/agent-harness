@@ -12,6 +12,7 @@ public sealed class AgentServerOptions
     public LoggingOptions Logging { get; set; } = new();
     public CoreOptions Core { get; set; } = new();
     public CompactionOptions Compaction { get; set; } = new();
+    public Agent.Harness.Llm.ToolResultCappingOptions ToolResultCapping { get; set; } = new();
     public ThreadingOptions Threading { get; set; } = new();
     public AcpOptions Acp { get; set; } = new();
 

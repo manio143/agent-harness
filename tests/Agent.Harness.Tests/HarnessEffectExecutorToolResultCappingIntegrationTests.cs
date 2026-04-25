@@ -14,14 +14,9 @@ public sealed class HarnessEffectExecutorToolResultCappingIntegrationTests
     [Fact]
     public async Task ExecuteToolCall_WhenResultIsTruncated_WritesRawToolResultFile_ForNonReadTools()
     {
-        var prev = Environment.GetEnvironmentVariable("AGENT_TOOL_RESULT_MAX_STRING_CHARS");
-        Environment.SetEnvironmentVariable("AGENT_TOOL_RESULT_MAX_STRING_CHARS", "10");
-
-        try
-        {
-            var root = Path.Combine(Path.GetTempPath(), "toolcap", Guid.NewGuid().ToString("N"));
-            var store = new JsonlSessionStore(root);
-            store.CreateNew("sess1", new SessionMetadata("sess1", "/cwd", null, "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"));
+        var root = Path.Combine(Path.GetTempPath(), "toolcap", Guid.NewGuid().ToString("N"));
+        var store = new JsonlSessionStore(root);
+        store.CreateNew("sess1", new SessionMetadata("sess1", "/cwd", null, "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"));
 
             var caps = new ClientCapabilities { Terminal = true };
             var client = new CapturingTerminalClientCaller(caps)
@@ -38,7 +33,12 @@ public sealed class HarnessEffectExecutorToolResultCappingIntegrationTests
                 sessionId: "sess1",
                 client: client,
                 chat: new NullChatClient(),
-                store: store);
+                store: store,
+                toolResultCapping: new Agent.Harness.Llm.ToolResultCappingOptions
+                {
+                    Enabled = true,
+                    MaxStringChars = 10,
+                });
 
             var state = SessionState.Empty with
             {
@@ -60,31 +60,26 @@ public sealed class HarnessEffectExecutorToolResultCappingIntegrationTests
             var rawPath = dict["_raw_result_file"]!.ToString();
             File.Exists(rawPath).Should().BeTrue();
             File.ReadAllText(rawPath!).Should().Contain(new string('x', 50));
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("AGENT_TOOL_RESULT_MAX_STRING_CHARS", prev);
-        }
     }
 
     [Fact]
     public async Task ExecuteToolCall_read_text_file_WhenTruncated_IncludesTotalLinesFromOriginalFileNotJustShownContent()
     {
-        var prevProps = Environment.GetEnvironmentVariable("AGENT_TOOL_RESULT_MAX_OBJECT_PROPS");
-        Environment.SetEnvironmentVariable("AGENT_TOOL_RESULT_MAX_OBJECT_PROPS", "1");
+        var lines = Enumerable.Range(1, 10).Select(i => $"l{i}");
+        var file = string.Join("\n", lines); // no trailing newline => total_lines==10
 
-        try
-        {
-            var lines = Enumerable.Range(1, 10).Select(i => $"l{i}");
-            var file = string.Join("\n", lines); // no trailing newline => total_lines==10
+        var caps = new ClientCapabilities { Fs = new FileSystemCapabilities { ReadTextFile = true } };
+        var client = new FsClientCaller(caps, file);
 
-            var caps = new ClientCapabilities { Fs = new FileSystemCapabilities { ReadTextFile = true } };
-            var client = new FsClientCaller(caps, file);
-
-            var exec = new HarnessEffectExecutor(
-                sessionId: "sess1",
-                client: client,
-                chat: new NullChatClient());
+        var exec = new HarnessEffectExecutor(
+            sessionId: "sess1",
+            client: client,
+            chat: new NullChatClient(),
+            toolResultCapping: new Agent.Harness.Llm.ToolResultCappingOptions
+            {
+                Enabled = true,
+                MaxObjectProperties = 1,
+            });
 
             var state = SessionState.Empty with
             {
@@ -104,11 +99,6 @@ public sealed class HarnessEffectExecutorToolResultCappingIntegrationTests
 
             // Must reflect the total file lines (10), not just the shown slice (2 lines).
             dict["total_lines"].Should().Be(10);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("AGENT_TOOL_RESULT_MAX_OBJECT_PROPS", prevProps);
-        }
     }
 
     private sealed class CapturingTerminalClientCaller(ClientCapabilities caps) : IAcpClientCaller

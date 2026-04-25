@@ -6,31 +6,13 @@ internal static class ToolResultSanitizer
 {
     public sealed record SanitizedToolResult(object? Value, bool WasTruncated);
 
-    public static bool IsEnabled =>
-        Environment.GetEnvironmentVariable("AGENT_TOOL_RESULT_SANITIZE") == "1" ||
-        Environment.GetEnvironmentVariable("AGENT_TOOL_RESULT_MAX_STRING_CHARS") is not null ||
-        Environment.GetEnvironmentVariable("AGENT_TOOL_RESULT_MAX_ARRAY_ITEMS") is not null ||
-        Environment.GetEnvironmentVariable("AGENT_TOOL_RESULT_MAX_OBJECT_PROPS") is not null ||
-        Environment.GetEnvironmentVariable("AGENT_TOOL_RESULT_MAX_DEPTH") is not null;
-
     // Keep tool results small to avoid blowing provider TPM limits.
-    // When enabled, this caps tool outputs at the observed/committed event level.
+    // When enabled (by the host passing ToolResultCappingOptions.Enabled=true), this caps tool outputs
+    // at the observed/committed event level.
     public const int DefaultMaxStringChars = 800;
     public const int DefaultMaxArrayItems = 50;
     public const int DefaultMaxObjectProperties = 50;
     public const int DefaultMaxDepth = 12;
-
-    public static int EffectiveMaxStringChars =>
-        int.TryParse(Environment.GetEnvironmentVariable("AGENT_TOOL_RESULT_MAX_STRING_CHARS"), out var v) && v > 0 ? v : DefaultMaxStringChars;
-
-    public static int EffectiveMaxArrayItems =>
-        int.TryParse(Environment.GetEnvironmentVariable("AGENT_TOOL_RESULT_MAX_ARRAY_ITEMS"), out var v) && v > 0 ? v : DefaultMaxArrayItems;
-
-    public static int EffectiveMaxObjectProperties =>
-        int.TryParse(Environment.GetEnvironmentVariable("AGENT_TOOL_RESULT_MAX_OBJECT_PROPS"), out var v) && v > 0 ? v : DefaultMaxObjectProperties;
-
-    public static int EffectiveMaxDepth =>
-        int.TryParse(Environment.GetEnvironmentVariable("AGENT_TOOL_RESULT_MAX_DEPTH"), out var v) && v > 0 ? v : DefaultMaxDepth;
 
     public static SanitizedToolResult Sanitize(object? value,
         int? maxStringChars = null,
@@ -48,10 +30,10 @@ internal static class ToolResultSanitizer
                 ? je
                 : JsonSerializer.SerializeToElement(value, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
-            var ms = maxStringChars ?? EffectiveMaxStringChars;
-            var ma = maxArrayItems ?? EffectiveMaxArrayItems;
-            var mo = maxObjectProperties ?? EffectiveMaxObjectProperties;
-            var md = maxDepth ?? EffectiveMaxDepth;
+            var ms = maxStringChars is > 0 ? maxStringChars.Value : DefaultMaxStringChars;
+            var ma = maxArrayItems is > 0 ? maxArrayItems.Value : DefaultMaxArrayItems;
+            var mo = maxObjectProperties is > 0 ? maxObjectProperties.Value : DefaultMaxObjectProperties;
+            var md = maxDepth is > 0 ? maxDepth.Value : DefaultMaxDepth;
 
             var (sanitized, truncated) = SanitizeElement(el,
                 maxStringChars: ms,
