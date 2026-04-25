@@ -40,11 +40,11 @@ public sealed class AcpHostToolCallExecutor : IToolCallExecutor
 
                     int? from = null;
                     int? to = null;
-                    if (args.TryGetValue("lines", out var linesObj) && linesObj is Dictionary<string, object?> lines)
+                    if (args.TryGetValue("lines", out var linesEl) && linesEl.ValueKind == JsonValueKind.Object)
                     {
-                        if (lines.TryGetValue("from", out var f) && f is not null && int.TryParse(f.ToString(), out var fi))
+                        if (linesEl.TryGetProperty("from", out var f) && f.ValueKind == JsonValueKind.Number && f.TryGetInt32(out var fi))
                             from = fi;
-                        if (lines.TryGetValue("to", out var t) && t is not null && int.TryParse(t.ToString(), out var ti))
+                        if (linesEl.TryGetProperty("to", out var t) && t.ValueKind == JsonValueKind.Number && t.TryGetInt32(out var ti))
                             to = ti;
                     }
 

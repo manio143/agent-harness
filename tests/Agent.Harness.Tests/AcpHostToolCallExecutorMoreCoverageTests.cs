@@ -26,6 +26,32 @@ public sealed class AcpHostToolCallExecutorMoreCoverageTests
     }
 
     [Fact]
+    public async Task ReadTextFile_supports_line_ranges_and_includes_metadata()
+    {
+        var fs = new InMemoryFs();
+        fs.Write("/cwd/a.txt", "l1\nl2\nl3\nl4\n");
+
+        var client = new FakeFsClientCaller(new ClientCapabilities { Fs = new FileSystemCapabilities { ReadTextFile = true } }, fs);
+        var exec = new AcpHostToolCallExecutor(sessionId: "s1", client: client, sessionCwd: "/cwd", store: new MetaStore("/cwd"));
+
+        var obs = await exec.ExecuteAsync(
+            SessionState.Empty,
+            new ExecuteToolCall("t1", "read_text_file", new { path = "a.txt", lines = new { from = 2, to = 3 } }),
+            CancellationToken.None);
+
+        var done = obs.OfType<ObservedToolCallCompleted>().Single();
+
+        done.Result.Should().BeOfType<JsonElement>();
+        var el = (JsonElement)done.Result;
+
+        el.GetProperty("content").GetString().Should().Be("l2\nl3");
+        el.GetProperty("total_lines").GetInt32().Should().Be(5); // trailing newline counts as final empty line
+        el.GetProperty("lines_from").GetInt32().Should().Be(2);
+        el.GetProperty("lines_to").GetInt32().Should().Be(3);
+        el.GetProperty("is_partial").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
     public async Task PatchTextFile_WhenEditsMissing_FailsMissingRequiredEdits()
     {
         var fs = new InMemoryFs();

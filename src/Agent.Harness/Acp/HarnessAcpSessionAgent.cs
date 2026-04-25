@@ -99,7 +99,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         if (meta.Capabilities is not null)
             return;
 
-        _threadStore.SaveThreadMetadata(_sessionId, Agent.Harness.Threads.ThreadIds.Main, meta with
+        _threadStore.SaveThreadMetadata(_sessionId, meta with
         {
             Capabilities = caps,
             UpdatedAtIso = DateTimeOffset.UtcNow.ToString("O"),

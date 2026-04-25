@@ -46,6 +46,29 @@ public sealed class HarnessEffectExecutorCoverageTests
     }
 
     [Fact]
+    public async Task CallModel_WhenMaxOutputTokensConfigured_SetsChatOptionsMaxOutputTokens()
+    {
+        var chat = new CapturingOptionsChatClient();
+
+        var exec = new HarnessEffectExecutor(
+            sessionId: "s1",
+            client: new NullAcpClientCaller(new ClientCapabilities()),
+            chat: chat,
+            maxOutputTokensByFriendlyName: friendly => friendly == "alt" ? 123 : null);
+
+        var state = SessionState.Empty with
+        {
+            Committed = ImmutableArray.Create<SessionEvent>(new SetModel("alt")),
+            Tools = ImmutableArray<ToolDefinition>.Empty,
+        };
+
+        _ = await exec.ExecuteAsync(state, new CallModel("alt"), CancellationToken.None);
+
+        chat.LastOptions.Should().NotBeNull();
+        chat.LastOptions!.MaxOutputTokens.Should().Be(123);
+    }
+
+    [Fact]
     public async Task CallModel_WhenLogPromptsEnabled_WritesPromptLog_AndUsesModelSelector_AndWritesConsolePrompt_AndHandlesEmptyTools()
     {
         var root = Path.Combine(Path.GetTempPath(), "heec", Guid.NewGuid().ToString("N"));
@@ -79,6 +102,30 @@ public sealed class HarnessEffectExecutorCoverageTests
         var logPath = Path.Combine(root, "s1", "llm.prompt.jsonl");
         File.Exists(logPath).Should().BeTrue();
         File.ReadAllText(logPath).Should().Contain("Available inference models");
+    }
+
+    private sealed class CapturingOptionsChatClient : Microsoft.Extensions.AI.IChatClient
+    {
+        public ChatOptions? LastOptions { get; private set; }
+
+        public Task<ChatResponse> GetResponseAsync(IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(new ChatResponse());
+
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
+        {
+            LastOptions = options;
+            return YieldStop();
+
+            static async IAsyncEnumerable<ChatResponseUpdate> YieldStop()
+            {
+                await Task.CompletedTask;
+                yield return new ChatResponseUpdate { FinishReason = ChatFinishReason.Stop };
+            }
+        }
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose() { }
     }
 
     private sealed class RecordingChatClient : Microsoft.Extensions.AI.IChatClient

@@ -277,11 +277,19 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
                     ? je
                     : JsonSerializer.SerializeToElement(originalResult, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
-                if (el.ValueKind == JsonValueKind.Object && el.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String)
+                if (el.ValueKind == JsonValueKind.Object)
                 {
-                    var content = c.GetString() ?? string.Empty;
-                    var lines = content.Length == 0 ? 0 : 1 + content.Count(ch => ch == '\n');
-                    dict.TryAdd("total_lines", lines);
+                    if (el.TryGetProperty("total_lines", out var tl) && tl.ValueKind == JsonValueKind.Number && tl.TryGetInt32(out var totalLines))
+                    {
+                        dict.TryAdd("total_lines", totalLines);
+                    }
+                    else if (el.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String)
+                    {
+                        // Fallback: approximate by counting the shown content lines.
+                        var content = c.GetString() ?? string.Empty;
+                        var lines = content.Length == 0 ? 0 : 1 + content.Count(ch => ch == '\n');
+                        dict.TryAdd("total_lines", lines);
+                    }
                 }
             }
             catch
@@ -368,7 +376,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
 
         // Optional per-provider/model output cap.
         // Prefer thread model (if set) otherwise session model.
-        var friendlyModel = string.IsNullOrWhiteSpace(threadMeta?.Model) ? state.Model : threadMeta!.Model;
+        var friendlyModel = string.IsNullOrWhiteSpace(threadMeta?.Model) ? ResolveModelFriendly(state) : threadMeta!.Model;
         var maxOut = _maxOutputTokensByFriendlyName?.Invoke(friendlyModel);
         if (maxOut is > 0)
             options.MaxOutputTokens = maxOut.Value;
