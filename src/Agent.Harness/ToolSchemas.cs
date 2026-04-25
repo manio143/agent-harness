@@ -10,8 +10,17 @@ public static class ToolSchemas
         InputSchema: ParseSchema("""
         {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
-            "path": { "type": "string", "description": "Path to the file to read" }
+            "path": { "type": "string", "description": "Path to the file to read" },
+            "lines": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "from": { "type": "integer", "description": "1-based starting line (inclusive)" },
+                "to": { "type": "integer", "description": "1-based ending line (inclusive)" }
+              }
+            }
           },
           "required": ["path"]
         }

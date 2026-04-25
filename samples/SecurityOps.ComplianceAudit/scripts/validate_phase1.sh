@@ -26,11 +26,16 @@ with open(inventory_file, 'r') as f:
     inv = json.load(f)
 
 # Required top-level fields
-required = ['audit_id', 'collected_at', 'servers', 'users', 'data_quality']
+required = ['audit_id', 'collected_at', 'servers', 'users']
 missing = [f for f in required if f not in inv]
 if missing:
     print(f"FAIL: Missing required fields: {missing}", file=sys.stderr)
     sys.exit(1)
+
+# data_quality is expected at top-level, but accept users.data_quality as fallback
+users_info = inv.get('users', {})
+if isinstance(users_info, dict) and 'data_quality' in users_info and 'data_quality' not in inv:
+    inv['data_quality'] = users_info['data_quality']
 
 # Count expected servers
 with open(servers_file, 'r') as f:

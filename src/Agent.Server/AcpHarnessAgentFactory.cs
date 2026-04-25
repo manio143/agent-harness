@@ -293,6 +293,12 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         // Merge MCP tools into the session state tool catalog (built-ins are merged later per client capabilities).
         initial = initial with { Tools = ClientToolCatalog.Merge(initial.Tools, mcp.Tools) };
 
+        var mainThreadCaps = (_options.Threading.MainThreadCapabilities.Allow.Length > 0 || _options.Threading.MainThreadCapabilities.Deny.Length > 0)
+            ? new Agent.Harness.Threads.ThreadCapabilitiesSpec(
+                Allow: _options.Threading.MainThreadCapabilities.Allow.ToImmutableArray(),
+                Deny: _options.Threading.MainThreadCapabilities.Deny.ToImmutableArray())
+            : null;
+
         return new HarnessAcpSessionAgent(
             sessionId,
             client,
@@ -310,6 +316,8 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             isKnownModel: _modelCatalog.IsKnownModel,
             modelCatalogSystemPrompt: BuildModelCatalogSystemPrompt(_modelCatalog),
             providerModelByFriendlyName: friendly => _modelCatalog.Resolve(friendly).Model,
+            maxOutputTokensByFriendlyName: friendly => _modelCatalog.TryGetMaxOutputTokensByFriendlyName(friendly),
+            mainThreadCapabilities: mainThreadCaps,
             compactionTailMessageCount: _options.Compaction.TailMessageCount,
             compactionMaxTailMessageChars: _options.Compaction.MaxTailMessageChars,
             compactionModel: _options.Compaction.Model);

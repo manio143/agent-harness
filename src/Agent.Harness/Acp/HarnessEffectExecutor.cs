@@ -18,6 +18,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
     private readonly MeaiIChatClient _chat;
     private readonly Func<string, MeaiIChatClient>? _chatByModel;
     private readonly Func<string, string?>? _providerModelByFriendlyName;
+    private readonly Func<string, int?>? _maxOutputTokensByFriendlyName;
     private readonly Func<string, bool>? _isKnownModel;
     private readonly IMcpToolInvoker _mcp;
     private readonly bool _logLlmPrompts;
@@ -43,6 +44,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         MeaiIChatClient chat,
         Func<string, MeaiIChatClient>? chatByModel = null,
         Func<string, string?>? providerModelByFriendlyName = null,
+        Func<string, int?>? maxOutputTokensByFriendlyName = null,
         Func<string, bool>? isKnownModel = null,
         IMcpToolInvoker? mcp = null,
         bool logLlmPrompts = false,
@@ -66,6 +68,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         _chat = chat;
         _chatByModel = chatByModel;
         _providerModelByFriendlyName = providerModelByFriendlyName;
+        _maxOutputTokensByFriendlyName = maxOutputTokensByFriendlyName;
         _isKnownModel = isKnownModel;
         _mcp = mcp ?? NullMcpToolInvoker.Instance;
         _logLlmPrompts = logLlmPrompts;
@@ -157,6 +160,8 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
             case ExecuteToolCall t:
             {
                 var observations = await _toolRouter.ExecuteAsync(state, t, cancellationToken).ConfigureAwait(false);
+                observations = CapToolResultsIfNeeded(state, t, observations);
+
                 foreach (var o in observations)
                     yield return o;
                 yield break;
@@ -191,6 +196,124 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         }
     }
 
+    private ImmutableArray<ObservedChatEvent> CapToolResultsIfNeeded(SessionState state, ExecuteToolCall call, ImmutableArray<ObservedChatEvent> observations)
+    {
+        if (!Agent.Harness.Llm.ToolResultSanitizer.IsEnabled)
+            return observations;
+
+        // Only cap completed results (progress updates are already small and frequent).
+        var changed = false;
+        var list = new List<ObservedChatEvent>(observations.Length);
+
+        foreach (var o in observations)
+        {
+            if (o is not ObservedToolCallCompleted completed)
+            {
+                list.Add(o);
+                continue;
+            }
+
+            var rawJson = completed.Result switch
+            {
+                JsonElement el => el.GetRawText(),
+                string s => s,
+                _ => JsonSerializer.Serialize(completed.Result, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+            };
+
+            var sanitized = Agent.Harness.Llm.ToolResultSanitizer.Sanitize(completed.Result);
+            if (!sanitized.WasTruncated)
+            {
+                list.Add(o);
+                continue;
+            }
+
+            changed = true;
+
+            // If tool is not file read, persist the raw tool result to a file in the thread folder
+            // so the model can pull it via read_text_file or execute_command.
+            string? rawFile = null;
+            if (call.ToolName != "read_text_file")
+                rawFile = TryWriteRawToolResult(rawJson);
+
+            object wrapped = WrapCappedToolResult(call.ToolName, completed.Result, sanitized.Value, rawFile);
+
+            list.Add(new ObservedToolCallCompleted(completed.ToolId, wrapped));
+        }
+
+        return changed ? list.ToImmutableArray() : observations;
+    }
+
+    private object WrapCappedToolResult(string toolName, object originalResult, object? sanitizedValue, string? rawFile)
+    {
+        // Prefer to preserve object shape when possible.
+        Dictionary<string, object?> dict;
+
+        if (sanitizedValue is Dictionary<string, object?> d)
+        {
+            dict = new Dictionary<string, object?>(d, StringComparer.Ordinal);
+        }
+        else
+        {
+            dict = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["value"] = sanitizedValue,
+            };
+        }
+
+        dict["_truncated"] = true;
+
+        if (!string.IsNullOrWhiteSpace(rawFile))
+        {
+            dict["_raw_result_file"] = rawFile;
+        }
+
+        // Special-case: read_text_file should include line info when truncated.
+        if (toolName == "read_text_file")
+        {
+            try
+            {
+                // originalResult is usually { content, sha256 } from AcpHostToolCallExecutor.
+                var el = originalResult is JsonElement je
+                    ? je
+                    : JsonSerializer.SerializeToElement(originalResult, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+                if (el.ValueKind == JsonValueKind.Object && el.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String)
+                {
+                    var content = c.GetString() ?? string.Empty;
+                    var lines = content.Length == 0 ? 0 : 1 + content.Count(ch => ch == '\n');
+                    dict.TryAdd("total_lines", lines);
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        return dict;
+    }
+
+    private string? TryWriteRawToolResult(string rawJson)
+    {
+        try
+        {
+            if (_store is not Agent.Harness.Persistence.JsonlSessionStore jsonl)
+                return null;
+
+            var threadDir = Path.Combine(jsonl.RootDir, _sessionId, "threads", _threadId);
+            var outDir = Path.Combine(threadDir, "raw_tool_results");
+            Directory.CreateDirectory(outDir);
+
+            var path = Path.Combine(outDir, $"tool-result-{Guid.NewGuid():N}.json");
+            File.WriteAllText(path, rawJson);
+            return path;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private ImmutableArray<ObservedChatEvent> CheckPermission(SessionState state, CheckPermission p)
     {
         // Tool catalog is the source of truth. If it's present, it is runnable.
@@ -198,6 +321,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         var known = state.Tools.Any(t => t.Name == p.ToolName);
         if (!known)
             return ImmutableArray.Create<ObservedChatEvent>(new ObservedPermissionDenied(p.ToolId, "unknown_tool"));
+
 
         return ImmutableArray.Create<ObservedChatEvent>(new ObservedPermissionApproved(p.ToolId, "tool_in_catalog"));
     }
@@ -220,6 +344,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
             if (_threadStore is not null)
                 toolsForThread = Agent.Harness.Threads.ThreadCapabilitiesEvaluator.FilterToolsForThread(_sessionId, _threadId, state.Tools, _threadStore);
 
+
             var ctx = new SystemPromptContext(
                 SessionId: _sessionId,
                 SessionMetadata: meta,
@@ -238,11 +363,15 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         {
             ToolMode = Microsoft.Extensions.AI.ChatToolMode.Auto,
             AllowMultipleToolCalls = true,
-            // Groq free-tier TPM limits are easy to hit with large tool catalogs.
-            // Keep this modest; the agent can always continue in subsequent turns.
-            MaxOutputTokens = 1024,
             Tools = new List<Microsoft.Extensions.AI.AITool>(),
         };
+
+        // Optional per-provider/model output cap.
+        // Prefer thread model (if set) otherwise session model.
+        var friendlyModel = string.IsNullOrWhiteSpace(threadMeta?.Model) ? state.Model : threadMeta!.Model;
+        var maxOut = _maxOutputTokensByFriendlyName?.Invoke(friendlyModel);
+        if (maxOut is > 0)
+            options.MaxOutputTokens = maxOut.Value;
 
         foreach (var t in toolsForThread)
         {

@@ -60,6 +60,18 @@ public sealed record ModelCatalog(
         return Models[DefaultModel];
     }
 
+    public int? TryGetMaxOutputTokensByFriendlyName(string friendlyNameOrDefault)
+    {
+        try
+        {
+            return Resolve(friendlyNameOrDefault).MaxOutputTokens;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public int? TryGetContextWindowTokensByProviderModel(string providerModel)
     {
         if (string.IsNullOrWhiteSpace(providerModel)) return null;

@@ -12,6 +12,7 @@ public sealed class AgentServerOptions
     public LoggingOptions Logging { get; set; } = new();
     public CoreOptions Core { get; set; } = new();
     public CompactionOptions Compaction { get; set; } = new();
+    public ThreadingOptions Threading { get; set; } = new();
     public AcpOptions Acp { get; set; } = new();
 
     public sealed class ModelsOptions
@@ -53,6 +54,13 @@ public sealed class AgentServerOptions
         /// Default is left null to use library defaults.
         /// </summary>
         public int? NetworkTimeoutSeconds { get; set; }
+
+        /// <summary>
+        /// Optional max output token cap (completion limit) for this model.
+        /// Useful for providers with low TPM limits.
+        /// If null, provider defaults apply.
+        /// </summary>
+        public int? MaxOutputTokens { get; set; }
     }
 
     public sealed class OpenAiOptions : OpenAiModelOptions
@@ -112,6 +120,21 @@ public sealed class AgentServerOptions
         /// Default: "default".
         /// </summary>
         public string Model { get; set; } = "default";
+    }
+
+    public sealed class ThreadingOptions
+    {
+        /// <summary>
+        /// Optional capabilities applied to the main thread at session start.
+        /// This is the preferred way to restrict tools for constrained providers.
+        /// </summary>
+        public CapabilitiesOptions MainThreadCapabilities { get; set; } = new();
+
+        public sealed class CapabilitiesOptions
+        {
+            public string[] Allow { get; set; } = Array.Empty<string>();
+            public string[] Deny { get; set; } = Array.Empty<string>();
+        }
     }
 
     public sealed class AcpOptions

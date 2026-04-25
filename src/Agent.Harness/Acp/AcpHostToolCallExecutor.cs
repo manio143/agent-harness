@@ -38,6 +38,16 @@ public sealed class AcpHostToolCallExecutor : IToolCallExecutor
                 {
                     var path = NormalizeFsPath(GetRequiredString(args, "path"));
 
+                    int? from = null;
+                    int? to = null;
+                    if (args.TryGetValue("lines", out var linesObj) && linesObj is Dictionary<string, object?> lines)
+                    {
+                        if (lines.TryGetValue("from", out var f) && f is not null && int.TryParse(f.ToString(), out var fi))
+                            from = fi;
+                        if (lines.TryGetValue("to", out var t) && t is not null && int.TryParse(t.ToString(), out var ti))
+                            to = ti;
+                    }
+
                     try
                     {
                         var resp = await _client.ReadTextFileAsync(new Agent.Acp.Schema.ReadTextFileRequest
@@ -46,12 +56,38 @@ public sealed class AcpHostToolCallExecutor : IToolCallExecutor
                             Path = path,
                         }, cancellationToken).ConfigureAwait(false);
 
+                        var totalLines = resp.Content.Length == 0 ? 0 : 1 + resp.Content.Count(ch => ch == '\n');
+
+                        var content = resp.Content;
+                        int? shownFrom = null;
+                        int? shownTo = null;
+                        var isPartial = false;
+
+                        if (from is not null || to is not null)
+                        {
+                            var f = Math.Max(1, from ?? 1);
+                            var t = Math.Min(totalLines == 0 ? f : totalLines, to ?? f);
+
+                            var all = resp.Content.Split('\n');
+                            var start = Math.Min(all.Length, Math.Max(0, f - 1));
+                            var end = Math.Min(all.Length, Math.Max(start, t));
+
+                            content = string.Join('\n', all[start..end]);
+                            shownFrom = f;
+                            shownTo = t;
+                            isPartial = true;
+                        }
+
                         var sha256 = Sha256Hex(resp.Content);
 
                         return ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCompleted(tool.ToolId, JsonSerializer.SerializeToElement(new
                         {
-                            content = resp.Content,
+                            content,
                             sha256,
+                            total_lines = totalLines,
+                            lines_from = shownFrom,
+                            lines_to = shownTo,
+                            is_partial = isPartial,
                         })));
                     }
                     catch (Exception ex)

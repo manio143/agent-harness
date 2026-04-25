@@ -56,6 +56,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     private readonly MeaiIChatClient _chat;
     private readonly Func<string, MeaiIChatClient> _chatByModel;
     private readonly Func<string, string?>? _providerModelByFriendlyName;
+    private readonly Func<string, int?>? _maxOutputTokensByFriendlyName;
     private readonly string _quickWorkModel;
     private readonly Func<string, bool>? _isKnownModel;
     private readonly IAcpSessionEvents _events;
@@ -81,6 +82,28 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             .Select(e => e.Value)
             .LastOrDefault();
         return string.IsNullOrWhiteSpace(last) ? "all" : last;
+    }
+
+    private void EnsureMainThreadCapabilities(Agent.Harness.Threads.ThreadCapabilitiesSpec caps)
+    {
+        var meta = _threadStore.TryLoadThreadMetadata(_sessionId, Agent.Harness.Threads.ThreadIds.Main);
+        if (meta is null)
+        {
+            _threadStore.CreateMainIfMissing(_sessionId);
+            meta = _threadStore.TryLoadThreadMetadata(_sessionId, Agent.Harness.Threads.ThreadIds.Main);
+        }
+
+        if (meta is null)
+            return;
+
+        if (meta.Capabilities is not null)
+            return;
+
+        _threadStore.SaveThreadMetadata(_sessionId, Agent.Harness.Threads.ThreadIds.Main, meta with
+        {
+            Capabilities = caps,
+            UpdatedAtIso = DateTimeOffset.UtcNow.ToString("O"),
+        });
     }
 
     // Threading engine (long-lived per HarnessAcpSessionAgent instance).
@@ -109,6 +132,8 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         Func<string, bool>? isKnownModel = null,
         string? modelCatalogSystemPrompt = null,
         Func<string, string?>? providerModelByFriendlyName = null,
+        Func<string, int?>? maxOutputTokensByFriendlyName = null,
+        Agent.Harness.Threads.ThreadCapabilitiesSpec? mainThreadCapabilities = null,
         int compactionTailMessageCount = 5,
         int? compactionMaxTailMessageChars = null,
         string compactionModel = "default")
@@ -119,6 +144,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         _chatByModel = chatByModel;
         _quickWorkModel = quickWorkModel;
         _providerModelByFriendlyName = providerModelByFriendlyName;
+        _maxOutputTokensByFriendlyName = maxOutputTokensByFriendlyName;
         _isKnownModel = isKnownModel;
         _events = events;
         _coreOptions = coreOptions;
@@ -169,6 +195,11 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         _threadAppender = threadStore;
         _threads = new Agent.Harness.Threads.ThreadManager(_sessionId, _threadStore);
 
+        if (mainThreadCapabilities is not null)
+        {
+            EnsureMainThreadCapabilities(mainThreadCapabilities);
+        }
+
         _orchestrator = new Agent.Harness.Threads.ThreadOrchestrator(
             _sessionId,
             _client,
@@ -185,6 +216,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             isKnownModel: _isKnownModel,
             modelCatalogSystemPrompt: _modelCatalogSystemPrompt,
             providerModelByFriendlyName: _providerModelByFriendlyName,
+            maxOutputTokensByFriendlyName: _maxOutputTokensByFriendlyName,
             compactionTailMessageCount: _compactionTailMessageCount,
             compactionMaxTailMessageChars: _compactionMaxTailMessageChars,
             compactionModel: _compactionModel);

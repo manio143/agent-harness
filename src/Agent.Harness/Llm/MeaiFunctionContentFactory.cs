@@ -59,6 +59,8 @@ public static class MeaiFunctionContentFactory
             _ => JsonSerializer.Serialize(result, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
         };
 
+        // Tool result capping (when enabled) is applied earlier at the observed/committed event level.
+
         foreach (var c in typeof(FunctionResultContent).GetConstructors())
         {
             var ps = c.GetParameters();

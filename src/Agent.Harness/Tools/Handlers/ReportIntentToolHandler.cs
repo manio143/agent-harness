@@ -9,7 +9,7 @@ public sealed class ReportIntentToolHandler(IThreadTools? threadTools, string th
 {
     public static ToolDefinition Definition { get; } = new(
         Name: "report_intent",
-        Description: "Report the thread's current intent (short, single sentence). Must be called before other tools.",
+        Description: "Report the thread's current intent (short, single sentence). Must be called before any other tools in the same turn. IMPORTANT: call this as a tool/function call (do NOT output <report_intent>...</report_intent> in plain text).",
         InputSchema: ParseSchema("""
         {
           "type": "object",

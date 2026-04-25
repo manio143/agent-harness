@@ -13,6 +13,16 @@ SAMPLE_DIR="$SCRIPT_DIR"
 if [[ -z "${DOTNET_ENVIRONMENT:-}" ]]; then
   export DOTNET_ENVIRONMENT=Development
 fi
+if [[ -z "${ASPNETCORE_ENVIRONMENT:-}" ]]; then
+  export ASPNETCORE_ENVIRONMENT="$DOTNET_ENVIRONMENT"
+fi
+
+# For constrained providers (e.g., Groq free-tier), keep tool-result payloads small.
+# This caps *observed/committed* tool outputs and (for non-read tools) writes raw results to a thread file.
+: "${AGENT_TOOL_RESULT_MAX_STRING_CHARS:=128}"
+: "${AGENT_TOOL_RESULT_MAX_ARRAY_ITEMS:=10}"
+: "${AGENT_TOOL_RESULT_MAX_OBJECT_PROPS:=20}"
+export AGENT_TOOL_RESULT_MAX_STRING_CHARS AGENT_TOOL_RESULT_MAX_ARRAY_ITEMS AGENT_TOOL_RESULT_MAX_OBJECT_PROPS
 
 # We run the agent with --cwd "$SAMPLE_DIR" so relative paths like data/*.csv work.
 # That would break a relative Agent.Server.dll path passed from the repo root, so normalize it.
@@ -83,7 +93,7 @@ echo ""
 echo "========== PHASE 1: Data Validation =========="
 
 set +e
-PHASE1_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" --allowed-tools "report_intent,read_text_file,write_text_file,execute_command,everything__echo" prompt -s "$SESSION" \
+PHASE1_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
 "You are a DataOps incident response agent. Follow these rules EXACTLY.
 
 CONTEXT:
@@ -149,7 +159,7 @@ if ! echo "$PHASE1_OUT" | grep -q "PHASE_1_COMPLETE"; then
   echo "[scenario] Phase 1 missing completion sentinel; nudging once..." >&2
 
   set +e
-  PHASE1_OUT_2="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" --allowed-tools "report_intent,read_text_file,write_text_file,execute_command,everything__echo" prompt -s "$SESSION" \
+  PHASE1_OUT_2="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
 "Continue Phase 1 now.
 
 Do NOT stop after the report_intent tool call. Keep using tools until:
@@ -169,13 +179,58 @@ Then output EXACTLY: PHASE_1_COMPLETE")"
   fi
 
   if ! echo "$PHASE1_OUT" | grep -q "PHASE_1_COMPLETE"; then
-    echo "[scenario] Phase 1 did not complete successfully" >&2
-    exit 1
+    echo "[scenario] Phase 1 missing completion sentinel (continuing to validation)" >&2
   fi
 fi
 
 echo "[scenario] Validating Phase 1 output..."
-bash "$SAMPLE_DIR/scripts/validate_phase1.sh"
+PHASE1_VALIDATE_RETRIES="${SCENARIO_VALIDATE_RETRIES:-2}"
+PHASE1_VALIDATE_ATTEMPT=0
+while true; do
+  set +e
+  PHASE1_VALIDATE_OUT="$(bash "$SAMPLE_DIR/scripts/validate_phase1.sh" 2>&1)"
+  PHASE1_VALIDATE_CODE=$?
+  set -e
+
+  if [[ "$PHASE1_VALIDATE_CODE" == "0" ]]; then
+    echo "$PHASE1_VALIDATE_OUT"
+    break
+  fi
+
+  echo "$PHASE1_VALIDATE_OUT" >&2
+
+  if (( PHASE1_VALIDATE_ATTEMPT >= PHASE1_VALIDATE_RETRIES )); then
+    echo "[scenario] Phase 1 validation failed after retries" >&2
+    exit 1
+  fi
+
+  PHASE1_VALIDATE_ATTEMPT=$((PHASE1_VALIDATE_ATTEMPT + 1))
+  PHASE1_VALIDATE_SNIP="$(printf "%s" "$PHASE1_VALIDATE_OUT" | head -c 1200)"
+
+  echo "[scenario] Phase 1 validation failed; asking agent to fix outputs (attempt $PHASE1_VALIDATE_ATTEMPT/$PHASE1_VALIDATE_RETRIES)..." >&2
+
+  set +e
+  FIX1_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+"Phase 1 outputs failed validation. Fix ONLY the files in out/ so that scripts/validate_phase1.sh passes.
+
+Rules:
+- First call report_intent
+- Keep tool usage minimal
+
+Validator output (truncated):
+$PHASE1_VALIDATE_SNIP
+
+When done, output EXACTLY: PHASE_1_COMPLETE")"
+  FIX1_CODE=$?
+  set -e
+
+  echo "$FIX1_OUT"
+
+  if [[ "$FIX1_CODE" != "0" && "$FIX1_CODE" != "124" ]]; then
+    echo "[scenario] Phase 1 fix attempt failed with exit code $FIX1_CODE" >&2
+    exit "$FIX1_CODE"
+  fi
+done
 
 # ============================================================
 # PHASE 2: Multi-Thread Analysis (Isolation & Statistics)
@@ -184,7 +239,7 @@ echo ""
 echo "========== PHASE 2: Multi-Thread Analysis =========="
 
 set +e
-PHASE2_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" --allowed-tools "report_intent,thread_start,thread_send,thread_read,thread_list,read_text_file,write_text_file,execute_command" prompt -s "$SESSION" \
+PHASE2_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
 "You are continuing incident response. Follow these rules EXACTLY.
 
 CONTEXT:
@@ -233,7 +288,7 @@ if ! echo "$PHASE2_OUT" | grep -q "PHASE_2_COMPLETE"; then
   echo "[scenario] Phase 2 missing completion sentinel; nudging once..." >&2
 
   set +e
-  PHASE2_OUT_2="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" --allowed-tools "report_intent,thread_start,thread_send,thread_read,thread_list,read_text_file,write_text_file,execute_command" prompt -s "$SESSION" \
+  PHASE2_OUT_2="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
 "Continue Phase 2 now.
 
 Do NOT stop after the report_intent tool call. Keep using tools until:
@@ -253,8 +308,7 @@ Then output EXACTLY: PHASE_2_COMPLETE")"
   fi
 
   if ! echo "$PHASE2_OUT" | grep -q "PHASE_2_COMPLETE"; then
-    echo "[scenario] Phase 2 did not complete successfully" >&2
-    exit 1
+    echo "[scenario] Phase 2 missing completion sentinel (continuing to validation)" >&2
   fi
 fi
 
@@ -262,7 +316,53 @@ fi
 sleep 2
 
 echo "[scenario] Validating Phase 2 output..."
-bash "$SAMPLE_DIR/scripts/validate_phase2.sh"
+PHASE2_VALIDATE_RETRIES="${SCENARIO_VALIDATE_RETRIES:-2}"
+PHASE2_VALIDATE_ATTEMPT=0
+while true; do
+  set +e
+  PHASE2_VALIDATE_OUT="$(bash "$SAMPLE_DIR/scripts/validate_phase2.sh" 2>&1)"
+  PHASE2_VALIDATE_CODE=$?
+  set -e
+
+  if [[ "$PHASE2_VALIDATE_CODE" == "0" ]]; then
+    echo "$PHASE2_VALIDATE_OUT"
+    break
+  fi
+
+  echo "$PHASE2_VALIDATE_OUT" >&2
+
+  if (( PHASE2_VALIDATE_ATTEMPT >= PHASE2_VALIDATE_RETRIES )); then
+    echo "[scenario] Phase 2 validation failed after retries" >&2
+    exit 1
+  fi
+
+  PHASE2_VALIDATE_ATTEMPT=$((PHASE2_VALIDATE_ATTEMPT + 1))
+  PHASE2_VALIDATE_SNIP="$(printf "%s" "$PHASE2_VALIDATE_OUT" | head -c 1200)"
+
+  echo "[scenario] Phase 2 validation failed; asking agent to fix outputs (attempt $PHASE2_VALIDATE_ATTEMPT/$PHASE2_VALIDATE_RETRIES)..." >&2
+
+  set +e
+  FIX2_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+"Phase 2 outputs failed validation. Fix ONLY the files in out/ so that scripts/validate_phase2.sh passes.
+
+Rules:
+- First call report_intent
+- Keep tool usage minimal
+
+Validator output (truncated):
+$PHASE2_VALIDATE_SNIP
+
+When done, output EXACTLY: PHASE_2_COMPLETE")"
+  FIX2_CODE=$?
+  set -e
+
+  echo "$FIX2_OUT"
+
+  if [[ "$FIX2_CODE" != "0" && "$FIX2_CODE" != "124" ]]; then
+    echo "[scenario] Phase 2 fix attempt failed with exit code $FIX2_CODE" >&2
+    exit "$FIX2_CODE"
+  fi
+done
 
 # ============================================================
 # PHASE 3: Incident Report Generation
@@ -271,7 +371,7 @@ echo ""
 echo "========== PHASE 3: Incident Report =========="
 
 set +e
-PHASE3_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" --allowed-tools "report_intent,read_text_file,write_text_file,execute_command,everything__echo" prompt -s "$SESSION" \
+PHASE3_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
 "You are finalizing the incident response. Follow these rules EXACTLY.
 
 CONTEXT:
@@ -346,7 +446,7 @@ if ! echo "$PHASE3_OUT" | grep -q "INCIDENT_RESPONSE_COMPLETE"; then
   echo "[scenario] Phase 3 missing completion sentinel; nudging once..." >&2
 
   set +e
-  PHASE3_OUT_2="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" --allowed-tools "report_intent,read_text_file,write_text_file,execute_command,everything__echo" prompt -s "$SESSION" \
+  PHASE3_OUT_2="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
 "Continue Phase 3 now.
 
 Do NOT stop after the report_intent tool call. Keep using tools until:
@@ -365,13 +465,58 @@ Then output EXACTLY: INCIDENT_RESPONSE_COMPLETE")"
   fi
 
   if ! echo "$PHASE3_OUT" | grep -q "INCIDENT_RESPONSE_COMPLETE"; then
-    echo "[scenario] Phase 3 did not complete successfully" >&2
-    exit 1
+    echo "[scenario] Phase 3 missing completion sentinel (continuing to validation)" >&2
   fi
 fi
 
 echo "[scenario] Validating Phase 3 output..."
-bash "$SAMPLE_DIR/scripts/validate_phase3.sh"
+PHASE3_VALIDATE_RETRIES="${SCENARIO_VALIDATE_RETRIES:-2}"
+PHASE3_VALIDATE_ATTEMPT=0
+while true; do
+  set +e
+  PHASE3_VALIDATE_OUT="$(bash "$SAMPLE_DIR/scripts/validate_phase3.sh" 2>&1)"
+  PHASE3_VALIDATE_CODE=$?
+  set -e
+
+  if [[ "$PHASE3_VALIDATE_CODE" == "0" ]]; then
+    echo "$PHASE3_VALIDATE_OUT"
+    break
+  fi
+
+  echo "$PHASE3_VALIDATE_OUT" >&2
+
+  if (( PHASE3_VALIDATE_ATTEMPT >= PHASE3_VALIDATE_RETRIES )); then
+    echo "[scenario] Phase 3 validation failed after retries" >&2
+    exit 1
+  fi
+
+  PHASE3_VALIDATE_ATTEMPT=$((PHASE3_VALIDATE_ATTEMPT + 1))
+  PHASE3_VALIDATE_SNIP="$(printf "%s" "$PHASE3_VALIDATE_OUT" | head -c 1200)"
+
+  echo "[scenario] Phase 3 validation failed; asking agent to fix outputs (attempt $PHASE3_VALIDATE_ATTEMPT/$PHASE3_VALIDATE_RETRIES)..." >&2
+
+  set +e
+  FIX3_OUT="$(timeout "${ACPX_WALL_TIMEOUT:-240}" acpx --approve-all --non-interactive-permissions fail --ttl "${ACPX_TTL:-300}" --prompt-retries "${ACP_PROMPT_RETRIES:-2}" --agent "$AGENT_CMD" --cwd "$SAMPLE_DIR" --timeout "${ACP_TIMEOUT:-300}" prompt -s "$SESSION" \
+"Phase 3 outputs failed validation. Fix ONLY the files in out/ so that scripts/validate_phase3.sh passes.
+
+Rules:
+- First call report_intent
+- Keep tool usage minimal
+
+Validator output (truncated):
+$PHASE3_VALIDATE_SNIP
+
+When done, output EXACTLY: INCIDENT_RESPONSE_COMPLETE")"
+  FIX3_CODE=$?
+  set -e
+
+  echo "$FIX3_OUT"
+
+  if [[ "$FIX3_CODE" != "0" && "$FIX3_CODE" != "124" ]]; then
+    echo "[scenario] Phase 3 fix attempt failed with exit code $FIX3_CODE" >&2
+    exit "$FIX3_CODE"
+  fi
+done
 
 # ============================================================
 # FINAL VERIFICATION

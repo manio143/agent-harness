@@ -37,6 +37,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
     private readonly Microsoft.Extensions.AI.IChatClient _chat;
     private readonly Func<string, Microsoft.Extensions.AI.IChatClient> _chatByModel;
     private readonly Func<string, string?>? _providerModelByFriendlyName;
+    private readonly Func<string, int?>? _maxOutputTokensByFriendlyName;
     private readonly string _quickWorkModel;
     private readonly Func<string, bool>? _isKnownModel;
     private readonly IMcpToolInvoker _mcp;
@@ -74,6 +75,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         Func<string, bool>? isKnownModel = null,
         string? modelCatalogSystemPrompt = null,
         Func<string, string?>? providerModelByFriendlyName = null,
+        Func<string, int?>? maxOutputTokensByFriendlyName = null,
         int compactionTailMessageCount = 5,
         int? compactionMaxTailMessageChars = null,
         string compactionModel = "default")
@@ -84,6 +86,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         _chatByModel = chatByModel;
         _quickWorkModel = quickWorkModel;
         _providerModelByFriendlyName = providerModelByFriendlyName;
+        _maxOutputTokensByFriendlyName = maxOutputTokensByFriendlyName;
         _isKnownModel = isKnownModel;
         _mcp = mcp;
         _coreOptions = coreOptions;
@@ -225,6 +228,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 _chat,
                 chatByModel: _chatByModel,
                 providerModelByFriendlyName: _providerModelByFriendlyName,
+                maxOutputTokensByFriendlyName: _maxOutputTokensByFriendlyName,
                 isKnownModel: _isKnownModel,
                 _mcp,
                 logLlmPrompts: threadId == ThreadIds.Main && _logLlmPrompts,
