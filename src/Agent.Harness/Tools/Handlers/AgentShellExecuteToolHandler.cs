@@ -75,6 +75,8 @@ public sealed class AgentShellExecuteToolHandler : IToolHandler, IDisposable
             mcp: _mcp,
             offeredTools: toolsForThread);
 
+        _ps.UpdateOfferedTools(toolsForThread);
+
         var result = _ps.Execute(script, cancellationToken);
 
         var json = JsonSerializer.SerializeToElement(new

@@ -23,6 +23,11 @@ public sealed class InProcessPowerShellSession : IDisposable
     private readonly string _workingDir;
     private readonly Runspace _runspace;
 
+    private readonly Agent.Harness.Acp.IMcpToolInvoker? _mcp;
+    private ImmutableArray<Agent.Harness.ToolDefinition> _offeredTools;
+    private string? _mcpSignature;
+    private ImmutableHashSet<string> _mcpServers = ImmutableHashSet<string>.Empty;
+
     public InProcessPowerShellSession(
         string workingDir,
         Agent.Acp.Acp.IAcpClientCaller? client = null,
@@ -37,6 +42,9 @@ public sealed class InProcessPowerShellSession : IDisposable
 
         _workingDir = workingDir;
         Directory.CreateDirectory(_workingDir);
+
+        _mcp = mcp;
+        _offeredTools = offeredTools;
 
         var iss = InitialSessionState.CreateDefault2();
 
@@ -119,44 +127,65 @@ public sealed class InProcessPowerShellSession : IDisposable
             // ignore
         }
 
-        // MCP proxy cmdlets: attach context + define proxy functions.
-        // IMPORTANT: avoid dynamic module creation (New-Module / ScriptBlock::Create),
-        // because those are brittle under ConstrainedLanguage. Instead we define functions
-        // directly in the runspace after it opens.
-        if (mcp is not null && !offeredTools.IsDefaultOrEmpty)
+        RefreshMcpProxyModules();
+    }
+
+    public void UpdateOfferedTools(ImmutableArray<Agent.Harness.ToolDefinition> offeredTools)
+    {
+        lock (_gate)
         {
-            try
-            {
-                var allowed = offeredTools
-                    .Select(t => t.Name)
-                    .Where(n => mcp.CanInvoke(n))
-                    .ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
-
-                _runspace.SessionStateProxy.SetVariable("__mcpCtx", new McpToolPsContext(mcp, allowed));
-
-                using var ps = PowerShell.Create();
-                ps.Runspace = _runspace;
-
-                var scripts = McpProxyModuleGenerator.Generate(offeredTools, verbs: McpApprovedVerbs.CreateDefault());
-                foreach (var kvp in scripts)
-                {
-                    var server = kvp.Key;
-                    var script = kvp.Value;
-
-                    // Create + import a module per MCP server.
-                    // FullLanguage mode allows ScriptBlock::Create + New-Module.
-                    _runspace.SessionStateProxy.SetVariable("__mcp_module_script", script);
-
-                    ps.Commands.Clear();
-                    ps.AddScript($"$sb=[scriptblock]::Create($global:__mcp_module_script); $m=New-Module -Name 'Mcp.{server}' -ScriptBlock $sb; Import-Module $m -Force -Global | Out-Null");
-                    ps.Invoke();
-                }
-            }
-            catch
-            {
-                // ignore
-            }
+            _offeredTools = offeredTools;
         }
+    }
+
+    private void RefreshMcpProxyModules()
+    {
+        if (_mcp is null || _offeredTools.IsDefaultOrEmpty)
+            return;
+
+        // Signature based on tool names only (cheap). If schemas change without name changes,
+        // we can revisit.
+        var names = _offeredTools
+            .Select(t => t.Name)
+            .Where(n => _mcp.CanInvoke(n))
+            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var sig = string.Join("\n", names);
+        if (string.Equals(sig, _mcpSignature, StringComparison.Ordinal))
+            return;
+
+        _mcpSignature = sig;
+
+        var allowed = names.ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
+        _runspace.SessionStateProxy.SetVariable("__mcpCtx", new McpToolPsContext(_mcp, allowed));
+
+        // Determine per-server modules.
+        var scripts = McpProxyModuleGenerator.Generate(_offeredTools, verbs: McpApprovedVerbs.CreateDefault());
+        var desiredServers = scripts.Keys.ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
+
+        using var ps = PowerShell.Create();
+        ps.Runspace = _runspace;
+
+        // Remove modules for servers that disappeared.
+        foreach (var oldServer in _mcpServers.Except(desiredServers, StringComparer.OrdinalIgnoreCase))
+        {
+            ps.Commands.Clear();
+            ps.AddScript($"Remove-Module -Name 'Mcp.{oldServer}' -Force -ErrorAction SilentlyContinue");
+            ps.Invoke();
+        }
+
+        // Import/update desired modules.
+        foreach (var (server, script) in scripts)
+        {
+            _runspace.SessionStateProxy.SetVariable("__mcp_module_script", script);
+
+            ps.Commands.Clear();
+            ps.AddScript($"Remove-Module -Name 'Mcp.{server}' -Force -ErrorAction SilentlyContinue; $sb=[scriptblock]::Create($global:__mcp_module_script); $m=New-Module -Name 'Mcp.{server}' -ScriptBlock $sb; Import-Module $m -Force -Global | Out-Null");
+            ps.Invoke();
+        }
+
+        _mcpServers = desiredServers;
     }
 
     public PowerShellExecutionResult Execute(string script, CancellationToken cancellationToken)
@@ -165,6 +194,9 @@ public sealed class InProcessPowerShellSession : IDisposable
 
         lock (_gate)
         {
+            // Tool catalog can change between calls (capabilities, MCP discovery).
+            RefreshMcpProxyModules();
+
             // Re-anchor location at the start of every call.
             try
             {
