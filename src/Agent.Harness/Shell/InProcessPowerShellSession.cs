@@ -54,41 +54,6 @@ public sealed class InProcessPowerShellSession : IDisposable
         _includeSuggestionsInShell = includeSuggestionsInShell;
         _offeredTools = offeredTools;
 
-        // Build a cached command catalog OUTSIDE of any PowerShell invocation.
-        // Calling Get-Command from inside the shell's own runspace can deadlock.
-        // NOTE: Find-AgentCommand uses ONLY this cached catalog (no PS re-entry, no LLM call).
-        var suggestionCatalog = ImmutableArray<string>.Empty;
-        if (_includeSuggestionsInShell)
-        {
-            try
-            {
-                var psCmdlets = Agent.Harness.Llm.CommandSuggestions.PowerShellBuiltinCatalog.GetDefaultCmdlets();
-
-                var verbs = Agent.Harness.Shell.Mcp.McpApprovedVerbs.CreateDefault();
-                var mcpCmdlets = offeredTools
-                    .Select(t => t.Name)
-                    .Select(n =>
-                    {
-                        var idx = n.IndexOf("__", StringComparison.Ordinal);
-                        if (idx <= 0 || idx >= n.Length - 2) return null;
-                        var tool = n[(idx + 2)..];
-                        return Agent.Harness.Shell.Mcp.McpCmdletNameMapper.Map(tool, verbs).CmdletName;
-                    })
-                    .Where(x => !string.IsNullOrWhiteSpace(x))
-                    .Cast<string>();
-
-                suggestionCatalog = mcpCmdlets
-                    .Concat(psCmdlets)
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .Take(250)
-                    .ToImmutableArray();
-            }
-            catch
-            {
-                suggestionCatalog = ImmutableArray<string>.Empty;
-            }
-        }
-
         var iss = InitialSessionState.CreateDefault2();
 
         // Binary cmdlet used by generated MCP proxy functions.
@@ -131,7 +96,8 @@ public sealed class InProcessPowerShellSession : IDisposable
             _runspace.SessionStateProxy.SetVariable(
                 "__cmdSuggestCtx",
                 new CommandIntentPsContext(
-                    suggestionCatalog,
+                    _commandIntentSuggester,
+                    getOfferedTools: () => { lock (_gate) return _offeredTools; },
                     enabled: _includeSuggestionsInShell));
 
             using var psInit = PowerShell.Create();

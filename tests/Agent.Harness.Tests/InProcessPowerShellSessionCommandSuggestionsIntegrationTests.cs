@@ -29,23 +29,4 @@ public sealed class InProcessPowerShellSessionCommandSuggestionsIntegrationTests
         call.Success.Should().BeTrue(call.Stderr);
         call.Stdout.Trim().Should().Be("[]");
     }
-
-    [Fact]
-    public void Shell_FindAgentCommand_ReturnsSuggestions_WhenEnabledAndHeuristic()
-    {
-        var wd = Path.Combine(Path.GetTempPath(), "pwsh-cmd-suggest-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(wd);
-
-        using var ps = new InProcessPowerShellSession(
-            workingDir: wd,
-            commandIntentSuggester: new HeuristicCommandIntentSuggester(),
-            includeSuggestionsInShell: true,
-            offeredTools: ImmutableArray<ToolDefinition>.Empty);
-
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-
-        var call = ps.Execute("ConvertTo-Json -Compress -InputObject @(Find-AgentCommand -Intent 'list files')", cts.Token);
-        call.Success.Should().BeTrue(call.Stderr);
-        call.Stdout.Trim().Should().NotBeEmpty();
-    }
 }

@@ -116,12 +116,6 @@ public sealed class AgentServerOptions
         /// This is independent from IncludeSuggestionsInReportIntent.
         /// </summary>
         public bool IncludeSuggestionsInShell { get; set; } = true;
-
-        /// <summary>
-        /// When true, uses a deterministic heuristic suggester (no extra model call) for intent-based command suggestions.
-        /// Default is false (use the quick-work model).
-        /// </summary>
-        public bool UseHeuristicCommandSuggestions { get; set; } = false;
     }
 
     public sealed class CompactionOptions
