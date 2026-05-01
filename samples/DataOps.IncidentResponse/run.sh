@@ -25,6 +25,10 @@ fi
 : "${AGENTSERVER_AgentServer__ToolResultCapping__MaxObjectProperties:=20}"
 export AGENTSERVER_AgentServer__ToolResultCapping__Enabled AGENTSERVER_AgentServer__ToolResultCapping__MaxStringChars AGENTSERVER_AgentServer__ToolResultCapping__MaxArrayItems AGENTSERVER_AgentServer__ToolResultCapping__MaxObjectProperties
 
+# Speed up deterministic samples: avoid any extra LLM call during report_intent.
+: "${AGENTSERVER_AgentServer__Core__IncludeSuggestionsInReportIntent:=false}"
+export AGENTSERVER_AgentServer__Core__IncludeSuggestionsInReportIntent
+
 # We run the agent with --cwd "$SAMPLE_DIR" so relative paths like data/*.csv work.
 # That would break a relative Agent.Server.dll path passed from the repo root, so normalize it.
 REPO_ROOT="$(cd "$SAMPLE_DIR/../.." && pwd)"

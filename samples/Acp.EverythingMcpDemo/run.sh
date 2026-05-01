@@ -3,6 +3,9 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
 
+# Speed up deterministic samples: avoid any extra LLM call during report_intent.
+export AGENTSERVER_AgentServer__Core__IncludeSuggestionsInReportIntent="${AGENTSERVER_AgentServer__Core__IncludeSuggestionsInReportIntent:-false}"
+
 cd "$repo_root"
 dotnet build Agent.slnx -c Release
 

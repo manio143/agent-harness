@@ -7,6 +7,9 @@ cd "$(dirname "$0")/../.."
 export ACP_TIMEOUT="${ACP_TIMEOUT:-1500}"
 export AGENTSERVER_AgentServer__OpenAI__NetworkTimeoutSeconds="${AGENTSERVER_AgentServer__OpenAI__NetworkTimeoutSeconds:-1500}"
 
+# Speed up deterministic samples: avoid any extra LLM call during report_intent.
+export AGENTSERVER_AgentServer__Core__IncludeSuggestionsInReportIntent="${AGENTSERVER_AgentServer__Core__IncludeSuggestionsInReportIntent:-false}"
+
 # Ensure the server binary is up to date.
 dotnet build Agent.slnx -c Release >/dev/null
 
