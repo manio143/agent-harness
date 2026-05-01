@@ -12,9 +12,8 @@ export AGENTSERVER_AgentServer__OpenAI__NetworkTimeoutSeconds="${AGENTSERVER_Age
 export AGENTSERVER_AgentServer__Core__IncludeSuggestionsInReportIntent="${AGENTSERVER_AgentServer__Core__IncludeSuggestionsInReportIntent:-false}"
 export AGENTSERVER_AgentServer__Core__IncludeSuggestionsInShell="${AGENTSERVER_AgentServer__Core__IncludeSuggestionsInShell:-true}"
 
-# IMPORTANT: Find-AgentCommand uses the "quick-work" model. Force it to a known-good local model
-# for this sample, to avoid hanging if the configured quick-work model isn't available.
-export AGENTSERVER_AgentServer__Models__QuickWorkModel="${AGENTSERVER_AgentServer__Models__QuickWorkModel:-qwen}"
+# Use the deterministic heuristic suggester for this sample (no extra model call).
+export AGENTSERVER_AgentServer__Core__UseHeuristicCommandSuggestions="${AGENTSERVER_AgentServer__Core__UseHeuristicCommandSuggestions:-true}"
 
 # Ensure the server binary is up to date.
 dotnet build Agent.slnx -c Release >/dev/null

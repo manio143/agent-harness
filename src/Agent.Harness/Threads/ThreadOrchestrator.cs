@@ -242,7 +242,9 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 compactionTailMessageCount: _compactionTailMessageCount,
                 compactionMaxTailMessageChars: _compactionMaxTailMessageChars,
                 compactionModel: _compactionModel,
-                commandIntentSuggester: new Agent.Harness.Llm.CommandSuggestions.QuickWorkCommandIntentSuggester(_chatByModel(_quickWorkModel)),
+                commandIntentSuggester: _coreOptions.UseHeuristicCommandSuggestions
+                    ? new Agent.Harness.Llm.CommandSuggestions.HeuristicCommandIntentSuggester()
+                    : new Agent.Harness.Llm.CommandSuggestions.QuickWorkCommandIntentSuggester(_chatByModel(_quickWorkModel)),
                 includeSuggestionsInReportIntent: _coreOptions.IncludeSuggestionsInReportIntent,
                 includeSuggestionsInShell: _coreOptions.IncludeSuggestionsInShell,
                 threadTools: this,
