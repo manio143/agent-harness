@@ -141,7 +141,9 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
                 client: _client,
                 sessionCwd: _sessionCwd,
                 mcp: _mcp,
-                threadStore: _threadStore),
+                threadStore: _threadStore,
+                commandIntentSuggester: _commandIntentSuggester,
+                includeSuggestionsInShell: _includeSuggestionsInReportIntent),
         });
 
         _toolRouter = new ToolCallRouter(new IToolCallExecutor[]

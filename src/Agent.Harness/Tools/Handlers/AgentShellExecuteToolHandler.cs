@@ -32,6 +32,8 @@ public sealed class AgentShellExecuteToolHandler : IToolHandler, IDisposable
     private readonly string? _sessionCwd;
     private readonly Agent.Harness.Acp.IMcpToolInvoker? _mcp;
     private readonly Agent.Harness.Threads.IThreadStore? _threadStore;
+    private readonly Agent.Harness.Llm.CommandSuggestions.ICommandIntentSuggester _commandIntentSuggester;
+    private readonly bool _includeSuggestionsInShell;
 
     private InProcessPowerShellSession? _ps;
 
@@ -42,7 +44,9 @@ public sealed class AgentShellExecuteToolHandler : IToolHandler, IDisposable
         Agent.Acp.Acp.IAcpClientCaller? client = null,
         string? sessionCwd = null,
         Agent.Harness.Acp.IMcpToolInvoker? mcp = null,
-        Agent.Harness.Threads.IThreadStore? threadStore = null)
+        Agent.Harness.Threads.IThreadStore? threadStore = null,
+        Agent.Harness.Llm.CommandSuggestions.ICommandIntentSuggester? commandIntentSuggester = null,
+        bool includeSuggestionsInShell = true)
     {
         _sessionId = sessionId;
         _threadId = threadId;
@@ -51,6 +55,8 @@ public sealed class AgentShellExecuteToolHandler : IToolHandler, IDisposable
         _sessionCwd = sessionCwd;
         _mcp = mcp;
         _threadStore = threadStore;
+        _commandIntentSuggester = commandIntentSuggester ?? Agent.Harness.Llm.CommandSuggestions.NullCommandIntentSuggester.Instance;
+        _includeSuggestionsInShell = includeSuggestionsInShell;
     }
 
     ToolDefinition IToolHandler.Definition => Definition;
@@ -73,6 +79,8 @@ public sealed class AgentShellExecuteToolHandler : IToolHandler, IDisposable
             sessionCwd: _sessionCwd,
             store: _store,
             mcp: _mcp,
+            commandIntentSuggester: _commandIntentSuggester,
+            includeSuggestionsInShell: _includeSuggestionsInShell,
             offeredTools: toolsForThread);
 
         _ps.UpdateOfferedTools(toolsForThread);

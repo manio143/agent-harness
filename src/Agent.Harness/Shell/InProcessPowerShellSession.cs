@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using Agent.Harness.Shell.Mcp;
+using Agent.Harness.Shell.CommandSuggestions;
 
 namespace Agent.Harness.Shell;
 
@@ -24,6 +25,9 @@ public sealed class InProcessPowerShellSession : IDisposable
     private readonly Runspace _runspace;
 
     private readonly Agent.Harness.Acp.IMcpToolInvoker? _mcp;
+    private readonly Agent.Harness.Llm.CommandSuggestions.ICommandIntentSuggester _commandIntentSuggester;
+    private readonly bool _includeSuggestionsInShell;
+
     private ImmutableArray<Agent.Harness.ToolDefinition> _offeredTools;
     private string? _mcpSignature;
     private ImmutableHashSet<string> _mcpServers = ImmutableHashSet<string>.Empty;
@@ -35,6 +39,8 @@ public sealed class InProcessPowerShellSession : IDisposable
         string? sessionCwd = null,
         Agent.Harness.Persistence.ISessionStore? store = null,
         Agent.Harness.Acp.IMcpToolInvoker? mcp = null,
+        Agent.Harness.Llm.CommandSuggestions.ICommandIntentSuggester? commandIntentSuggester = null,
+        bool includeSuggestionsInShell = true,
         System.Collections.Immutable.ImmutableArray<Agent.Harness.ToolDefinition> offeredTools = default)
     {
         if (string.IsNullOrWhiteSpace(workingDir))
@@ -44,6 +50,8 @@ public sealed class InProcessPowerShellSession : IDisposable
         Directory.CreateDirectory(_workingDir);
 
         _mcp = mcp;
+        _commandIntentSuggester = commandIntentSuggester ?? Agent.Harness.Llm.CommandSuggestions.NullCommandIntentSuggester.Instance;
+        _includeSuggestionsInShell = includeSuggestionsInShell;
         _offeredTools = offeredTools;
 
         var iss = InitialSessionState.CreateDefault2();
@@ -81,6 +89,47 @@ public sealed class InProcessPowerShellSession : IDisposable
 
         _runspace = RunspaceFactory.CreateRunspace(iss);
         _runspace.Open();
+
+        // Attach command-suggestion context + helper cmdlets.
+        try
+        {
+            _runspace.SessionStateProxy.SetVariable(
+                "__cmdSuggestCtx",
+                new CommandIntentPsContext(
+                    _commandIntentSuggester,
+                    getOfferedTools: () => { lock (_gate) return _offeredTools; },
+                    enabled: _includeSuggestionsInShell));
+
+            using var psInit = PowerShell.Create();
+            psInit.Runspace = _runspace;
+            psInit.AddScript("""
+function Find-AgentCommand {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory=$true)][string]$Intent
+  )
+
+  $global:__cmdSuggestCtx.Suggest($Intent)
+}
+
+# Optional compatibility alias: only define Find-Command if it doesn't already exist.
+if (-not (Get-Command -Name Find-Command -ErrorAction SilentlyContinue)) {
+  function Find-Command {
+    [CmdletBinding()]
+    param(
+      [Parameter(Mandatory=$true)][string]$Intent
+    )
+
+    Find-AgentCommand -Intent $Intent
+  }
+}
+""");
+            psInit.Invoke();
+        }
+        catch
+        {
+            // ignore: shell still works without suggestion helpers
+        }
 
         // Attach ACP client context + create client: drive (rooted at session cwd).
         if (client is not null)
