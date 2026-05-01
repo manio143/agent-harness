@@ -46,6 +46,18 @@ public sealed class ThreadCapabilitiesSelectorTests
     }
 
     [Fact]
+    public void ExpandSelector_hostPwsh_MatchesAgentShellExecute()
+    {
+        var tools = ImmutableArray.Create(
+            new ToolDefinition("execute_command", null, default),
+            new ToolDefinition("agent_shell_execute", null, default),
+            new ToolDefinition("read_text_file", null, default));
+
+        ThreadCapabilitiesEvaluator.ExpandSelectors(tools, ImmutableArray.Create("host.pwsh"))
+            .Should().BeEquivalentTo(new[] { "agent_shell_execute" });
+    }
+
+    [Fact]
     public void EffectiveTools_AllowThenDeny_DenyWins()
     {
         var sessionId = "s1";

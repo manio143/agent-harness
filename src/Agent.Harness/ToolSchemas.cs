@@ -148,6 +148,9 @@ public static class ToolSchemas
     public static ToolDefinition ThreadConfig { get; }
         = Agent.Harness.Tools.Handlers.ThreadConfigToolHandler.Definition;
 
+    public static ToolDefinition AgentShellExecute { get; }
+        = Agent.Harness.Tools.Handlers.AgentShellExecuteToolHandler.Definition;
+
     private static JsonElement ParseSchema(string json)
         => JsonDocument.Parse(json).RootElement.Clone();
 }

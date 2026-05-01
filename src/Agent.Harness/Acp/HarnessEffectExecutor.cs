@@ -123,6 +123,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
             new Agent.Harness.Tools.Handlers.ThreadStartToolHandler(_threadTools, _lifecycle, _observer, _scheduler, allocator, _isKnownModel, _threadId),
             new Agent.Harness.Tools.Handlers.ThreadConfigToolHandler(_threadTools, _lifecycle, _threadId, _isKnownModel),
             new Agent.Harness.Tools.Handlers.ThreadStopToolHandler(_lifecycle),
+            new Agent.Harness.Tools.Handlers.AgentShellExecuteToolHandler(_sessionId, _threadId, _store),
         });
 
         _toolRouter = new ToolCallRouter(new IToolCallExecutor[]

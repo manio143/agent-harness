@@ -53,6 +53,10 @@ public static class ThreadCapabilitiesEvaluator
                     if (toolNames.Contains("execute_command")) result.Add("execute_command");
                     break;
 
+                case "host.pwsh":
+                    if (toolNames.Contains("agent_shell_execute")) result.Add("agent_shell_execute");
+                    break;
+
                 case "mcp:*":
                     foreach (var n in toolNames)
                         if (n.Contains("__", StringComparison.Ordinal))

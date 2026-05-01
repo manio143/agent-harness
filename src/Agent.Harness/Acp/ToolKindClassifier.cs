@@ -12,6 +12,7 @@ public static class ToolKindClassifier
             "read_text_file" => new ToolKind(ToolKind.Read),
             "write_text_file" => new ToolKind(ToolKind.Edit),
             "execute_command" => new ToolKind(ToolKind.Execute),
+            "agent_shell_execute" => new ToolKind(ToolKind.Execute),
 
             // MCP tools are too diverse to guess safely from name alone.
             // (e.g. everything__get_sum is compute-only; other servers may do writes.)

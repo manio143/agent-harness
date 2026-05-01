@@ -105,6 +105,7 @@ public static class Core
         builder.Add(ToolSchemas.ThreadStop);
         builder.Add(ToolSchemas.ThreadRead);
         builder.Add(ToolSchemas.ThreadConfig);
+        builder.Add(ToolSchemas.AgentShellExecute);
 
         return builder.ToImmutable();
     }
