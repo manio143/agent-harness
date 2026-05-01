@@ -8,7 +8,8 @@ using Agent.Harness.Threads;
 public sealed class ReportIntentToolHandler(
     IThreadTools? threadTools,
     string threadId,
-    Agent.Harness.Llm.CommandSuggestions.ICommandIntentSuggester? suggester = null) : IToolHandler
+    Agent.Harness.Llm.CommandSuggestions.ICommandIntentSuggester? suggester = null,
+    bool includeSuggestions = true) : IToolHandler
 {
     public static ToolDefinition Definition { get; } = new(
         Name: "report_intent",
@@ -37,22 +38,29 @@ public sealed class ReportIntentToolHandler(
 
         threadTools?.ReportIntent(threadId, intent);
 
-        var s = suggester ?? Agent.Harness.Llm.CommandSuggestions.NullCommandIntentSuggester.Instance;
-        // Best-effort suggestion: never fail report_intent due to model/suggestion issues.
-        ImmutableArray<Agent.Harness.Llm.CommandSuggestions.CommandSuggestion> suggestions;
-        try
+        var suggestions = Array.Empty<object>();
+        if (includeSuggestions)
         {
-            suggestions = s.SuggestAsync(intent, state.Tools, cancellationToken).GetAwaiter().GetResult();
-        }
-        catch
-        {
-            suggestions = ImmutableArray<Agent.Harness.Llm.CommandSuggestions.CommandSuggestion>.Empty;
+            var s = suggester ?? Agent.Harness.Llm.CommandSuggestions.NullCommandIntentSuggester.Instance;
+
+            // Best-effort suggestion: never fail report_intent due to model/suggestion issues.
+            ImmutableArray<Agent.Harness.Llm.CommandSuggestions.CommandSuggestion> suggested;
+            try
+            {
+                suggested = s.SuggestAsync(intent, state.Tools, cancellationToken).GetAwaiter().GetResult();
+            }
+            catch
+            {
+                suggested = ImmutableArray<Agent.Harness.Llm.CommandSuggestions.CommandSuggestion>.Empty;
+            }
+
+            suggestions = suggested.Select(x => new { name = x.Name, reason = x.Reason }).Cast<object>().ToArray();
         }
 
         var payload = JsonSerializer.SerializeToElement(new
         {
             ok = true,
-            suggestedCommands = suggestions.Select(x => new { name = x.Name, reason = x.Reason }).ToArray()
+            suggestedCommands = suggestions
         });
 
         return Task.FromResult(ImmutableArray.Create<ObservedChatEvent>(

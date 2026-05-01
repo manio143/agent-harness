@@ -10,6 +10,7 @@ public sealed record CoreOptions(
     bool EmitModelInvokedEvents = false,
     bool CommitAssistantTextDeltas = false,
     bool CommitReasoningTextDeltas = false,
+    bool IncludeSuggestionsInReportIntent = true,
     Func<string, int?>? ContextWindowTokensByProviderModel = null,
     double CompactionThreshold = 0.90);
 

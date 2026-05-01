@@ -104,6 +104,12 @@ public sealed class AgentServerOptions
     {
         public bool CommitAssistantTextDeltas { get; set; } = true;
         public bool CommitReasoningTextDeltas { get; set; } = false;
+
+        /// <summary>
+        /// When true (default), the report_intent tool result includes suggested commands.
+        /// Turn off to speed up deterministic samples.
+        /// </summary>
+        public bool IncludeSuggestionsInReportIntent { get; set; } = true;
     }
 
     public sealed class CompactionOptions
