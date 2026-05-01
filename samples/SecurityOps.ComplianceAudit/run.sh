@@ -4,6 +4,12 @@
 set -euo pipefail
 
 AGENT_CMD="${1:?usage: $0 <agent_cmd>}"
+
+# This scenario is designed for strong tool-calling models (typically via user-secrets in Development).
+# If your provider key is missing/expired, you may see HTTP 401 errors. In that case either:
+# - set DOTNET_ENVIRONMENT=Development and configure valid user-secrets (e.g., Groq), or
+# - override AgentServer:Models:* to point at a capable tool-calling model.
+
 SESSION="secops-$(date +%s)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SAMPLE_DIR="$SCRIPT_DIR"
