@@ -242,6 +242,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 compactionTailMessageCount: _compactionTailMessageCount,
                 compactionMaxTailMessageChars: _compactionMaxTailMessageChars,
                 compactionModel: _compactionModel,
+                commandIntentSuggester: new Agent.Harness.Llm.CommandSuggestions.QuickWorkCommandIntentSuggester(_chatByModel(_quickWorkModel)),
                 threadTools: this,
                 observer: this,
                 lifecycle: this,

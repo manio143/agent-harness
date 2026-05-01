@@ -22,6 +22,7 @@ public sealed class AcpMcpRehydrateOnLoadTests
             Sessions = new AgentServerOptions.SessionStoreOptions { Directory = ".agent/sessions" },
             Logging = new AgentServerOptions.LoggingOptions { LogLlmPrompts = true },
             Core = new AgentServerOptions.CoreOptions { CommitAssistantTextDeltas = false },
+            Mcp = new AgentServerOptions.McpOptions { Enabled = true },
         };
 
         var discovery1 = new CapturingMcpDiscovery();

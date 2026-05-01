@@ -70,5 +70,5 @@ public sealed class McpToolPsContext
     }
 
     private static object[] ConvertArray(JsonElement arr)
-        => arr.EnumerateArray().Select(ConvertJson).ToArray();
+        => arr.EnumerateArray().Select(ConvertJson).Select(x => (object?)x).ToArray()!;
 }

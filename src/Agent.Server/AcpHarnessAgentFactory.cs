@@ -154,7 +154,8 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
         object? mcpErrors = null;
 
         // MCP discovery (ephemeral connections per session): connect and eagerly call tools/list.
-        if (request.McpServers.Count > 0)
+        // Server-level feature gate: MCP is off by default.
+        if (_options.Mcp.Enabled && request.McpServers.Count > 0)
         {
             try
             {
@@ -205,7 +206,8 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
 
         try
         {
-            await _mcpCache.EnsureDiscoveredOnLoadAsync(store, request.SessionId, cancellationToken).ConfigureAwait(false);
+            if (_options.Mcp.Enabled)
+                await _mcpCache.EnsureDiscoveredOnLoadAsync(store, request.SessionId, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -285,7 +287,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             ? SessionState.Empty
             : new SessionState(committed, TurnBuffer.Empty, ImmutableArray<ToolDefinition>.Empty);
 
-        var mcp = _mcpCache.TryGet(sessionId, out var v)
+        var mcp = _options.Mcp.Enabled && _mcpCache.TryGet(sessionId, out var v)
             ? v
             : (ImmutableArray<ToolDefinition>.Empty, NullMcpToolInvoker.Instance);
 

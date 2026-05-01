@@ -17,6 +17,7 @@ public sealed class AcpMcpRehydrateFailureSurfacedTests
         var opts = new AgentServerOptions
         {
             Sessions = new AgentServerOptions.SessionStoreOptions { Directory = ".agent/sessions" },
+            Mcp = new AgentServerOptions.McpOptions { Enabled = true },
         };
 
         // First factory creates a session and persists MCP config (mcpServers.json).

@@ -5,7 +5,10 @@ namespace Agent.Harness.Tools.Handlers;
 
 using Agent.Harness.Threads;
 
-public sealed class ReportIntentToolHandler(IThreadTools? threadTools, string threadId) : IToolHandler
+public sealed class ReportIntentToolHandler(
+    IThreadTools? threadTools,
+    string threadId,
+    Agent.Harness.Llm.CommandSuggestions.ICommandIntentSuggester? suggester = null) : IToolHandler
 {
     public static ToolDefinition Definition { get; } = new(
         Name: "report_intent",
@@ -34,8 +37,26 @@ public sealed class ReportIntentToolHandler(IThreadTools? threadTools, string th
 
         threadTools?.ReportIntent(threadId, intent);
 
+        var s = suggester ?? Agent.Harness.Llm.CommandSuggestions.NullCommandIntentSuggester.Instance;
+        // Best-effort suggestion: never fail report_intent due to model/suggestion issues.
+        ImmutableArray<Agent.Harness.Llm.CommandSuggestions.CommandSuggestion> suggestions;
+        try
+        {
+            suggestions = s.SuggestAsync(intent, state.Tools, cancellationToken).GetAwaiter().GetResult();
+        }
+        catch
+        {
+            suggestions = ImmutableArray<Agent.Harness.Llm.CommandSuggestions.CommandSuggestion>.Empty;
+        }
+
+        var payload = JsonSerializer.SerializeToElement(new
+        {
+            ok = true,
+            suggestedCommands = suggestions.Select(x => new { name = x.Name, reason = x.Reason }).ToArray()
+        });
+
         return Task.FromResult(ImmutableArray.Create<ObservedChatEvent>(
-            new ObservedToolCallCompleted(tool.ToolId, JsonSerializer.SerializeToElement(new { ok = true }))));
+            new ObservedToolCallCompleted(tool.ToolId, payload)));
     }
 
     private static JsonElement ParseSchema(string json) => JsonDocument.Parse(json).RootElement;

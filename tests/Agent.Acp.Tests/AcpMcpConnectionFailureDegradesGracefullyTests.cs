@@ -14,6 +14,7 @@ public sealed class AcpMcpConnectionFailureDegradesGracefullyTests
         var opts = new AgentServerOptions
         {
             Sessions = new AgentServerOptions.SessionStoreOptions { Directory = ".agent/sessions" },
+            Mcp = new AgentServerOptions.McpOptions { Enabled = true },
         };
 
         var discovery = new ThrowingMcpDiscovery();

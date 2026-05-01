@@ -19,6 +19,7 @@ public sealed class AcpMcpRehydrateCacheTests
         {
             Sessions = new AgentServerOptions.SessionStoreOptions { Directory = ".agent/sessions" },
             Logging = new AgentServerOptions.LoggingOptions { LogLlmPrompts = true },
+            Mcp = new AgentServerOptions.McpOptions { Enabled = true },
         };
 
         // First factory creates session and persists MCP config.

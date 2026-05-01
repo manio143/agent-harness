@@ -17,6 +17,7 @@ public sealed class AcpHarnessAgentFactoryMcpPersistenceTests
         var opts = new AgentServerOptions
         {
             Sessions = new AgentServerOptions.SessionStoreOptions { Directory = ".agent/sessions" },
+            Mcp = new AgentServerOptions.McpOptions { Enabled = true },
         };
 
         var factory = new AcpHarnessAgentFactory(new NoopChatClient(), opts, mcpDiscovery: new NoopDiscovery());
@@ -57,6 +58,7 @@ public sealed class AcpHarnessAgentFactoryMcpPersistenceTests
         var opts = new AgentServerOptions
         {
             Sessions = new AgentServerOptions.SessionStoreOptions { Directory = ".agent/sessions" },
+            Mcp = new AgentServerOptions.McpOptions { Enabled = true },
         };
 
         var factory = new AcpHarnessAgentFactory(new NoopChatClient(), opts, mcpDiscovery: new ThrowingDiscovery());

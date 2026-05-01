@@ -15,6 +15,16 @@ public sealed class AgentServerOptions
     public Agent.Harness.Llm.ToolResultCappingOptions ToolResultCapping { get; set; } = new();
     public ThreadingOptions Threading { get; set; } = new();
     public AcpOptions Acp { get; set; } = new();
+    public McpOptions Mcp { get; set; } = new();
+
+    public sealed class McpOptions
+    {
+        /// <summary>
+        /// When false (default), MCP server discovery and MCP-provided tools are disabled at the harness level.
+        /// Sessions may still persist MCP server config for future use.
+        /// </summary>
+        public bool Enabled { get; set; } = false;
+    }
 
     public sealed class ModelsOptions
     {
