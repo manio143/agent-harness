@@ -30,6 +30,8 @@ public sealed class AgentShellExecuteToolHandler : IToolHandler, IDisposable
     private readonly ISessionStore? _store;
     private readonly Agent.Acp.Acp.IAcpClientCaller? _client;
     private readonly string? _sessionCwd;
+    private readonly Agent.Harness.Acp.IMcpToolInvoker? _mcp;
+    private readonly Agent.Harness.Threads.IThreadStore? _threadStore;
 
     private InProcessPowerShellSession? _ps;
 
@@ -38,13 +40,17 @@ public sealed class AgentShellExecuteToolHandler : IToolHandler, IDisposable
         string threadId,
         ISessionStore? store,
         Agent.Acp.Acp.IAcpClientCaller? client = null,
-        string? sessionCwd = null)
+        string? sessionCwd = null,
+        Agent.Harness.Acp.IMcpToolInvoker? mcp = null,
+        Agent.Harness.Threads.IThreadStore? threadStore = null)
     {
         _sessionId = sessionId;
         _threadId = threadId;
         _store = store;
         _client = client;
         _sessionCwd = sessionCwd;
+        _mcp = mcp;
+        _threadStore = threadStore;
     }
 
     ToolDefinition IToolHandler.Definition => Definition;
@@ -55,12 +61,19 @@ public sealed class AgentShellExecuteToolHandler : IToolHandler, IDisposable
         var script = GetRequiredString(args, "script");
 
         // Lazily initialize to ensure the working dir exists.
+        // Note: offered tool list is per-thread (capability filtered), so the MCP proxy surface matches the model.
+        var toolsForThread = state.Tools;
+        if (_threadStore is not null)
+            toolsForThread = Agent.Harness.Threads.ThreadCapabilitiesEvaluator.FilterToolsForThread(_sessionId, _threadId, toolsForThread, _threadStore);
+
         _ps ??= new InProcessPowerShellSession(
             workingDir: GetWorkingDir(),
             client: _client,
             sessionId: _client is null ? null : _sessionId,
             sessionCwd: _sessionCwd,
-            store: _store);
+            store: _store,
+            mcp: _mcp,
+            offeredTools: toolsForThread);
 
         var result = _ps.Execute(script, cancellationToken);
 

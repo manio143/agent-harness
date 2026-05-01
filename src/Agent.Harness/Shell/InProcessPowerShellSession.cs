@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using Agent.Harness.Shell.Mcp;
 
 namespace Agent.Harness.Shell;
 
@@ -27,7 +28,9 @@ public sealed class InProcessPowerShellSession : IDisposable
         Agent.Acp.Acp.IAcpClientCaller? client = null,
         string? sessionId = null,
         string? sessionCwd = null,
-        Agent.Harness.Persistence.ISessionStore? store = null)
+        Agent.Harness.Persistence.ISessionStore? store = null,
+        Agent.Harness.Acp.IMcpToolInvoker? mcp = null,
+        System.Collections.Immutable.ImmutableArray<Agent.Harness.ToolDefinition> offeredTools = default)
     {
         if (string.IsNullOrWhiteSpace(workingDir))
             throw new ArgumentException("workingDir is required", nameof(workingDir));
@@ -36,6 +39,12 @@ public sealed class InProcessPowerShellSession : IDisposable
         Directory.CreateDirectory(_workingDir);
 
         var iss = InitialSessionState.CreateDefault2();
+
+        // Binary cmdlet used by generated MCP proxy functions.
+        iss.Commands.Add(new SessionStateCmdletEntry(
+            name: "Invoke-McpTool",
+            implementingType: typeof(InvokeMcpToolCmdlet),
+            helpFileName: null));
 
         // Ensure basic built-in cmdlets are available (file ops, formatting, etc.).
         // In some hosting scenarios CreateDefault2 may not auto-import these.
@@ -58,6 +67,7 @@ public sealed class InProcessPowerShellSession : IDisposable
         iss.LanguageMode = PSLanguageMode.ConstrainedLanguage;
 
         iss.StartupScripts.Add("$ErrorActionPreference = 'Stop'");
+
 
         _runspace = RunspaceFactory.CreateRunspace(iss);
         _runspace.Open();
@@ -105,6 +115,38 @@ public sealed class InProcessPowerShellSession : IDisposable
         catch
         {
             // ignore
+        }
+
+        // MCP proxy cmdlets: attach context + define proxy functions.
+        // IMPORTANT: avoid dynamic module creation (New-Module / ScriptBlock::Create),
+        // because those are brittle under ConstrainedLanguage. Instead we define functions
+        // directly in the runspace after it opens.
+        if (mcp is not null && !offeredTools.IsDefaultOrEmpty)
+        {
+            try
+            {
+                var allowed = offeredTools
+                    .Select(t => t.Name)
+                    .Where(n => mcp.CanInvoke(n))
+                    .ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
+
+                _runspace.SessionStateProxy.SetVariable("__mcpCtx", new McpToolPsContext(mcp, allowed));
+
+                using var ps = PowerShell.Create();
+                ps.Runspace = _runspace;
+
+                var scripts = McpProxyModuleGenerator.Generate(offeredTools, verbs: McpApprovedVerbs.CreateDefault());
+                foreach (var script in scripts.Values)
+                {
+                    ps.Commands.Clear();
+                    ps.AddScript(script);
+                    ps.Invoke();
+                }
+            }
+            catch
+            {
+                // ignore
+            }
         }
     }
 
