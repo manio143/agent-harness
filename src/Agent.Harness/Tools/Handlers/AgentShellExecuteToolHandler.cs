@@ -69,7 +69,6 @@ public sealed class AgentShellExecuteToolHandler : IToolHandler, IDisposable
             ok = result.Success,
             stdout = result.Stdout,
             stderr = result.Stderr,
-            cwd = "sandbox:\\\\"
         });
 
         return Task.FromResult(ImmutableArray.Create<ObservedChatEvent>(
