@@ -185,15 +185,23 @@ Add a sample demonstrating:
 - Improve conflict detection and server prefixing.
 - Improve help strings and discoverability (`Get-Command`, `Get-Help`).
 
-## Open Decisions
-1) Approved verb list source:
-   - hard-coded list in harness (curated)
-   - derived from PowerShell `Get-Verb`
+## Open Decisions (Resolved)
+### Approved verb list
+We will use a **curated verb list** based on PowerShell approved verbs, with pragmatic extensions.
 
-2) Where to host the generator:
-   - C# generates PS script text and imports it
-   - ship a reusable PS module template with placeholders
+Verb detection checks **both the first and last** snake_case segment:
+- If first segment is a known verb → use it.
+- Else if last segment is a known verb → use it (noun is the preceding segments).
+- Else → use `Invoke`.
 
-3) JSON conversion policy:
-   - strict schema-based conversion
-   - best-effort conversion with pass-through
+If both first and last segments are verbs, prefer the **first** segment.
+
+### Generator hosting model
+Prefer a **PowerShell template** for readability, filled by C# (placeholders for generated functions).
+If templating becomes too awkward (escaping/complex schema mapping), fall back to **C# composition**.
+
+### JSON conversion policy
+Balanced:
+- required parameters strict validation
+- optional parameters looser coercion + `-RawArgs` escape hatch
+- default output structured objects, with `-RawOutput` option
