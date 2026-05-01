@@ -141,8 +141,11 @@ public static class McpProxyModuleGenerator
             }
 
             var mandatory = p.Mandatory ? "[Parameter(Mandatory=$true)]" : "";
+            var validateSet = p is { Name: not "RawArgs", Mandatory: true } && TryGetValidateSet(schema, p.Name, out var vs)
+                ? $"[ValidateSet({vs})]"
+                : "";
             var psName = ToPsParamName(p.Name);
-            sb.AppendLine($"    {mandatory}[{p.PsType}]${psName}{comma}");
+            sb.AppendLine($"    {mandatory}{validateSet}[{p.PsType}]${psName}{comma}");
         }
 
         sb.AppendLine("  )");
@@ -167,7 +170,7 @@ public static class McpProxyModuleGenerator
 
     private static string MapType(JsonElement schema, bool mandatory)
     {
-        // Required: use specific types where possible; Optional: allow looser object when unclear.
+        // Required: strict typing; Optional: looser coercion.
         if (schema.ValueKind == JsonValueKind.Object && schema.TryGetProperty("type", out var t) && t.ValueKind == JsonValueKind.String)
         {
             var type = t.GetString();
@@ -176,7 +179,7 @@ public static class McpProxyModuleGenerator
                 "string" => "string",
                 "integer" => mandatory ? "int" : "object",
                 "number" => mandatory ? "double" : "object",
-                "boolean" => "switch",
+                "boolean" => mandatory ? "bool" : "switch",
                 "array" => "object[]",
                 "object" => "hashtable",
                 _ => "object",
@@ -184,6 +187,29 @@ public static class McpProxyModuleGenerator
         }
 
         return mandatory ? "string" : "object";
+    }
+
+    private static bool TryGetValidateSet(JsonElement schema, string propertyName, out string values)
+    {
+        values = "";
+
+        if (schema.ValueKind != JsonValueKind.Object) return false;
+        if (!schema.TryGetProperty("properties", out var props) || props.ValueKind != JsonValueKind.Object) return false;
+        if (!props.TryGetProperty(propertyName, out var propSchema) || propSchema.ValueKind != JsonValueKind.Object) return false;
+
+        if (!propSchema.TryGetProperty("enum", out var en) || en.ValueKind != JsonValueKind.Array) return false;
+        if (!propSchema.TryGetProperty("type", out var t) || t.ValueKind != JsonValueKind.String || t.GetString() != "string") return false;
+
+        var items = new List<string>();
+        foreach (var v in en.EnumerateArray())
+        {
+            if (v.ValueKind != JsonValueKind.String) return false;
+            var s = v.GetString() ?? "";
+            items.Add($"'{Escape(s)}'");
+        }
+
+        values = string.Join(",", items);
+        return items.Count > 0;
     }
 
     private static string ToPsParamName(string jsonName)
