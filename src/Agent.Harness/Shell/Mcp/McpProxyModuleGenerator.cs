@@ -82,6 +82,12 @@ public static class McpProxyModuleGenerator
         var binder = BuildArgsBinder(schema);
 
         var sb = new StringBuilder();
+        sb.AppendLine("<#");
+        sb.AppendLine(".SYNOPSIS");
+        sb.AppendLine($"MCP tool proxy for {Escape(server)}__{Escape(toolName)}");
+        if (!string.IsNullOrWhiteSpace(t.Description))
+            sb.AppendLine(Escape(t.Description));
+        sb.AppendLine("#>");
         sb.AppendLine($"function {cmdletName} {{");
         sb.AppendLine("  [CmdletBinding()] ");
         sb.AppendLine(param);

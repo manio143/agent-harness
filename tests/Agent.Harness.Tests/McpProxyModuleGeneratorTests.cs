@@ -48,6 +48,7 @@ public sealed class McpProxyModuleGeneratorTests
         scripts.Should().ContainKey("jira");
 
         var ps = scripts["jira"];
+        ps.Should().Contain("MCP tool proxy for jira__get_work_items");
         ps.Should().Contain("function Get-WorkItems");
         ps.Should().Contain("function Invoke-AdvancedCopy");
 
