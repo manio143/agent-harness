@@ -111,18 +111,6 @@ function Find-AgentCommand {
 
   $global:__cmdSuggestCtx.Suggest($Intent)
 }
-
-# Optional compatibility alias: only define Find-Command if it doesn't already exist.
-if (-not (Get-Command -Name Find-Command -ErrorAction SilentlyContinue)) {
-  function Find-Command {
-    [CmdletBinding()]
-    param(
-      [Parameter(Mandatory=$true)][string]$Intent
-    )
-
-    Find-AgentCommand -Intent $Intent
-  }
-}
 """);
             psInit.Invoke();
         }

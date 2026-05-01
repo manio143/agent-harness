@@ -12,7 +12,6 @@ public sealed class ShellGuidanceSystemPromptContributor : ISystemPromptContribu
         "\n" +
         "Command suggestions (intent → cmdlet names):\n" +
         "- The shell provides Find-AgentCommand -Intent \"...\" to get suggested commands for a natural-language intent.\n" +
-        "- If Find-Command does not already exist in the session, the shell also defines Find-Command -Intent \"...\" as an alias for Find-AgentCommand.\n" +
         "- Suggestions are best-effort and may be disabled by configuration (in that case, the command returns an empty list).\n" +
         "\n" +
         "ACP client filesystem drive (client:):\n" +
