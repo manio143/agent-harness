@@ -22,7 +22,12 @@ public sealed class InProcessPowerShellSession : IDisposable
     private readonly string _workingDir;
     private readonly Runspace _runspace;
 
-    public InProcessPowerShellSession(string workingDir)
+    public InProcessPowerShellSession(
+        string workingDir,
+        Agent.Acp.Acp.IAcpClientCaller? client = null,
+        string? sessionId = null,
+        string? sessionCwd = null,
+        Agent.Harness.Persistence.ISessionStore? store = null)
     {
         if (string.IsNullOrWhiteSpace(workingDir))
             throw new ArgumentException("workingDir is required", nameof(workingDir));
@@ -40,6 +45,15 @@ public sealed class InProcessPowerShellSession : IDisposable
             "Microsoft.PowerShell.Utility",
         });
 
+        // Register ACP-backed provider for client: drive (if ACP client context was provided).
+        if (client is not null)
+        {
+            iss.Providers.Add(new SessionStateProviderEntry(
+                name: "AcpClient",
+                implementingType: typeof(AcpClientContentProvider),
+                helpFileName: null));
+        }
+
         // Reduce the surface area for breaking out into arbitrary .NET.
         iss.LanguageMode = PSLanguageMode.ConstrainedLanguage;
 
@@ -48,13 +62,31 @@ public sealed class InProcessPowerShellSession : IDisposable
         _runspace = RunspaceFactory.CreateRunspace(iss);
         _runspace.Open();
 
-        // Best-effort: expose ONLY a sandbox: drive rooted at the session working dir.
-        // Drive manipulation is done after runspace open because InitialSessionState doesn't expose drives.
+        // Attach ACP client context + create client: drive (rooted at session cwd).
+        if (client is not null)
+        {
+            if (string.IsNullOrWhiteSpace(sessionId))
+                throw new InvalidOperationException("client_drive_requires_sessionId");
+
+            _runspace.SessionStateProxy.SetVariable("__acp_client_ctx", new AcpClientPsContext(sessionId!, client, sessionCwd, store));
+
+            // Create the drive (no listing support; content operations map to ACP).
+            try
+            {
+                using var ps = PowerShell.Create();
+                ps.Runspace = _runspace;
+                ps.AddScript("New-PSDrive -Name client -PSProvider AcpClient -Root / -Scope Global | Out-Null");
+                ps.Invoke();
+            }
+            catch
+            {
+                // ignore: the shell still works without client:
+            }
+        }
+
+        // Best-effort: expose a sandbox: drive rooted at the session working dir.
         try
         {
-            // Create (or recreate) a sandbox drive rooted at the session working dir.
-            // NOTE: We do not remove other drives/providers here; that's not a reliable sandbox boundary
-            // and can break core cmdlets in some hosting environments.
             try { _runspace.SessionStateProxy.Drive.Remove("sandbox", force: true, scope: "Global"); } catch { /* ignore */ }
 
             var fs = _runspace.SessionStateProxy.Provider.Get("FileSystem").FirstOrDefault();
@@ -72,7 +104,7 @@ public sealed class InProcessPowerShellSession : IDisposable
         }
         catch
         {
-            // ignore; the tool will still run, but with weaker filesystem containment.
+            // ignore
         }
     }
 

@@ -28,14 +28,23 @@ public sealed class AgentShellExecuteToolHandler : IToolHandler, IDisposable
     private readonly string _sessionId;
     private readonly string _threadId;
     private readonly ISessionStore? _store;
+    private readonly Agent.Acp.Acp.IAcpClientCaller? _client;
+    private readonly string? _sessionCwd;
 
     private InProcessPowerShellSession? _ps;
 
-    public AgentShellExecuteToolHandler(string sessionId, string threadId, ISessionStore? store)
+    public AgentShellExecuteToolHandler(
+        string sessionId,
+        string threadId,
+        ISessionStore? store,
+        Agent.Acp.Acp.IAcpClientCaller? client = null,
+        string? sessionCwd = null)
     {
         _sessionId = sessionId;
         _threadId = threadId;
         _store = store;
+        _client = client;
+        _sessionCwd = sessionCwd;
     }
 
     ToolDefinition IToolHandler.Definition => Definition;
@@ -46,7 +55,12 @@ public sealed class AgentShellExecuteToolHandler : IToolHandler, IDisposable
         var script = GetRequiredString(args, "script");
 
         // Lazily initialize to ensure the working dir exists.
-        _ps ??= new InProcessPowerShellSession(GetWorkingDir());
+        _ps ??= new InProcessPowerShellSession(
+            workingDir: GetWorkingDir(),
+            client: _client,
+            sessionId: _client is null ? null : _sessionId,
+            sessionCwd: _sessionCwd,
+            store: _store);
 
         var result = _ps.Execute(script, cancellationToken);
 
