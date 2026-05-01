@@ -143,15 +143,20 @@ public sealed class InProcessPowerShellSession : IDisposable
         if (_mcp is null || _offeredTools.IsDefaultOrEmpty)
             return;
 
-        // Signature based on tool names only (cheap). If schemas change without name changes,
-        // we can revisit.
+        // Signature based on tool names + schema. If input schema changes, we must refresh.
         var names = _offeredTools
             .Select(t => t.Name)
             .Where(n => _mcp.CanInvoke(n))
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        var sig = string.Join("\n", names);
+        var schemaSig = _offeredTools
+            .Where(t => names.Contains(t.Name, StringComparer.OrdinalIgnoreCase))
+            .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(t => t.InputSchema.GetRawText())
+            .ToArray();
+
+        var sig = string.Join("\n", names) + "\n---\n" + string.Join("\n", schemaSig);
         if (string.Equals(sig, _mcpSignature, StringComparison.Ordinal))
             return;
 
