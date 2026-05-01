@@ -10,6 +10,11 @@ public sealed class ShellGuidanceSystemPromptContributor : ISystemPromptContribu
         "- The PowerShell session state (variables/functions) is scoped per thread and persists across calls.\n" +
         "- The agent-local working directory is exposed as a PSDrive named sandbox:. Use relative paths or sandbox:\\... to write temporary artifacts.\n" +
         "\n" +
+        "Command suggestions (intent → cmdlet names):\n" +
+        "- The shell provides Find-AgentCommand -Intent \"...\" to get suggested commands for a natural-language intent.\n" +
+        "- If Find-Command does not already exist in the session, the shell also defines Find-Command -Intent \"...\" as an alias for Find-AgentCommand.\n" +
+        "- Suggestions are best-effort and may be disabled by configuration (in that case, the command returns an empty list).\n" +
+        "\n" +
         "ACP client filesystem drive (client:):\n" +
         "- If available in the shell, a PSDrive named client: maps file reads/writes to ACP fs/read_text_file and fs/write_text_file (remote client filesystem).\n" +
         "- client: is rooted at the ACP session cwd. Paths must be relative to that root.\n" +
