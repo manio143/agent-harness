@@ -43,6 +43,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
     private readonly Func<string, bool>? _isKnownModel;
     private readonly IMcpToolInvoker _mcp;
     private readonly CoreOptions _coreOptions;
+    private readonly Agent.Harness.Llm.CommandSuggestions.IPowerShellCommandCatalog _psCommandCatalog;
     private readonly bool _logLlmPrompts;
     private readonly ISessionStore _sessionStore;
     private readonly string? _modelCatalogSystemPrompt;
@@ -73,6 +74,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         IThreadStore threadStore,
         IThreadCommittedEventAppender threadAppender,
         ThreadManager threads,
+        Agent.Harness.Llm.CommandSuggestions.IPowerShellCommandCatalog? psCommandCatalog = null,
         Func<string, bool>? isKnownModel = null,
         string? modelCatalogSystemPrompt = null,
         Func<string, string?>? providerModelByFriendlyName = null,
@@ -93,6 +95,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         _isKnownModel = isKnownModel;
         _mcp = mcp;
         _coreOptions = coreOptions;
+        _psCommandCatalog = psCommandCatalog ?? new Agent.Harness.Llm.CommandSuggestions.PowerShellCommandCatalog();
         _logLlmPrompts = logLlmPrompts;
         _sessionStore = sessionStore;
         _modelCatalogSystemPrompt = modelCatalogSystemPrompt;
@@ -225,6 +228,9 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
             var titleGen = new SessionTitleGenerator(_chatByModel(_quickWorkModel));
             var acpClient = threadId == ThreadIds.Main ? _client : NullAcpClientCaller.Instance;
 
+            // Warm up PS cmdlet discovery once, outside of any shell pipeline execution.
+            _psCommandCatalog.Warmup();
+
             var effects = new HarnessEffectExecutor(
                 _sessionId,
                 acpClient,
@@ -242,7 +248,9 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 compactionTailMessageCount: _compactionTailMessageCount,
                 compactionMaxTailMessageChars: _compactionMaxTailMessageChars,
                 compactionModel: _compactionModel,
-                commandIntentSuggester: new Agent.Harness.Llm.CommandSuggestions.QuickWorkCommandIntentSuggester(_chatByModel(_quickWorkModel)),
+                commandIntentSuggester: new Agent.Harness.Llm.CommandSuggestions.QuickWorkCommandIntentSuggester(
+                    _chatByModel(_quickWorkModel),
+                    _psCommandCatalog),
                 includeSuggestionsInReportIntent: _coreOptions.IncludeSuggestionsInReportIntent,
                 includeSuggestionsInShell: _coreOptions.IncludeSuggestionsInShell,
                 threadTools: this,

@@ -8,10 +8,12 @@ namespace Agent.Harness.Llm.CommandSuggestions;
 public sealed class QuickWorkCommandIntentSuggester : ICommandIntentSuggester
 {
     private readonly IChatClient _chat;
+    private readonly IPowerShellCommandCatalog _psCatalog;
 
-    public QuickWorkCommandIntentSuggester(IChatClient chat)
+    public QuickWorkCommandIntentSuggester(IChatClient chat, IPowerShellCommandCatalog psCatalog)
     {
         _chat = chat;
+        _psCatalog = psCatalog;
     }
 
     public async Task<ImmutableArray<CommandSuggestion>> SuggestAsync(
@@ -24,7 +26,7 @@ public sealed class QuickWorkCommandIntentSuggester : ICommandIntentSuggester
 
         // Build a lean command catalog: MCP proxy cmdlets + core PowerShell cmdlets.
         var mcpCmdlets = BuildMcpCmdletNames(offeredTools);
-        var psCmdlets = PowerShellBuiltinCatalog.GetDefaultCmdlets();
+        var psCmdlets = await _psCatalog.GetCmdletsAsync(cancellationToken).ConfigureAwait(false);
 
         // Keep the prompt small. This is a nudge, not an exhaustive planner.
         var catalog = mcpCmdlets.Concat(psCmdlets).Distinct(StringComparer.OrdinalIgnoreCase).Take(250).ToArray();
