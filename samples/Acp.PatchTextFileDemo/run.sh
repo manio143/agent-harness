@@ -51,8 +51,9 @@ OUT="$(acpx --approve-all --non-interactive-permissions fail --agent "dotnet src
   --timeout "$ACP_TIMEOUT" \
   prompt -s "$SESSION" -f "$PROMPT_FILE")"
 
-# The prompt demands the model outputs exactly DONE on success.
-if echo "$OUT" | grep -qx "DONE"; then
+# The prompt demands the model outputs a DONE line on success.
+# Note: acpx may include additional status lines in the same output.
+if echo "$OUT" | grep -q "^DONE$"; then
   echo "DONE"
   exit 0
 fi
