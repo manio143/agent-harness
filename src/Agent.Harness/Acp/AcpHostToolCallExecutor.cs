@@ -11,6 +11,7 @@ public sealed class AcpHostToolCallExecutor : IToolCallExecutor
     private readonly IAcpClientCaller _client;
     private readonly string? _sessionCwd;
     private readonly Agent.Harness.Persistence.ISessionStore? _store;
+    private readonly Agent.Harness.Drives.IDriveClient _drive;
 
     public AcpHostToolCallExecutor(
         string sessionId,
@@ -22,6 +23,7 @@ public sealed class AcpHostToolCallExecutor : IToolCallExecutor
         _client = client;
         _sessionCwd = sessionCwd;
         _store = store;
+        _drive = new Agent.Harness.Drives.AcpDriveClient(sessionId, client, sessionCwd, store);
     }
 
     public bool CanExecute(string toolName) => toolName is "read_text_file" or "write_text_file" or "patch_text_file" or "execute_command";
@@ -36,7 +38,8 @@ public sealed class AcpHostToolCallExecutor : IToolCallExecutor
             {
                 case "read_text_file":
                 {
-                    var path = NormalizeFsPath(GetRequiredString(args, "path"));
+                    var rawPath = GetRequiredString(args, "path");
+                    var path = NormalizeFsPath(rawPath);
 
                     int? from = null;
                     int? to = null;
@@ -50,11 +53,7 @@ public sealed class AcpHostToolCallExecutor : IToolCallExecutor
 
                     try
                     {
-                        var resp = await _client.ReadTextFileAsync(new Agent.Acp.Schema.ReadTextFileRequest
-                        {
-                            SessionId = _sessionId,
-                            Path = path,
-                        }, cancellationToken).ConfigureAwait(false);
+                        var resp = await _drive.ReadTextAsync(rawPath, cancellationToken).ConfigureAwait(false);
 
                         var totalLines = resp.Content.Length == 0 ? 0 : 1 + resp.Content.Count(ch => ch == '\n');
 
@@ -98,17 +97,13 @@ public sealed class AcpHostToolCallExecutor : IToolCallExecutor
 
                 case "write_text_file":
                 {
-                    var path = NormalizeFsPath(GetRequiredString(args, "path"));
+                    var rawPath = GetRequiredString(args, "path");
+                    var path = NormalizeFsPath(rawPath);
                     var content = GetRequiredString(args, "content");
 
                     try
                     {
-                        await _client.WriteTextFileAsync(new Agent.Acp.Schema.WriteTextFileRequest
-                        {
-                            SessionId = _sessionId,
-                            Path = path,
-                            Content = content,
-                        }, cancellationToken).ConfigureAwait(false);
+                        await _drive.WriteTextAsync(rawPath, content, cancellationToken).ConfigureAwait(false);
 
                         var sha256 = Sha256Hex(content);
 
@@ -126,7 +121,8 @@ public sealed class AcpHostToolCallExecutor : IToolCallExecutor
 
                 case "patch_text_file":
                 {
-                    var path = NormalizeFsPath(GetRequiredString(args, "path"));
+                    var rawPath = GetRequiredString(args, "path");
+                    var path = NormalizeFsPath(rawPath);
 
                     var expectedSha = args.TryGetValue("expectedSha256", out var shaEl) && shaEl.ValueKind == JsonValueKind.String
                         ? shaEl.GetString()
@@ -138,8 +134,8 @@ public sealed class AcpHostToolCallExecutor : IToolCallExecutor
                     Agent.Acp.Schema.ReadTextFileResponse before;
                     try
                     {
-                        before = await _client.ReadTextFileAsync(new Agent.Acp.Schema.ReadTextFileRequest { SessionId = _sessionId, Path = path }, cancellationToken)
-                            .ConfigureAwait(false);
+                        var beforeRes = await _drive.ReadTextAsync(rawPath, cancellationToken).ConfigureAwait(false);
+                        before = new Agent.Acp.Schema.ReadTextFileResponse { Content = beforeRes.Content };
                     }
                     catch (Exception ex)
                     {
@@ -163,8 +159,7 @@ public sealed class AcpHostToolCallExecutor : IToolCallExecutor
 
                     try
                     {
-                        await _client.WriteTextFileAsync(new Agent.Acp.Schema.WriteTextFileRequest { SessionId = _sessionId, Path = path, Content = content }, cancellationToken)
-                            .ConfigureAwait(false);
+                        await _drive.WriteTextAsync(rawPath, content, cancellationToken).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
