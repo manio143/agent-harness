@@ -63,8 +63,10 @@ public sealed class InProcessPowerShellSession : IDisposable
                 helpFileName: null));
         }
 
-        // Reduce the surface area for breaking out into arbitrary .NET.
-        iss.LanguageMode = PSLanguageMode.ConstrainedLanguage;
+        // Full language mode: required for richer PowerShell UX (dynamic modules/functions)
+        // and for invoking non-core methods during MCP proxy cmdlet bridging.
+        // This is still a best-effort containment mechanism, not a hardened sandbox.
+        iss.LanguageMode = PSLanguageMode.FullLanguage;
 
         iss.StartupScripts.Add("$ErrorActionPreference = 'Stop'");
 
