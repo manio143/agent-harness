@@ -36,6 +36,11 @@ public sealed class InProcessPowerShellSessionMcpProxyIntegrationTests
             mcp: invoker,
             offeredTools: ImmutableArray.Create(tool));
 
+        // Module should be imported.
+        var m = ps.Execute("(Get-Module -Name 'Mcp.jira' -ListAvailable:$false) -ne $null", CancellationToken.None);
+        m.Success.Should().BeTrue(m.Stderr);
+        m.Stdout.Trim().Should().Be("True");
+
         // Cmdlet should exist and call through to the invoker.
         var r = ps.Execute("$x = Get-WorkItems -Project 'ABC'; $x['ok']", CancellationToken.None);
         r.Success.Should().BeTrue(r.Stderr);

@@ -138,10 +138,17 @@ public sealed class InProcessPowerShellSession : IDisposable
                 ps.Runspace = _runspace;
 
                 var scripts = McpProxyModuleGenerator.Generate(offeredTools, verbs: McpApprovedVerbs.CreateDefault());
-                foreach (var script in scripts.Values)
+                foreach (var kvp in scripts)
                 {
+                    var server = kvp.Key;
+                    var script = kvp.Value;
+
+                    // Create + import a module per MCP server.
+                    // FullLanguage mode allows ScriptBlock::Create + New-Module.
+                    _runspace.SessionStateProxy.SetVariable("__mcp_module_script", script);
+
                     ps.Commands.Clear();
-                    ps.AddScript(script);
+                    ps.AddScript($"$sb=[scriptblock]::Create($global:__mcp_module_script); $m=New-Module -Name 'Mcp.{server}' -ScriptBlock $sb; Import-Module $m -Force -Global | Out-Null");
                     ps.Invoke();
                 }
             }
