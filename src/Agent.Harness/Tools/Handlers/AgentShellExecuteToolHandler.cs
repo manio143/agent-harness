@@ -67,13 +67,14 @@ public sealed class AgentShellExecuteToolHandler : IToolHandler, IDisposable
         // Prefer the jsonl store root so artifacts land alongside the session.
         if (_store is JsonlSessionStore jsonl)
         {
-            var dir = Path.Combine(jsonl.RootDir, _sessionId, "threads", _threadId, "pwsh_work");
+            // Shared working dir across threads (session-scoped), but execution state (runspace) is per-thread.
+            var dir = Path.Combine(jsonl.RootDir, _sessionId, "pwsh_work");
             Directory.CreateDirectory(dir);
             return dir;
         }
 
         // Fallback: temp directory.
-        var tmp = Path.Combine(Path.GetTempPath(), "agent", "sessions", _sessionId, "threads", _threadId, "pwsh_work");
+        var tmp = Path.Combine(Path.GetTempPath(), "agent", "sessions", _sessionId, "pwsh_work");
         Directory.CreateDirectory(tmp);
         return tmp;
     }
