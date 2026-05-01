@@ -11,6 +11,7 @@ public sealed record CoreOptions(
     bool CommitAssistantTextDeltas = false,
     bool CommitReasoningTextDeltas = false,
     bool IncludeSuggestionsInReportIntent = true,
+    bool IncludeSuggestionsInShell = true,
     Func<string, int?>? ContextWindowTokensByProviderModel = null,
     double CompactionThreshold = 0.90);
 

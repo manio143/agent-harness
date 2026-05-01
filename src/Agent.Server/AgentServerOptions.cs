@@ -110,6 +110,12 @@ public sealed class AgentServerOptions
         /// Turn off to speed up deterministic samples.
         /// </summary>
         public bool IncludeSuggestionsInReportIntent { get; set; } = true;
+
+        /// <summary>
+        /// When true (default), agent_shell_execute exposes Find-AgentCommand for intent → command suggestions.
+        /// This is independent from IncludeSuggestionsInReportIntent.
+        /// </summary>
+        public bool IncludeSuggestionsInShell { get; set; } = true;
     }
 
     public sealed class CompactionOptions

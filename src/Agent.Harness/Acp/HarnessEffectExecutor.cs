@@ -41,6 +41,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
     private readonly ToolCallRouter _toolRouter;
     private readonly Agent.Harness.Llm.CommandSuggestions.ICommandIntentSuggester _commandIntentSuggester;
     private readonly bool _includeSuggestionsInReportIntent;
+    private readonly bool _includeSuggestionsInShell;
 
     public HarnessEffectExecutor(
         string sessionId,
@@ -68,6 +69,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         Agent.Harness.Threads.IThreadIdAllocator? threadIdAllocator = null,
         Agent.Harness.Llm.CommandSuggestions.ICommandIntentSuggester? commandIntentSuggester = null,
         bool includeSuggestionsInReportIntent = true,
+        bool includeSuggestionsInShell = true,
         string threadId = Agent.Harness.Threads.ThreadIds.Main)
     {
         _sessionId = sessionId;
@@ -104,6 +106,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         _threadId = threadId;
         _commandIntentSuggester = commandIntentSuggester ?? Agent.Harness.Llm.CommandSuggestions.NullCommandIntentSuggester.Instance;
         _includeSuggestionsInReportIntent = includeSuggestionsInReportIntent;
+        _includeSuggestionsInShell = includeSuggestionsInShell;
 
         var allocator = threadIdAllocator
             ?? (_threadTools is not null
@@ -143,7 +146,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
                 mcp: _mcp,
                 threadStore: _threadStore,
                 commandIntentSuggester: _commandIntentSuggester,
-                includeSuggestionsInShell: _includeSuggestionsInReportIntent),
+                includeSuggestionsInShell: _includeSuggestionsInShell),
         });
 
         _toolRouter = new ToolCallRouter(new IToolCallExecutor[]
