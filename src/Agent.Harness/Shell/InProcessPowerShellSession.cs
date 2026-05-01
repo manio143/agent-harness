@@ -32,6 +32,14 @@ public sealed class InProcessPowerShellSession : IDisposable
 
         var iss = InitialSessionState.CreateDefault2();
 
+        // Ensure basic built-in cmdlets are available (file ops, formatting, etc.).
+        // In some hosting scenarios CreateDefault2 may not auto-import these.
+        iss.ImportPSModule(new[]
+        {
+            "Microsoft.PowerShell.Management",
+            "Microsoft.PowerShell.Utility",
+        });
+
         // Reduce the surface area for breaking out into arbitrary .NET.
         iss.LanguageMode = PSLanguageMode.ConstrainedLanguage;
 
@@ -44,16 +52,9 @@ public sealed class InProcessPowerShellSession : IDisposable
         // Drive manipulation is done after runspace open because InitialSessionState doesn't expose drives.
         try
         {
-            foreach (var d in _runspace.SessionStateProxy.Drive.GetAll())
-            {
-                if (string.Equals(d.Name, "sandbox", StringComparison.Ordinal))
-                    continue;
-
-                try { _runspace.SessionStateProxy.Drive.Remove(d.Name, force: true, scope: "Global"); }
-                catch { /* ignore */ }
-            }
-
-            // Recreate sandbox drive (idempotent: remove above will have removed it too).
+            // Create (or recreate) a sandbox drive rooted at the session working dir.
+            // NOTE: We do not remove other drives/providers here; that's not a reliable sandbox boundary
+            // and can break core cmdlets in some hosting environments.
             try { _runspace.SessionStateProxy.Drive.Remove("sandbox", force: true, scope: "Global"); } catch { /* ignore */ }
 
             var fs = _runspace.SessionStateProxy.Provider.Get("FileSystem").FirstOrDefault();
