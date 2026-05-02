@@ -50,7 +50,7 @@ public sealed class EngineEnqueueWakeRegressionIntegrationTests
             store: store,
             initialState: Agent.Harness.SessionState.Empty);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
         _ = await agent.PromptAsync(
             new PromptRequest

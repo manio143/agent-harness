@@ -59,6 +59,8 @@ public sealed partial class QuickWorkCommandIntentSuggester
                      "- Return at most 8 items.\n" +
                      "- Use ONLY commands from the provided list.\n" +
                      "- If no suitable command exists, output exactly: []\n\n" +
+                     "EXAMPLE (format only; do not copy names unless they are in the list):\n" +
+                     "[{\"name\":\"Get-ChildItem\",\"reason\":\"Lists files in a directory\"}]\n\n" +
                      $"Intent: {intent}\n\n" +
                      "Commands (name — synopsis):\n" +
                      sbCatalog +
