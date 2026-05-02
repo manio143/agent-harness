@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd "$(dirname "$0")/../.."
+repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$repo_root"
+
+# Start a new session with the sample cwd so .acpxrc.json is picked up.
+cd samples/Shell.CommandSuggestionsDemo
 
 # Long timeouts by default, because Ollama can be slow.
 export ACP_TIMEOUT="${ACP_TIMEOUT:-1500}"
@@ -19,7 +23,13 @@ export AGENTSERVER_AgentServer__Core__IncludeSuggestionsInShell="${AGENTSERVER_A
 export AGENTSERVER_AgentServer__Models__QuickWorkModel="${AGENTSERVER_AgentServer__Models__QuickWorkModel:-qwen}"
 
 # Ensure the server binary is up to date.
+cd "$repo_root"
 dotnet build Agent.slnx -c Release >/dev/null
+cd samples/Shell.CommandSuggestionsDemo
+
+# Enable MCP for this demo (server list is in .acpxrc.json).
+: "${AGENTSERVER_AgentServer__Mcp__Enabled:=true}"
+export AGENTSERVER_AgentServer__Mcp__Enabled
 
 SESSION="pwsh-intent-suggest-demo-$(date +%s)"
 
@@ -33,7 +43,7 @@ export AGENTSERVER_AgentServer__Logging__LogRpc
 
 
 # Create a new session.
-NEW_OUT="$(acpx --approve-all --non-interactive-permissions fail --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll" --timeout "$ACP_TIMEOUT" sessions new --name "$SESSION")"
+NEW_OUT="$(npx -y acpx@latest --cwd . --approve-all --non-interactive-permissions fail --timeout "$ACP_TIMEOUT" sessions new --name "$SESSION")"
 SESSION_ID="$(echo "$NEW_OUT" | sed -n 's/.*(\([0-9a-f-]\{36\}\)).*/\1/p' | tail -n 1)"
 if [[ -z "$SESSION_ID" ]]; then
   SESSION_ID="$(echo "$NEW_OUT" | tr -d '[:space:]')"
@@ -73,7 +83,7 @@ while true; do
   attempt=$((attempt+1))
 
   set +e
-  OUT="$(acpx --approve-all --non-interactive-permissions fail --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll" \
+  OUT="$(npx -y acpx@latest --cwd . --approve-all --non-interactive-permissions fail \
     --timeout "$ACP_TIMEOUT" \
     prompt -s "$SESSION" -f "$PROMPT_FILE" 2>&1)"
   STATUS=$?
