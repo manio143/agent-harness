@@ -24,8 +24,21 @@ public sealed class ToolCallRouter
 
         foreach (var ex in _executors)
         {
-            if (ex.CanExecute(tool.ToolName))
+            if (!ex.CanExecute(tool.ToolName))
+                continue;
+
+            try
+            {
                 return ex.ExecuteAsync(state, tool, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return Task.FromResult(ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallCancelled(tool.ToolId)));
+            }
+            catch (Exception e)
+            {
+                return Task.FromResult(ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallFailed(tool.ToolId, e.Message)));
+            }
         }
 
         return Task.FromResult(ImmutableArray.Create<ObservedChatEvent>(new ObservedToolCallFailed(tool.ToolId, "unknown_tool")));
