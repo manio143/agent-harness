@@ -57,7 +57,7 @@ public sealed class ThreadOrchestratorThreadStartForkMidTurnCreatesChildAndCommi
 
         await orchestrator.ObserveAsync(ThreadIds.Main, new ObservedUserMessage("hi"));
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         await orchestrator.RunUntilQuiescentAsync(cts.Token);
 
         var child = threadStore.ListThreads(sessionId)

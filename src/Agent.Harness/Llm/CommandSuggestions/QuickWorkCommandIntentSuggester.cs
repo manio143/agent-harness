@@ -66,40 +66,7 @@ public sealed partial class QuickWorkCommandIntentSuggester : ICommandIntentSugg
         if (TryParseSuggestions(text, out var parsed))
             return parsed;
 
-        // Try to extract a JSON array if the model wrapped it in extra prose.
-        if (TryExtractJsonArray(text, out var extracted) && TryParseSuggestions(extracted, out parsed))
-            return parsed;
-
-        // One retry with a repair prompt (models sometimes ignore STRICT JSON on first attempt).
-        var repairPrompt = $"Your previous response did not follow the required STRICT JSON output.\n\n" +
-                           "Return ONLY a JSON array of objects with keys: name (string), reason (string). " +
-                           "No markdown, no prose, no code fences.\n\n" +
-                           $"Intent: {intent}";
-
-        var repairMessages = new[] { new MeaiChatMessage(Microsoft.Extensions.AI.ChatRole.User, repairPrompt) };
-        TryAppendLlmJsonLine(new { purpose = "command_suggestions_repair", messages = repairMessages.Select(SerializeMeaiMessage), tools = Array.Empty<object>() });
-
-        var repairResp = await _chat.GetResponseAsync(
-            repairMessages,
-            options: new ChatOptions { Temperature = 0 },
-            cancellationToken: cancellationToken).ConfigureAwait(false);
-
-        TryAppendLlmJsonLine(new
-        {
-            purpose = "command_suggestions_repair_response",
-            rawText = string.Join("\n", repairResp.Messages.SelectMany(m => m.Contents).OfType<TextContent>().Select(t => t.Text)),
-            messages = repairResp.Messages.Select(SerializeMeaiMessage),
-            tools = Array.Empty<object>(),
-        });
-
-        var repairText = string.Join("\n", repairResp.Messages.SelectMany(m => m.Contents).OfType<TextContent>().Select(t => t.Text));
-        if (TryParseSuggestions(repairText, out parsed))
-            return parsed;
-
-        if (TryExtractJsonArray(repairText, out extracted) && TryParseSuggestions(extracted, out parsed))
-            return parsed;
-
-
+        // Deterministic behavior: if the model didn't return valid STRICT JSON, return empty.
         return ImmutableArray<CommandSuggestion>.Empty;
     }
 
@@ -139,25 +106,6 @@ public sealed partial class QuickWorkCommandIntentSuggester : ICommandIntentSugg
         }
     }
 
-    private static bool TryExtractJsonArray(string text, out string json)
-    {
-        var start = text.IndexOf('[', StringComparison.Ordinal);
-        if (start < 0)
-        {
-            json = "";
-            return false;
-        }
-
-        var end = text.LastIndexOf(']');
-        if (end <= start)
-        {
-            json = "";
-            return false;
-        }
-
-        json = text[start..(end + 1)];
-        return true;
-    }
 
     private void TryAppendPromptLog(IReadOnlyList<MeaiChatMessage> messages)
     {

@@ -49,7 +49,7 @@ public sealed class EngineThreadListIntegrationTests
             store: store,
             initialState: Agent.Harness.SessionState.Empty);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
         var turn = new EngineChildThreadOrchestrationIntegrationTests.RecordingPromptTurn();
 

@@ -14,14 +14,11 @@ namespace Agent.Harness.Tests;
 public sealed class QuickWorkCommandIntentSuggesterTests
 {
     [Fact]
-    public async Task SuggestAsync_WhenFirstResponseIsNotJson_RetriesAndParsesSecondResponse()
+    public async Task SuggestAsync_WhenResponseIsNotStrictJson_ReturnsEmptyAndDoesNotRetry()
     {
         var chat = new SequenceChatClient(new[]
         {
-            // First response: violates STRICT JSON requirement.
-            "The JSON you've provided appears to be a list of cmdlets.",
-            // Second response: valid JSON.
-            "[{\"name\":\"Get-ChildItem\",\"reason\":\"Lists files\"}]",
+            "Sure! Here you go:\n[{\"name\":\"Get-ChildItem\",\"reason\":\"Lists files\"}]\nThanks!",
         });
 
         var ps = new FakePowerShellCommandCatalog();
@@ -30,16 +27,16 @@ public sealed class QuickWorkCommandIntentSuggesterTests
         var tools = ImmutableArray<ToolDefinition>.Empty;
         var suggestions = await sut.SuggestAsync("list files", tools, CancellationToken.None);
 
-        suggestions.Should().BeEquivalentTo(new[] { new CommandSuggestion("Get-ChildItem", "Lists files") });
-        chat.CallCount.Should().Be(2);
+        suggestions.Should().BeEmpty();
+        chat.CallCount.Should().Be(1);
     }
 
     [Fact]
-    public async Task SuggestAsync_WhenResponseContainsJsonAndExtraText_ExtractsJson()
+    public async Task SuggestAsync_WhenResponseIsStrictJson_ReturnsSuggestions()
     {
         var chat = new SequenceChatClient(new[]
         {
-            "Sure! Here you go:\n[{\"name\":\"Get-ChildItem\",\"reason\":\"Lists files\"}]\nThanks!",
+            "[{\"name\":\"Get-ChildItem\",\"reason\":\"Lists files\"}]",
         });
 
         var ps = new FakePowerShellCommandCatalog();

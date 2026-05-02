@@ -51,8 +51,14 @@ public sealed partial class QuickWorkCommandIntentSuggester
         }
 
         var prompt = "You are selecting PowerShell commands relevant to an intent.\n" +
-                     "Return STRICT JSON only: an array of objects with properties name (string) and reason (string).\n" +
-                     "Return at most 8 items. Use only commands from the provided list.\n\n" +
+                     "OUTPUT FORMAT (STRICT):\n" +
+                     "- Output MUST be valid JSON.\n" +
+                     "- Output MUST be ONLY a JSON array (no prose, no markdown, no code fences).\n" +
+                     "- The first character of your response MUST be '[' and the last character MUST be ']'.\n" +
+                     "- Each item MUST be an object: {\"name\": string, \"reason\": string}.\n" +
+                     "- Return at most 8 items.\n" +
+                     "- Use ONLY commands from the provided list.\n" +
+                     "- If no suitable command exists, output exactly: []\n\n" +
                      $"Intent: {intent}\n\n" +
                      "Commands (name — synopsis):\n" +
                      sbCatalog +
