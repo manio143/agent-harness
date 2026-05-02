@@ -28,7 +28,13 @@ public sealed class InProcessPowerShellSession : IDisposable
     private readonly Agent.Harness.Llm.CommandSuggestions.ICommandIntentSuggester _commandIntentSuggester;
     private readonly bool _includeSuggestionsInShell;
 
-    private ImmutableArray<Agent.Harness.ToolDefinition> _offeredTools;
+    private sealed class OfferedToolsSnapshot
+    {
+        public ImmutableArray<Agent.Harness.ToolDefinition> Tools { get; }
+        public OfferedToolsSnapshot(ImmutableArray<Agent.Harness.ToolDefinition> tools) => Tools = tools;
+    }
+
+    private OfferedToolsSnapshot _offeredTools = new(default);
     private string? _mcpSignature;
     private ImmutableHashSet<string> _mcpServers = ImmutableHashSet<string>.Empty;
 
@@ -52,7 +58,7 @@ public sealed class InProcessPowerShellSession : IDisposable
         _mcp = mcp;
         _commandIntentSuggester = commandIntentSuggester ?? Agent.Harness.Llm.CommandSuggestions.NullCommandIntentSuggester.Instance;
         _includeSuggestionsInShell = includeSuggestionsInShell;
-        _offeredTools = offeredTools;
+        System.Threading.Interlocked.Exchange(ref _offeredTools, new OfferedToolsSnapshot(offeredTools));
 
         var iss = InitialSessionState.CreateDefault2();
 
@@ -97,7 +103,7 @@ public sealed class InProcessPowerShellSession : IDisposable
                 "__cmdSuggestCtx",
                 new CommandIntentPsContext(
                     _commandIntentSuggester,
-                    getOfferedTools: () => { lock (_gate) return _offeredTools; },
+                    getOfferedTools: () => System.Threading.Volatile.Read(ref _offeredTools).Tools,
                     enabled: _includeSuggestionsInShell,
                     debugPath: Path.Combine(_workingDir, "debug-command-suggestions.log")));
 
@@ -170,25 +176,24 @@ function Find-AgentCommand {
 
     public void UpdateOfferedTools(ImmutableArray<Agent.Harness.ToolDefinition> offeredTools)
     {
-        lock (_gate)
-        {
-            _offeredTools = offeredTools;
-        }
+        System.Threading.Interlocked.Exchange(ref _offeredTools, new OfferedToolsSnapshot(offeredTools));
     }
 
     private void RefreshMcpProxyModules()
     {
-        if (_mcp is null || _offeredTools.IsDefaultOrEmpty)
+        var offeredTools = System.Threading.Volatile.Read(ref _offeredTools).Tools;
+
+        if (_mcp is null || offeredTools.IsDefaultOrEmpty)
             return;
 
         // Signature based on tool names + schema. If input schema changes, we must refresh.
-        var names = _offeredTools
+        var names = offeredTools
             .Select(t => t.Name)
             .Where(n => _mcp.CanInvoke(n))
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        var schemaSig = _offeredTools
+        var schemaSig = offeredTools
             .Where(t => names.Contains(t.Name, StringComparer.OrdinalIgnoreCase))
             .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
             .Select(t => t.InputSchema.GetRawText())
@@ -204,7 +209,7 @@ function Find-AgentCommand {
         _runspace.SessionStateProxy.SetVariable("__mcpCtx", new McpToolPsContext(_mcp, allowed));
 
         // Determine per-server modules.
-        var scripts = McpProxyModuleGenerator.Generate(_offeredTools, verbs: McpApprovedVerbs.CreateDefault());
+        var scripts = McpProxyModuleGenerator.Generate(offeredTools, verbs: McpApprovedVerbs.CreateDefault());
         var desiredServers = scripts.Keys.ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
 
         using var ps = PowerShell.Create();
