@@ -1,7 +1,13 @@
 using System.Collections.Immutable;
 using System.Text.Json;
+using Agent.Harness.Persistence;
 using Agent.Harness.Shell.Mcp;
 using Microsoft.Extensions.AI;
+
+using MeaiChatMessage = Microsoft.Extensions.AI.ChatMessage;
+using MeaiTextContent = Microsoft.Extensions.AI.TextContent;
+using MeaiFunctionCallContent = Microsoft.Extensions.AI.FunctionCallContent;
+using MeaiFunctionResultContent = Microsoft.Extensions.AI.FunctionResultContent;
 
 namespace Agent.Harness.Llm.CommandSuggestions;
 
@@ -9,11 +15,22 @@ public sealed partial class QuickWorkCommandIntentSuggester : ICommandIntentSugg
 {
     private readonly IChatClient _chat;
     private readonly IPowerShellCommandCatalog _psCatalog;
+    private readonly bool _logLlmPrompts;
+    private readonly Agent.Harness.Persistence.ISessionStore? _store;
+    private readonly string? _sessionId;
 
-    public QuickWorkCommandIntentSuggester(IChatClient chat, IPowerShellCommandCatalog psCatalog)
+    public QuickWorkCommandIntentSuggester(
+        IChatClient chat,
+        IPowerShellCommandCatalog psCatalog,
+        bool logLlmPrompts = false,
+        Agent.Harness.Persistence.ISessionStore? store = null,
+        string? sessionId = null)
     {
         _chat = chat;
         _psCatalog = psCatalog;
+        _logLlmPrompts = logLlmPrompts;
+        _store = store;
+        _sessionId = sessionId;
     }
 
     public async Task<ImmutableArray<CommandSuggestion>> SuggestAsync(
@@ -28,8 +45,12 @@ public sealed partial class QuickWorkCommandIntentSuggester : ICommandIntentSugg
         if (prompt is null)
             return ImmutableArray<CommandSuggestion>.Empty;
 
+        var messages = new[] { new MeaiChatMessage(Microsoft.Extensions.AI.ChatRole.User, prompt) };
+
+        TryAppendPromptLog(messages);
+
         var resp = await _chat.GetResponseAsync(
-            new[] { new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.User, prompt) },
+            messages,
             options: new ChatOptions { Temperature = 0 },
             cancellationToken: cancellationToken).ConfigureAwait(false);
 
@@ -63,6 +84,80 @@ public sealed partial class QuickWorkCommandIntentSuggester : ICommandIntentSugg
         catch
         {
             return ImmutableArray<CommandSuggestion>.Empty;
+        }
+    }
+
+    private void TryAppendPromptLog(IReadOnlyList<MeaiChatMessage> messages)
+    {
+        try
+        {
+            if (!_logLlmPrompts)
+                return;
+
+            if (_store is not JsonlSessionStore js)
+                return;
+
+            if (string.IsNullOrWhiteSpace(_sessionId))
+                return;
+
+            static object SerializeMessage(MeaiChatMessage m)
+            {
+                // Prefer lossless-ish logging: include text plus a best-effort summary of structured contents.
+                var contents = m.Contents is null
+                    ? Array.Empty<object>()
+                    : m.Contents
+                        .Select(c => (object)(c switch
+                        {
+                            MeaiTextContent tc => new Dictionary<string, object?>
+                            {
+                                ["type"] = "text",
+                                ["text"] = tc.Text,
+                            },
+                            MeaiFunctionCallContent fc => new Dictionary<string, object?>
+                            {
+                                ["type"] = "function_call",
+                                ["callId"] = fc.CallId,
+                                ["name"] = fc.Name,
+                                ["arguments"] = fc.Arguments,
+                            },
+                            MeaiFunctionResultContent fr => new Dictionary<string, object?>
+                            {
+                                ["type"] = "function_result",
+                                ["callId"] = fr.CallId,
+                                ["result"] = fr.Result,
+                            },
+                            _ => new Dictionary<string, object?>
+                            {
+                                ["type"] = c.GetType().Name,
+                            },
+                        }))
+                        .ToArray();
+
+                return new
+                {
+                    role = m.Role.ToString(),
+                    text = m.Text,
+                    contents,
+                };
+            }
+
+            var promptPayload = new
+            {
+                purpose = "command_suggestions",
+                messages = messages.Select(SerializeMessage),
+                tools = Array.Empty<object>(),
+            };
+
+            var sessionDir = Path.Combine(js.RootDir, _sessionId!);
+            Directory.CreateDirectory(sessionDir);
+
+            var path = Path.Combine(sessionDir, "llm.prompt.jsonl");
+            var line = JsonSerializer.Serialize(promptPayload, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            File.AppendAllText(path, line + "\n");
+        }
+        catch
+        {
+            // best-effort logging only
         }
     }
 

@@ -225,7 +225,11 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 yield return new ObservedWakeModel(threadId);
             }
 
-            var titleGen = new SessionTitleGenerator(_chatByModel(_quickWorkModel));
+            var titleGen = new SessionTitleGenerator(
+                _chatByModel(_quickWorkModel),
+                logLlmPrompts: threadId == ThreadIds.Main && _logLlmPrompts,
+                store: _sessionStore,
+                sessionId: _sessionId);
             var acpClient = threadId == ThreadIds.Main ? _client : NullAcpClientCaller.Instance;
 
             // Warm up PS cmdlet discovery once, outside of any shell pipeline execution.
@@ -254,7 +258,10 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 compactionModel: _compactionModel,
                 commandIntentSuggester: new Agent.Harness.Llm.CommandSuggestions.QuickWorkCommandIntentSuggester(
                     _chatByModel(_quickWorkModel),
-                    _psCommandCatalog),
+                    _psCommandCatalog,
+                    logLlmPrompts: threadId == ThreadIds.Main && _logLlmPrompts,
+                    store: _sessionStore,
+                    sessionId: _sessionId),
                 includeSuggestionsInReportIntent: _coreOptions.IncludeSuggestionsInReportIntent,
                 includeSuggestionsInShell: _coreOptions.IncludeSuggestionsInShell,
                 threadTools: this,
