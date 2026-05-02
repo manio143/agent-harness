@@ -24,6 +24,9 @@ SESSION="pwsh-intent-suggest-demo-$(date +%s)"
 # Create a new session.
 acpx --approve-all --non-interactive-permissions fail --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll" --timeout "$ACP_TIMEOUT" sessions new --name "$SESSION" >/dev/null
 
+# Retry prompt once if acpx reports a transient reconnect.
+attempt=0
+
 echo "[pwsh-demo] session=$SESSION"
 
 PROMPT_FILE="/tmp/acp-pwsh-intent-suggest-demo-prompt.txt"
@@ -48,20 +51,39 @@ Call tool agent_shell_execute with arguments: {"script":"Find-AgentCommand -Inte
 Then output EXACTLY: DONE.
 EOF
 
-OUT="$(acpx --approve-all --non-interactive-permissions fail --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll" \
-  --timeout "$ACP_TIMEOUT" \
-  prompt -s "$SESSION" -f "$PROMPT_FILE")"
+while true; do
+  attempt=$((attempt+1))
 
-# The prompt demands the model outputs exactly DONE on success.
-if echo "$OUT" | grep -qx "DONE"; then
-  echo "DONE"
-  exit 0
-fi
+  set +e
+  OUT="$(acpx --approve-all --non-interactive-permissions fail --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll" \
+    --timeout "$ACP_TIMEOUT" \
+    prompt -s "$SESSION" -f "$PROMPT_FILE" 2>&1)"
+  STATUS=$?
+  set -e
 
-echo "$OUT" >&2
-if echo "$OUT" | rg -q "FAILED"; then
+  if [[ $STATUS -ne 0 ]] && ! echo "$OUT" | rg -q "agent needs reconnect"; then
+    echo "$OUT" >&2
+    exit $STATUS
+  fi
+
+  # Some runs fail fast with a transient reconnect message.
+  if echo "$OUT" | rg -q "agent needs reconnect" && [[ $attempt -lt 2 ]]; then
+    echo "[pwsh-demo] reconnect detected; retrying once..." >&2
+    continue
+  fi
+
+  # The prompt demands the model outputs a DONE line on success.
+  # Note: acpx may include additional status lines in the same output.
+  if echo "$OUT" | grep -q "^DONE$"; then
+    echo "DONE"
+    exit 0
+  fi
+
+  echo "$OUT" >&2
+  if echo "$OUT" | rg -q "FAILED"; then
+    exit 1
+  fi
+
+  echo "Expected a DONE line in output" >&2
   exit 1
-fi
-
-echo "Expected final line to be DONE" >&2
-exit 1
+done
