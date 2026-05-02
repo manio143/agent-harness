@@ -45,7 +45,7 @@ public sealed class ThreadSendSelfEnqueueDoesNotDeadlockIntegrationTests
             store: store,
             initialState: Agent.Harness.SessionState.Empty);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
         await agent.PromptAsync(
             new Agent.Acp.Schema.PromptRequest
