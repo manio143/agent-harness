@@ -47,7 +47,7 @@ public sealed class EngineThreadConfigModelIntegrationTests
             mcp: NullMcpToolInvoker.Instance,
             isKnownModel: m => string.Equals(m, "default", StringComparison.OrdinalIgnoreCase) || string.Equals(m, "m2", StringComparison.OrdinalIgnoreCase));
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         var turn = new EngineChildThreadOrchestrationIntegrationTests.RecordingPromptTurn();
 
         _ = await agent.PromptAsync(

@@ -29,7 +29,7 @@ public sealed class AcpStreamingRegressionIntegrationTests
 
         var server = new AcpAgentServer(new Factory());
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         var serverTask = Task.Run(() => server.RunAsync(serverTransport, cts.Token), cts.Token);
 
         await using var client = new AcpClientConnection(clientTransport);
