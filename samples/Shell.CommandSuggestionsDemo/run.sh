@@ -64,7 +64,7 @@ Call tool report_intent with arguments: {"intent":"PowerShell shell intent-based
 
 Call tool agent_shell_execute with arguments: {"script":"$global:s = Find-AgentCommand -Intent 'list files under a directory'; $global:s | ConvertTo-Json -Compress"}.
 
-Call tool agent_shell_execute with arguments: {"script":"$cmd = $global:s[0].name; & $cmd -Path sandbox:\\ | Select-Object -First 5 Name | ConvertTo-Json -Compress"}.
+Call tool agent_shell_execute with arguments: {"script":"if (-not $global:s -or $global:s.Count -eq 0) { throw 'Find-AgentCommand returned no suggestions' }; $cmd = $global:s[0].name; & $cmd -Path sandbox:\\ | Select-Object -First 5 Name | ConvertTo-Json -Compress"}.
 
 Then output EXACTLY: DONE.
 EOF
