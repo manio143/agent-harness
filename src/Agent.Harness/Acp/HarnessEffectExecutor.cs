@@ -70,7 +70,6 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         Agent.Harness.Llm.CommandSuggestions.ICommandIntentSuggester? commandIntentSuggester = null,
         bool includeSuggestionsInReportIntent = true,
         bool includeSuggestionsInShell = true,
-        bool includeThreadCapabilitiesInSystemPrompt = true,
         string threadId = Agent.Harness.Threads.ThreadIds.Main)
     {
         _sessionId = sessionId;
@@ -90,31 +89,16 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         _compactionMaxTailMessageChars = compactionMaxTailMessageChars;
         _compactionModel = compactionModel;
         _threadStore = threadStore;
-        if (systemPromptComposer is not null)
+        _systemPromptComposer = systemPromptComposer ?? new SystemPromptComposer(new ISystemPromptContributor[]
         {
-            _systemPromptComposer = systemPromptComposer;
-        }
-        else
-        {
-            var contributors = new List<ISystemPromptContributor>
-            {
-                new ModelCatalogSystemPromptContributor(),
-                new ToolCallingPolicySystemPromptContributor(),
-                new SessionEnvelopeSystemPromptContributor(),
-                new ThreadEnvelopeSystemPromptContributor(),
-            };
-
-            // Optional: omit the thread capabilities block to reduce prompt size in samples.
-            if (includeThreadCapabilitiesInSystemPrompt)
-            {
-                contributors.Add(new ThreadCapabilitiesSystemPromptContributor());
-            }
-
-            contributors.Add(new ThreadingGuidanceSystemPromptContributor());
-            contributors.Add(new ShellGuidanceSystemPromptContributor());
-
-            _systemPromptComposer = new SystemPromptComposer(contributors);
-        }
+            new ModelCatalogSystemPromptContributor(),
+            new ToolCallingPolicySystemPromptContributor(),
+            new SessionEnvelopeSystemPromptContributor(),
+            new ThreadEnvelopeSystemPromptContributor(),
+            new ThreadCapabilitiesSystemPromptContributor(),
+            new ThreadingGuidanceSystemPromptContributor(),
+            new ShellGuidanceSystemPromptContributor(),
+        });
         _threadTools = threadTools;
         _observer = observer;
         _lifecycle = lifecycle;

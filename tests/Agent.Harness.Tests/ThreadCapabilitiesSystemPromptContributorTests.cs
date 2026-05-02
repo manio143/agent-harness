@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Agent.Harness.Llm.SystemPrompts;
 using FluentAssertions;
 
@@ -14,7 +15,7 @@ public sealed class ThreadCapabilitiesSystemPromptContributorTests
             ModelCatalogPrompt: null,
             ThreadId: "main",
             ThreadMetadata: null,
-            OfferedToolNames: null);
+            OfferedToolNames: new[] { "thread_list" }.ToImmutableHashSet(StringComparer.Ordinal));
 
         var frag = new ThreadCapabilitiesSystemPromptContributor().Build(ctx).Single();
         frag.Id.Should().Be(ThreadCapabilitiesSystemPromptContributor.FragmentId);

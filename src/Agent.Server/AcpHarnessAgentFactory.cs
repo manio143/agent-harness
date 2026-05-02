@@ -277,7 +277,6 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             CommitReasoningTextDeltas: _options.Core.CommitReasoningTextDeltas,
             IncludeSuggestionsInReportIntent: _options.Core.IncludeSuggestionsInReportIntent,
             IncludeSuggestionsInShell: _options.Core.IncludeSuggestionsInShell,
-            IncludeThreadCapabilitiesInSystemPrompt: _options.Core.IncludeThreadCapabilitiesInSystemPrompt,
             ContextWindowTokensByProviderModel: _modelCatalog.TryGetContextWindowTokensByProviderModel,
             CompactionThreshold: _options.Compaction.Threshold);
 

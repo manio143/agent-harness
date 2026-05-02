@@ -116,13 +116,6 @@ public sealed class AgentServerOptions
         /// This is independent from IncludeSuggestionsInReportIntent.
         /// </summary>
         public bool IncludeSuggestionsInShell { get; set; } = true;
-
-        /// <summary>
-        /// When true (default), the system prompt includes the &lt;capabilities&gt; block that explains
-        /// per-thread tool surface restrictions.
-        /// Turn off for smaller prompts in deterministic samples.
-        /// </summary>
-        public bool IncludeThreadCapabilitiesInSystemPrompt { get; set; } = true;
     }
 
     public sealed class CompactionOptions

@@ -12,6 +12,12 @@ public sealed class ThreadCapabilitiesSystemPromptContributor : ISystemPromptCon
 
     public IEnumerable<SystemPromptFragment> Build(SystemPromptContext ctx)
     {
+        // Only include this guidance when the current tool surface actually includes threading tools.
+        // If thread_* tools are not offered, the note would be redundant and just adds prompt weight.
+        var offered = ctx.OfferedToolNames;
+        if (offered is null || !offered.Any(n => n.StartsWith("thread_", StringComparison.Ordinal)))
+            yield break;
+
         yield return new SystemPromptFragment(FragmentId, Order: 2550, $"<capabilities>{Text}</capabilities>");
     }
 }

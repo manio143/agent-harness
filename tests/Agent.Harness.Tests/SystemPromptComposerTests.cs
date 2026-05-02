@@ -46,7 +46,7 @@ public sealed class SystemPromptComposerTests
             .Should().BeEmpty();
 
         new ThreadCapabilitiesSystemPromptContributor().Build(ctx)
-            .Single().Order.Should().Be(2550);
+            .Should().BeEmpty();
 
         new ThreadingGuidanceSystemPromptContributor().Build(ctx)
             .Single().Order.Should().Be(2600);

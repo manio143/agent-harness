@@ -31,9 +31,6 @@ export AGENTSERVER_AgentServer__Logging__LogLlmPrompts
 : "${AGENTSERVER_AgentServer__Logging__LogRpc:=true}"
 export AGENTSERVER_AgentServer__Logging__LogRpc
 
-# Reduce prompt size for the sample: omit the <capabilities> system prompt block.
-: "${AGENTSERVER_AgentServer__Core__IncludeThreadCapabilitiesInSystemPrompt:=false}"
-export AGENTSERVER_AgentServer__Core__IncludeThreadCapabilitiesInSystemPrompt
 
 # Create a new session.
 NEW_OUT="$(acpx --approve-all --non-interactive-permissions fail --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll" --timeout "$ACP_TIMEOUT" sessions new --name "$SESSION")"

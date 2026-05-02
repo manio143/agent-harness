@@ -257,7 +257,6 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                     _psCommandCatalog),
                 includeSuggestionsInReportIntent: _coreOptions.IncludeSuggestionsInReportIntent,
                 includeSuggestionsInShell: _coreOptions.IncludeSuggestionsInShell,
-                includeThreadCapabilitiesInSystemPrompt: _coreOptions.IncludeThreadCapabilitiesInSystemPrompt,
                 threadTools: this,
                 observer: this,
                 lifecycle: this,
