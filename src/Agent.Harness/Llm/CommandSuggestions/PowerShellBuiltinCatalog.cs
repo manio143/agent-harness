@@ -31,7 +31,7 @@ $allowed = @('Microsoft.PowerShell.Management','Microsoft.PowerShell.Utility')
 $cmds = Get-Command -CommandType Cmdlet |
   Where-Object { $_.ModuleName -and ($allowed -contains $_.ModuleName) } |
   Sort-Object -Property Name |
-  Select-Object -First 200
+  Select-Object -First 120
 
 $cmds | ForEach-Object {
   $h = Get-Help -Name $_.Name -ErrorAction SilentlyContinue

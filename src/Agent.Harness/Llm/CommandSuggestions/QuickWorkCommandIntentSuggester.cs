@@ -71,8 +71,13 @@ public sealed partial class QuickWorkCommandIntentSuggester : ICommandIntentSugg
 
             // Final instruction: JSON only.
             new MeaiChatMessage(Microsoft.Extensions.AI.ChatRole.System,
-                "Please provide the suggested commands (max 8) for the intent. Reply with JSON only in the required format. " +
-                "Response must start with '[' and end with ']'. Do not include any prose, markdown, or code fences."),
+                "Please provide the suggested commands (max 8) for the intent. Reply with JSON only in the required format.\n" +
+                "Schema (MUST follow exactly):\n" +
+                "- Response MUST be a JSON array.\n" +
+                "- Each item MUST be an object with EXACT keys: name, reason.\n" +
+                "- name MUST be a string and MUST exactly match a command name listed in <Commands> (no extra brackets).\n" +
+                "- reason MUST be a short string explaining why it matches the intent.\n" +
+                "Output MUST start with '[' and end with ']'. Do not include any prose, markdown, or code fences."),
         };
 
         TryAppendPromptLog(messages);

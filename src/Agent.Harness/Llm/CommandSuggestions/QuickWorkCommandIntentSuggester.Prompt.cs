@@ -6,8 +6,9 @@ namespace Agent.Harness.Llm.CommandSuggestions;
 
 public sealed partial class QuickWorkCommandIntentSuggester
 {
-    // Rough budget: 4k tokens ~ 16k chars for the catalog portion.
-    private const int MaxCatalogChars = 16_000;
+    // Keep the catalog small to fit common local-model context windows (e.g. 2k tokens).
+    // Rough estimate: ~4 chars/token.
+    private const int MaxCatalogChars = 6_000;
 
     private static readonly Regex NonWord = new("[^a-z0-9]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
@@ -29,6 +30,7 @@ public sealed partial class QuickWorkCommandIntentSuggester
         var intentTokens = Tokenize(intent);
 
         var scoredPs = psItems
+            .Where(i => ShouldIncludeBuiltin(i.Name))
             .Select(i => (i, score: Score(i, intentTokens)))
             .OrderByDescending(x => x.score)
             .ThenBy(x => x.i.Name, StringComparer.OrdinalIgnoreCase)
@@ -55,8 +57,10 @@ public sealed partial class QuickWorkCommandIntentSuggester
 
     private static void AppendItem(StringBuilder sb, CatalogItem item)
     {
-        // Keep synopsis single-line.
+        // Keep synopsis single-line and try to avoid dumping command syntax/parameters.
         var synopsis = (item.Synopsis ?? "").Replace("\r", " ").Replace("\n", " ").Trim();
+        synopsis = SanitizeSynopsis(item.Name, synopsis);
+
         if (synopsis.Length > 160)
             synopsis = synopsis[..160].TrimEnd() + "…";
 
@@ -64,6 +68,25 @@ public sealed partial class QuickWorkCommandIntentSuggester
         if (!string.IsNullOrWhiteSpace(synopsis))
             sb.Append(" — ").Append(synopsis);
         sb.Append('\n');
+    }
+
+    private static string SanitizeSynopsis(string name, string synopsis)
+    {
+        if (string.IsNullOrWhiteSpace(synopsis))
+            return "";
+
+        // Heuristics: when Get-Help returns syntax/signature lines, they tend to contain lots of []/<>
+        // and sometimes start with the cmdlet name.
+        var looksLikeSyntax = synopsis.Contains("<CommonParameters>", StringComparison.OrdinalIgnoreCase)
+                              || synopsis.Contains("[[", StringComparison.Ordinal)
+                              || synopsis.Contains("[-", StringComparison.Ordinal)
+                              || synopsis.Contains('<')
+                              || synopsis.Contains(']');
+
+        if (looksLikeSyntax && synopsis.StartsWith(name, StringComparison.OrdinalIgnoreCase))
+            return "";
+
+        return synopsis;
     }
 
     private static HashSet<string> Tokenize(string text)
@@ -87,6 +110,19 @@ public sealed partial class QuickWorkCommandIntentSuggester
             if (intentTokens.Contains(t)) score++;
 
         return score;
+    }
+
+    private static bool ShouldIncludeBuiltin(string name)
+    {
+        // Keep the catalog focused on common local scripting workflows.
+        // Filter out remote/runspace/session plumbing that tends to confuse small models.
+        if (name.Contains("PSSession", StringComparison.OrdinalIgnoreCase)) return false;
+        if (name.Contains("Runspace", StringComparison.OrdinalIgnoreCase)) return false;
+        if (name.Contains("CimSession", StringComparison.OrdinalIgnoreCase)) return false;
+        if (name.Contains("EventSubscriber", StringComparison.OrdinalIgnoreCase)) return false;
+        if (name.StartsWith("Debug-", StringComparison.OrdinalIgnoreCase)) return false;
+
+        return true;
     }
 
     private readonly record struct CatalogItem(string Name, string Synopsis, string Source);
