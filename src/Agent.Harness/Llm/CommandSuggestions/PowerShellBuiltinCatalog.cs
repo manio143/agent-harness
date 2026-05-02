@@ -36,7 +36,16 @@ $cmds = Get-Command -CommandType Cmdlet |
 $cmds | ForEach-Object {
   $h = Get-Help -Name $_.Name -ErrorAction SilentlyContinue
   $syn = ''
-  if ($null -ne $h -and $null -ne $h.Synopsis) { $syn = ($h.Synopsis | Select-Object -First 1) }
+  # Prefer Description (avoids parameter/signature dumps sometimes found in Synopsis)
+  if ($null -ne $h -and $null -ne $h.Description) {
+    $d = $h.Description | Select-Object -First 1
+    if ($null -ne $d -and $null -ne $d.Text) {
+      $syn = (($d.Text | Where-Object { $_ }) -join ' ')
+    }
+  }
+  if ([string]::IsNullOrWhiteSpace($syn) -and $null -ne $h -and $null -ne $h.Synopsis) {
+    $syn = ($h.Synopsis | Select-Object -First 1)
+  }
   [pscustomobject]@{ name = $_.Name; synopsis = $syn }
 }
 """);

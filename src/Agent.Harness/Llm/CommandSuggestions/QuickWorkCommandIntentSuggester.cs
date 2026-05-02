@@ -43,11 +43,37 @@ public sealed partial class QuickWorkCommandIntentSuggester : ICommandIntentSugg
         if (string.IsNullOrWhiteSpace(intent))
             return ImmutableArray<CommandSuggestion>.Empty;
 
-        var prompt = await BuildPromptAsync(intent, offeredTools, cancellationToken).ConfigureAwait(false);
-        if (prompt is null)
+        var catalog = await BuildCommandCatalogAsync(intent, offeredTools, cancellationToken).ConfigureAwait(false);
+        if (catalog is null)
             return ImmutableArray<CommandSuggestion>.Empty;
 
-        var messages = new[] { new MeaiChatMessage(Microsoft.Extensions.AI.ChatRole.User, prompt) };
+        // Split across multiple chat messages to reduce "instruction + data" confusion.
+        // Goal: make the model treat the command list as data, and the JSON-only requirements as the last instruction.
+        var messages = new[]
+        {
+            new MeaiChatMessage(Microsoft.Extensions.AI.ChatRole.System,
+                "You are an AI assistant helping another agent. The agent provides an INTENT describing what it wants to do. " +
+                "Your job is to select AT MOST 8 commands from the provided command list that best match the INTENT.\n\n" +
+                "RESPONSE FORMAT\n" +
+                "Return a JSON array of objects: { name: string, reason: string }[]\n\n" +
+                "EXAMPLES\n" +
+                "1) Intent: \"Find files relevant to authentication\"\n" +
+                "   Response: [{\"name\":\"Get-ChildItem\",\"reason\":\"List files by name\"},{\"name\":\"Select-String\",\"reason\":\"Search text file content\"}]\n" +
+                "2) Intent: \"Process CSV file\"\n" +
+                "   Response: [{\"name\":\"Import-Csv\",\"reason\":\"Load CSV data into objects\"},{\"name\":\"Export-Csv\",\"reason\":\"Write processed objects back to CSV\"}]"),
+
+            // Provide commands as data; keep it concise (name + description only).
+            new MeaiChatMessage(Microsoft.Extensions.AI.ChatRole.System,
+                "<Commands>\n" + catalog + "</Commands>"),
+
+            // Provide intent as user input.
+            new MeaiChatMessage(Microsoft.Extensions.AI.ChatRole.User, $"<intent>{intent}</intent>"),
+
+            // Final instruction: JSON only.
+            new MeaiChatMessage(Microsoft.Extensions.AI.ChatRole.System,
+                "Please provide the suggested commands (max 8) for the intent. Reply with JSON only in the required format. " +
+                "Response must start with '[' and end with ']'. Do not include any prose, markdown, or code fences."),
+        };
 
         TryAppendPromptLog(messages);
 

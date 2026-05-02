@@ -11,7 +11,7 @@ public sealed partial class QuickWorkCommandIntentSuggester
 
     private static readonly Regex NonWord = new("[^a-z0-9]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    private async Task<string?> BuildPromptAsync(
+    private async Task<string?> BuildCommandCatalogAsync(
         string intent,
         ImmutableArray<ToolDefinition> offeredTools,
         CancellationToken cancellationToken)
@@ -50,23 +50,7 @@ public sealed partial class QuickWorkCommandIntentSuggester
             AppendItem(sbCatalog, i);
         }
 
-        var prompt = "You are selecting PowerShell commands relevant to an intent.\n" +
-                     "OUTPUT FORMAT (STRICT):\n" +
-                     "- Output MUST be valid JSON.\n" +
-                     "- Output MUST be ONLY a JSON array (no prose, no markdown, no code fences).\n" +
-                     "- The first character of your response MUST be '[' and the last character MUST be ']'.\n" +
-                     "- Each item MUST be an object: {\"name\": string, \"reason\": string}.\n" +
-                     "- Return at most 8 items.\n" +
-                     "- Use ONLY commands from the provided list.\n" +
-                     "- If no suitable command exists, output exactly: []\n\n" +
-                     "EXAMPLE (format only; do not copy names unless they are in the list):\n" +
-                     "[{\"name\":\"Get-ChildItem\",\"reason\":\"Lists files in a directory\"}]\n\n" +
-                     $"Intent: {intent}\n\n" +
-                     "Commands (name — synopsis):\n" +
-                     sbCatalog +
-                     "\nJSON:";
-
-        return prompt;
+        return sbCatalog.ToString();
     }
 
     private static void AppendItem(StringBuilder sb, CatalogItem item)
