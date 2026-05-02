@@ -1,5 +1,7 @@
 # Acp.EverythingMcpDemo
 
+This sample attaches the MCP **Everything** server and (optionally) exposes MCP tools to the model so they can be tool-called.
+
 This sample configures `acpx` to talk to this repo's ACP server and attach the **MCP Everything** stdio server.
 
 Note: Everything server requires an explicit transport argument (we pass `stdio`).
@@ -16,6 +18,12 @@ Also, the current Everything server package expects `ajv` to be resolvable at ru
 - `node` + `npx` available
 
 ## Run
+
+By default, MCP is enabled but **not exposed to the model** (shell-first). This sample tool-calls MCP tools, so set:
+
+```bash
+export AGENTSERVER_AgentServer__Mcp__ExposeMcpToolsToModel=true
+```
 
 From repo root:
 

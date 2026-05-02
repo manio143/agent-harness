@@ -6,6 +6,10 @@ cd "$(dirname "$0")/../.."
 export ACP_TIMEOUT="${ACP_TIMEOUT:-1500}"
 export AGENTSERVER_AgentServer__OpenAI__NetworkTimeoutSeconds="${AGENTSERVER_AgentServer__OpenAI__NetworkTimeoutSeconds:-1500}"
 
+# MCP discovery is enabled by default; this sample uses PowerShell MCP proxy cmdlets (not model tool-calls).
+: "${AGENTSERVER_AgentServer__Mcp__ExposeMcpToolsToModel:=false}"
+export AGENTSERVER_AgentServer__Mcp__ExposeMcpToolsToModel
+
 # Build first.
 dotnet build Agent.slnx -c Release >/dev/null
 

@@ -6,6 +6,10 @@ repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
 # Speed up deterministic samples: avoid any extra LLM call during report_intent.
 export AGENTSERVER_AgentServer__Core__IncludeSuggestionsInReportIntent="${AGENTSERVER_AgentServer__Core__IncludeSuggestionsInReportIntent:-false}"
 
+# This demo explicitly tool-calls MCP tools (everything__*).
+# MCP discovery is enabled by default, but MCP tools are NOT exposed to the model by default.
+export AGENTSERVER_AgentServer__Mcp__ExposeMcpToolsToModel="${AGENTSERVER_AgentServer__Mcp__ExposeMcpToolsToModel:-true}"
+
 cd "$repo_root"
 dotnet build Agent.slnx -c Release
 
