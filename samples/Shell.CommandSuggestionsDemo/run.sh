@@ -25,6 +25,10 @@ SESSION="pwsh-intent-suggest-demo-$(date +%s)"
 : "${AGENTSERVER_AgentServer__Logging__LogLlmPrompts:=true}"
 export AGENTSERVER_AgentServer__Logging__LogLlmPrompts
 
+# Log ACP JSON-RPC traffic (stderr) to help debug any acpx hangs.
+: "${AGENTSERVER_AgentServer__Logging__LogRpc:=true}"
+export AGENTSERVER_AgentServer__Logging__LogRpc
+
 # Create a new session.
 NEW_OUT="$(acpx --approve-all --non-interactive-permissions fail --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll" --timeout "$ACP_TIMEOUT" sessions new --name "$SESSION")"
 SESSION_ID="$(echo "$NEW_OUT" | sed -n 's/.*(\([0-9a-f-]\{36\}\)).*/\1/p' | tail -n 1)"
