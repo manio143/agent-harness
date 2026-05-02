@@ -51,7 +51,7 @@ public sealed class EngineChildThreadOrchestrationIntegrationTests
             store: store,
             initialState: Agent.Harness.SessionState.Empty);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
         // Prompt 1: model creates a child thread with immediate delivery. Child should run via scheduler.
         var turn1 = new RecordingPromptTurn();

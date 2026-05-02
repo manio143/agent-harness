@@ -98,7 +98,8 @@ public sealed class InProcessPowerShellSession : IDisposable
                 new CommandIntentPsContext(
                     _commandIntentSuggester,
                     getOfferedTools: () => { lock (_gate) return _offeredTools; },
-                    enabled: _includeSuggestionsInShell));
+                    enabled: _includeSuggestionsInShell,
+                    debugPath: Path.Combine(_workingDir, "debug-command-suggestions.log")));
 
             using var psInit = PowerShell.Create();
             psInit.Runspace = _runspace;

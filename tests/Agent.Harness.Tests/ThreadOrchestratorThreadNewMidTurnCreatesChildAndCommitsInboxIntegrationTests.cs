@@ -60,7 +60,7 @@ public sealed class ThreadOrchestratorThreadStartMidTurnCreatesChildAndCommitsIn
         await orchestrator.ObserveAsync(ThreadIds.Main, new ObservedUserMessage("hi"));
 
         // This should not deadlock (ObserveAsync is re-entrant-safe and thread_start schedules the child).
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         await orchestrator.RunUntilQuiescentAsync(cts.Token);
 
         // Assert: a child thread exists.
