@@ -53,6 +53,7 @@ public sealed class ThreadOrchestratorCoverageEdgeTests
             chatByModel: _ => chat,
             quickWorkModel: "default",
             mcp: NullMcpToolInvoker.Instance,
+            exposeMcpToolsToModel: false,
             coreOptions: new CoreOptions(),
             logLlmPrompts: false,
             sessionStore: store,

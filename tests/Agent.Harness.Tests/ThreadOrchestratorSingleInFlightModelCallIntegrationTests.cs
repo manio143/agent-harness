@@ -36,6 +36,7 @@ public sealed class ThreadOrchestratorSingleInFlightModelCallIntegrationTests
             chatByModel: _ => chat,
             quickWorkModel: "default",
             mcp: NullMcpToolInvoker.Instance,
+            exposeMcpToolsToModel: false,
             coreOptions: new CoreOptions { CommitAssistantTextDeltas = false },
             logLlmPrompts: false,
             sessionStore: sessionStore,

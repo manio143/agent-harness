@@ -29,6 +29,7 @@ public sealed class ThreadOrchestratorCommitBoundaryInvariantTests
             chatByModel: _ => new NoopChatClient(),
             quickWorkModel: "default",
             mcp: NullMcpToolInvoker.Instance,
+            exposeMcpToolsToModel: false,
             coreOptions: new CoreOptions(CommitAssistantTextDeltas: false, CommitReasoningTextDeltas: false),
             logLlmPrompts: false,
             sessionStore: new InMemorySessionStore(),

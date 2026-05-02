@@ -44,6 +44,7 @@ public sealed class ThreadOrchestratorThreadStartForkMidTurnCreatesChildAndCommi
             chatByModel: _ => chat,
             quickWorkModel: "default",
             mcp: NullMcpToolInvoker.Instance,
+            exposeMcpToolsToModel: false,
             coreOptions: new CoreOptions { CommitAssistantTextDeltas = true },
             logLlmPrompts: false,
             sessionStore: sessionStore,

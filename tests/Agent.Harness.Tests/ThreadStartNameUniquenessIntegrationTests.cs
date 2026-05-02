@@ -68,6 +68,7 @@ public sealed class ThreadStartNameUniquenessIntegrationTests
             chatByModel: _ => chat,
             quickWorkModel: "default",
             mcp: NullMcpToolInvoker.Instance,
+            exposeMcpToolsToModel: false,
             coreOptions: new CoreOptions(CommitAssistantTextDeltas: false, CommitReasoningTextDeltas: false),
             logLlmPrompts: false,
             sessionStore: sessionStore,

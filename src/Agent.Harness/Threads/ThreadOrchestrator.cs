@@ -42,6 +42,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
     private readonly string _quickWorkModel;
     private readonly Func<string, bool>? _isKnownModel;
     private readonly IMcpToolInvoker _mcp;
+    private readonly bool _exposeMcpToolsToModel;
     private readonly CoreOptions _coreOptions;
     private readonly Agent.Harness.Llm.CommandSuggestions.IPowerShellCommandCatalog _psCommandCatalog;
     private readonly bool _logLlmPrompts;
@@ -68,6 +69,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         Func<string, Microsoft.Extensions.AI.IChatClient> chatByModel,
         string quickWorkModel,
         IMcpToolInvoker mcp,
+        bool exposeMcpToolsToModel,
         CoreOptions coreOptions,
         bool logLlmPrompts,
         ISessionStore sessionStore,
@@ -94,6 +96,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
         _toolResultCapping = toolResultCapping;
         _isKnownModel = isKnownModel;
         _mcp = mcp;
+        _exposeMcpToolsToModel = exposeMcpToolsToModel;
         _coreOptions = coreOptions;
         _psCommandCatalog = psCommandCatalog ?? new Agent.Harness.Llm.CommandSuggestions.PowerShellCommandCatalog();
         _logLlmPrompts = logLlmPrompts;
@@ -248,6 +251,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                 maxOutputTokensByFriendlyName: _maxOutputTokensByFriendlyName,
                 isKnownModel: _isKnownModel,
                 _mcp,
+                exposeMcpToolsToModel: _exposeMcpToolsToModel,
                 logLlmPrompts: threadId == ThreadIds.Main && _logLlmPrompts,
                 sessionCwd: _sessionStore.TryLoadMetadata(_sessionId)?.Cwd,
                 store: _sessionStore,

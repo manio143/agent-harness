@@ -46,6 +46,7 @@ public sealed class ThreadOrchestratorEndToEndEnqueueGatingIntegrationTests
             chatByModel: _ => chat,
             quickWorkModel: "default",
             mcp: NullMcpToolInvoker.Instance,
+            exposeMcpToolsToModel: false,
             coreOptions: coreOptions,
             logLlmPrompts: false,
             sessionStore: sessionStore,

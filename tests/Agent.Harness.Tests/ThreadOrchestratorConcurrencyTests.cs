@@ -127,6 +127,7 @@ public sealed class ThreadOrchestratorConcurrencyTests
             chatByModel: _ => chat,
             quickWorkModel: "default",
             mcp: NullMcpToolInvoker.Instance,
+            exposeMcpToolsToModel: false,
             coreOptions: new CoreOptions(),
             logLlmPrompts: false,
             sessionStore: sessionStore,

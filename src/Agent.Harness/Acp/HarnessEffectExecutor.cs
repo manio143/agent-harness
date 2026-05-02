@@ -21,6 +21,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
     private readonly Func<string, int?>? _maxOutputTokensByFriendlyName;
     private readonly Func<string, bool>? _isKnownModel;
     private readonly IMcpToolInvoker _mcp;
+    private readonly bool _exposeMcpToolsToModel;
     private readonly bool _logLlmPrompts;
     private readonly string? _sessionCwd;
     private readonly Agent.Harness.Persistence.ISessionStore? _store;
@@ -52,6 +53,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         Func<string, int?>? maxOutputTokensByFriendlyName = null,
         Func<string, bool>? isKnownModel = null,
         IMcpToolInvoker? mcp = null,
+        bool exposeMcpToolsToModel = false,
         bool logLlmPrompts = false,
         string? sessionCwd = null,
         Agent.Harness.Persistence.ISessionStore? store = null,
@@ -80,6 +82,7 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         _maxOutputTokensByFriendlyName = maxOutputTokensByFriendlyName;
         _isKnownModel = isKnownModel;
         _mcp = mcp ?? NullMcpToolInvoker.Instance;
+        _exposeMcpToolsToModel = exposeMcpToolsToModel;
         _logLlmPrompts = logLlmPrompts;
         _sessionCwd = sessionCwd;
         _store = store;
@@ -367,6 +370,13 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
         return ImmutableArray.Create<ObservedChatEvent>(new ObservedPermissionApproved(p.ToolId, "tool_in_catalog"));
     }
 
+    private static bool IsMcpToolName(string name)
+    {
+        // MCP tools are named as: {server}__{tool}
+        // (see McpProxyModuleGenerator.ParseMcpToolName).
+        return name.Contains("__", StringComparison.Ordinal);
+    }
+
     private async IAsyncEnumerable<ObservedChatEvent> CallModelStreamingAsync(SessionState state, CallModel call, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
         try
@@ -385,6 +395,14 @@ public sealed class HarnessEffectExecutor : IStreamingEffectExecutor
             if (_threadStore is not null)
                 toolsForThread = Agent.Harness.Threads.ThreadCapabilitiesEvaluator.FilterToolsForThread(_sessionId, _threadId, state.Tools, _threadStore);
 
+            // Prefer shell access by default: keep MCP tools available for PowerShell proxy cmdlets,
+            // but do not expose them to the model/tool-calling surface unless explicitly enabled.
+            if (!_exposeMcpToolsToModel)
+            {
+                toolsForThread = toolsForThread
+                    .Where(t => !IsMcpToolName(t.Name))
+                    .ToImmutableArray();
+            }
 
             var ctx = new SystemPromptContext(
                 SessionId: _sessionId,

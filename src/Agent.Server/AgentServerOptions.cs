@@ -20,10 +20,16 @@ public sealed class AgentServerOptions
     public sealed class McpOptions
     {
         /// <summary>
-        /// When false (default), MCP server discovery and MCP-provided tools are disabled at the harness level.
-        /// Sessions may still persist MCP server config for future use.
+        /// When true (default), MCP server discovery is enabled and MCP proxy cmdlets may be created in the in-process PowerShell shell.
         /// </summary>
-        public bool Enabled { get; set; } = false;
+        public bool Enabled { get; set; } = true;
+
+        /// <summary>
+        /// When true, MCP tools are exposed to the model/tool catalog (LLM can call them as tools).
+        /// When false (default), MCP tools are still discovered (and available via PowerShell proxy cmdlets),
+        /// but are NOT declared to the model as callable tools.
+        /// </summary>
+        public bool ExposeMcpToolsToModel { get; set; } = false;
     }
 
     public sealed class ModelsOptions

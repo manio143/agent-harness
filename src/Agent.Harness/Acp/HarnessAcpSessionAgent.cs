@@ -112,6 +112,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
     private readonly Agent.Harness.Threads.IThreadCommittedEventAppender _threadAppender;
     private readonly Agent.Harness.Threads.ThreadManager _threads;
     private readonly Agent.Harness.Threads.ThreadOrchestrator _orchestrator;
+    private readonly bool _exposeMcpToolsToModel;
 
     private readonly Dictionary<string, IAcpToolCall> _toolCalls = new();
 
@@ -127,6 +128,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         ISessionStore store,
         SessionState initialState,
         IMcpToolInvoker? mcp = null,
+        bool exposeMcpToolsToModel = false,
         bool logLlmPrompts = false,
         bool logObservedEvents = false,
         Func<string, bool>? isKnownModel = null,
@@ -153,6 +155,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
         _store = store;
         _state = initialState;
         _mcp = mcp ?? NullMcpToolInvoker.Instance;
+        _exposeMcpToolsToModel = exposeMcpToolsToModel;
         _logLlmPrompts = logLlmPrompts;
         _logObservedEvents = logObservedEvents;
         _modelCatalogSystemPrompt = modelCatalogSystemPrompt;
@@ -209,6 +212,7 @@ public sealed class HarnessAcpSessionAgent : IAcpSessionAgent
             _chatByModel,
             _quickWorkModel,
             _mcp,
+            exposeMcpToolsToModel: _exposeMcpToolsToModel,
             _coreOptions,
             logLlmPrompts: _logLlmPrompts,
             _store,

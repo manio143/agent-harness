@@ -315,6 +315,7 @@ public sealed class AcpHarnessAgentFactory : IAcpAgentFactory, Agent.Acp.Acp.IAc
             store,
             initial,
             mcp.Invoker,
+            exposeMcpToolsToModel: _options.Mcp.ExposeMcpToolsToModel,
             logLlmPrompts: _options.Logging.LogLlmPrompts,
             logObservedEvents: _options.Logging.LogObservedEvents,
             isKnownModel: _modelCatalog.IsKnownModel,
