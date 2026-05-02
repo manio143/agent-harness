@@ -55,6 +55,9 @@ public sealed partial class QuickWorkCommandIntentSuggester : ICommandIntentSugg
             cancellationToken: cancellationToken).ConfigureAwait(false);
 
         var text = string.Join("\n", resp.Messages.SelectMany(m => m.Contents).OfType<TextContent>().Select(t => t.Text));
+
+        TryAppendResponseLog(resp);
+
         if (string.IsNullOrWhiteSpace(text))
             return ImmutableArray<CommandSuggestion>.Empty;
 
@@ -89,6 +92,33 @@ public sealed partial class QuickWorkCommandIntentSuggester : ICommandIntentSugg
 
     private void TryAppendPromptLog(IReadOnlyList<MeaiChatMessage> messages)
     {
+        TryAppendLlmJsonLine(new
+        {
+            purpose = "command_suggestions",
+            messages = messages.Select(SerializeMeaiMessage),
+            tools = Array.Empty<object>(),
+        });
+    }
+
+    private void TryAppendResponseLog(ChatResponse resp)
+    {
+        // Log the raw model response for debugging (often contains invalid JSON or unexpected text).
+        var rawText = string.Join("\n", resp.Messages
+            .SelectMany(m => m.Contents)
+            .OfType<TextContent>()
+            .Select(t => t.Text));
+
+        TryAppendLlmJsonLine(new
+        {
+            purpose = "command_suggestions_response",
+            rawText,
+            messages = resp.Messages.Select(SerializeMeaiMessage),
+            tools = Array.Empty<object>(),
+        });
+    }
+
+    private void TryAppendLlmJsonLine(object payload)
+    {
         try
         {
             if (!_logLlmPrompts)
@@ -100,65 +130,58 @@ public sealed partial class QuickWorkCommandIntentSuggester : ICommandIntentSugg
             if (string.IsNullOrWhiteSpace(_sessionId))
                 return;
 
-            static object SerializeMessage(MeaiChatMessage m)
-            {
-                // Prefer lossless-ish logging: include text plus a best-effort summary of structured contents.
-                var contents = m.Contents is null
-                    ? Array.Empty<object>()
-                    : m.Contents
-                        .Select(c => (object)(c switch
-                        {
-                            MeaiTextContent tc => new Dictionary<string, object?>
-                            {
-                                ["type"] = "text",
-                                ["text"] = tc.Text,
-                            },
-                            MeaiFunctionCallContent fc => new Dictionary<string, object?>
-                            {
-                                ["type"] = "function_call",
-                                ["callId"] = fc.CallId,
-                                ["name"] = fc.Name,
-                                ["arguments"] = fc.Arguments,
-                            },
-                            MeaiFunctionResultContent fr => new Dictionary<string, object?>
-                            {
-                                ["type"] = "function_result",
-                                ["callId"] = fr.CallId,
-                                ["result"] = fr.Result,
-                            },
-                            _ => new Dictionary<string, object?>
-                            {
-                                ["type"] = c.GetType().Name,
-                            },
-                        }))
-                        .ToArray();
-
-                return new
-                {
-                    role = m.Role.ToString(),
-                    text = m.Text,
-                    contents,
-                };
-            }
-
-            var promptPayload = new
-            {
-                purpose = "command_suggestions",
-                messages = messages.Select(SerializeMessage),
-                tools = Array.Empty<object>(),
-            };
-
             var sessionDir = Path.Combine(js.RootDir, _sessionId!);
             Directory.CreateDirectory(sessionDir);
 
             var path = Path.Combine(sessionDir, "llm.prompt.jsonl");
-            var line = JsonSerializer.Serialize(promptPayload, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            var line = JsonSerializer.Serialize(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web));
             File.AppendAllText(path, line + "\n");
         }
         catch
         {
             // best-effort logging only
         }
+    }
+
+    private static object SerializeMeaiMessage(MeaiChatMessage m)
+    {
+        // Prefer lossless-ish logging: include text plus a best-effort summary of structured contents.
+        var contents = m.Contents is null
+            ? Array.Empty<object>()
+            : m.Contents
+                .Select(c => (object)(c switch
+                {
+                    MeaiTextContent tc => new Dictionary<string, object?>
+                    {
+                        ["type"] = "text",
+                        ["text"] = tc.Text,
+                    },
+                    MeaiFunctionCallContent fc => new Dictionary<string, object?>
+                    {
+                        ["type"] = "function_call",
+                        ["callId"] = fc.CallId,
+                        ["name"] = fc.Name,
+                        ["arguments"] = fc.Arguments,
+                    },
+                    MeaiFunctionResultContent fr => new Dictionary<string, object?>
+                    {
+                        ["type"] = "function_result",
+                        ["callId"] = fr.CallId,
+                        ["result"] = fr.Result,
+                    },
+                    _ => new Dictionary<string, object?>
+                    {
+                        ["type"] = c.GetType().Name,
+                    },
+                }))
+                .ToArray();
+
+        return new
+        {
+            role = m.Role.ToString(),
+            text = m.Text,
+            contents,
+        };
     }
 
     private static IEnumerable<(string Name, string Synopsis)> BuildMcpCmdletInfos(ImmutableArray<ToolDefinition> offeredTools)
