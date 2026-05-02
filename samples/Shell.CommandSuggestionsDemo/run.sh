@@ -5,7 +5,9 @@ cd "$(dirname "$0")/../.."
 
 # Long timeouts by default, because Ollama can be slow.
 export ACP_TIMEOUT="${ACP_TIMEOUT:-1500}"
-export AGENTSERVER_AgentServer__OpenAI__NetworkTimeoutSeconds="${AGENTSERVER_AgentServer__OpenAI__NetworkTimeoutSeconds:-1500}"
+
+# Main model call timeout (seconds). Default: 5 minutes.
+export AGENTSERVER_AgentServer__OpenAI__NetworkTimeoutSeconds="${AGENTSERVER_AgentServer__OpenAI__NetworkTimeoutSeconds:-300}"
 
 # For this demo we want shell suggestions ON, but keep report_intent suggestions OFF
 # (report_intent suggestions are a separate feature, and disabling them keeps the run snappy).
@@ -28,6 +30,10 @@ export AGENTSERVER_AgentServer__Logging__LogLlmPrompts
 # Log ACP JSON-RPC traffic (stderr) to help debug any acpx hangs.
 : "${AGENTSERVER_AgentServer__Logging__LogRpc:=true}"
 export AGENTSERVER_AgentServer__Logging__LogRpc
+
+# Reduce prompt size for the sample: omit the <capabilities> system prompt block.
+: "${AGENTSERVER_AgentServer__Core__IncludeThreadCapabilitiesInSystemPrompt:=false}"
+export AGENTSERVER_AgentServer__Core__IncludeThreadCapabilitiesInSystemPrompt
 
 # Create a new session.
 NEW_OUT="$(acpx --approve-all --non-interactive-permissions fail --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll" --timeout "$ACP_TIMEOUT" sessions new --name "$SESSION")"

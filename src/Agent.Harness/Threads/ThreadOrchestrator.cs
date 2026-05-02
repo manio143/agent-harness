@@ -229,7 +229,11 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
             var acpClient = threadId == ThreadIds.Main ? _client : NullAcpClientCaller.Instance;
 
             // Warm up PS cmdlet discovery once, outside of any shell pipeline execution.
-            _psCommandCatalog.Warmup();
+            // Only needed when suggestions are enabled.
+            if (_coreOptions.IncludeSuggestionsInShell || _coreOptions.IncludeSuggestionsInReportIntent)
+            {
+                _psCommandCatalog.Warmup();
+            }
 
             var effects = new HarnessEffectExecutor(
                 _sessionId,
@@ -253,6 +257,7 @@ public sealed class ThreadOrchestrator : IThreadObserver, IThreadLifecycle, IThr
                     _psCommandCatalog),
                 includeSuggestionsInReportIntent: _coreOptions.IncludeSuggestionsInReportIntent,
                 includeSuggestionsInShell: _coreOptions.IncludeSuggestionsInShell,
+                includeThreadCapabilitiesInSystemPrompt: _coreOptions.IncludeThreadCapabilitiesInSystemPrompt,
                 threadTools: this,
                 observer: this,
                 lifecycle: this,
