@@ -85,7 +85,11 @@ public sealed class AgentShellExecuteToolHandler : IToolHandler, IDisposable
 
         _ps.UpdateOfferedTools(toolsForThread);
 
-        var result = _ps.Execute(script, cancellationToken);
+        var normalized = script;
+        if (normalized.Length >= 2 && normalized[0] == '"' && normalized[^1] == '"')
+            normalized = normalized[1..^1];
+
+        var result = _ps.Execute(normalized, cancellationToken);
 
         var json = JsonSerializer.SerializeToElement(new
         {

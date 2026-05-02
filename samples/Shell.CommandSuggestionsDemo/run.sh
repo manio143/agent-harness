@@ -21,13 +21,22 @@ dotnet build Agent.slnx -c Release >/dev/null
 
 SESSION="pwsh-intent-suggest-demo-$(date +%s)"
 
+# Log LLM prompts so we can inspect the exact suggestion prompt.
+: "${AGENTSERVER_AgentServer__Logging__LogLlmPrompts:=true}"
+export AGENTSERVER_AgentServer__Logging__LogLlmPrompts
+
 # Create a new session.
-acpx --approve-all --non-interactive-permissions fail --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll" --timeout "$ACP_TIMEOUT" sessions new --name "$SESSION" >/dev/null
+NEW_OUT="$(acpx --approve-all --non-interactive-permissions fail --agent "dotnet src/Agent.Server/bin/Release/net8.0/Agent.Server.dll" --timeout "$ACP_TIMEOUT" sessions new --name "$SESSION")"
+SESSION_ID="$(echo "$NEW_OUT" | sed -n 's/.*(\([0-9a-f-]\{36\}\)).*/\1/p' | tail -n 1)"
+if [[ -z "$SESSION_ID" ]]; then
+  SESSION_ID="$(echo "$NEW_OUT" | tr -d '[:space:]')"
+fi
 
 # Retry prompt once if acpx reports a transient reconnect.
 attempt=0
 
 echo "[pwsh-demo] session=$SESSION"
+echo "[pwsh-demo] sessionId=$SESSION_ID"
 
 PROMPT_FILE="/tmp/acp-pwsh-intent-suggest-demo-prompt.txt"
 cat > "$PROMPT_FILE" <<'EOF'
@@ -36,17 +45,19 @@ You are running an ACP demo. Follow the rules exactly.
 Rules:
 1) You MUST call tool report_intent first.
 2) You MUST call ALL tools below EXACTLY ONCE and IN THIS ORDER:
-   report_intent → agent_shell_execute
+   report_intent → agent_shell_execute → agent_shell_execute
 3) Between tool calls, output tool calls only (no natural language).
 4) You MUST NOT output any XML/HTML tags like <tool_response> or <tool_result>.
 5) If any tool fails, output EXACTLY: FAILED
-6) After agent_shell_execute completes successfully, output EXACTLY: DONE
+6) After the final agent_shell_execute completes successfully, output EXACTLY: DONE
 
 Now do the work (tool calls only):
 
 Call tool report_intent with arguments: {"intent":"PowerShell shell intent-based command suggestions demo"}.
 
-Call tool agent_shell_execute with arguments: {"script":"Find-AgentCommand -Intent 'list files under a directory' | Select-Object -First 8 | ConvertTo-Json -Compress"}.
+Call tool agent_shell_execute with arguments: {"script":"$global:s = Find-AgentCommand -Intent 'list files under a directory'; $global:s | ConvertTo-Json -Compress"}.
+
+Call tool agent_shell_execute with arguments: {"script":"$cmd = $global:s[0].name; & $cmd -Path sandbox:\\ | Select-Object -First 5 Name | ConvertTo-Json -Compress"}.
 
 Then output EXACTLY: DONE.
 EOF

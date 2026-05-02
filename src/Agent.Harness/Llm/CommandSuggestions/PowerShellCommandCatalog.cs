@@ -8,7 +8,7 @@ public interface IPowerShellCommandCatalog
     /// Returns PowerShell cmdlet names (builtin catalog) cached per-process.
     /// Implementation must be safe to call from any context, including during PowerShell pipeline execution.
     /// </summary>
-    Task<ImmutableArray<string>> GetCmdletsAsync(CancellationToken cancellationToken = default);
+    Task<ImmutableArray<PowerShellBuiltinCatalog.CmdletInfo>> GetCmdletsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Fire-and-forget warmup.
@@ -19,14 +19,14 @@ public interface IPowerShellCommandCatalog
 public sealed class PowerShellCommandCatalog : IPowerShellCommandCatalog
 {
     private readonly object _gate = new();
-    private Task<ImmutableArray<string>>? _task;
+    private Task<ImmutableArray<PowerShellBuiltinCatalog.CmdletInfo>>? _task;
 
     public void Warmup()
     {
         _ = GetCmdletsAsync();
     }
 
-    public Task<ImmutableArray<string>> GetCmdletsAsync(CancellationToken cancellationToken = default)
+    public Task<ImmutableArray<PowerShellBuiltinCatalog.CmdletInfo>> GetCmdletsAsync(CancellationToken cancellationToken = default)
     {
         // Per-process caching.
         lock (_gate)

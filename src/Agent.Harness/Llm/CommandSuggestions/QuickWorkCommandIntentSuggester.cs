@@ -5,7 +5,7 @@ using Microsoft.Extensions.AI;
 
 namespace Agent.Harness.Llm.CommandSuggestions;
 
-public sealed class QuickWorkCommandIntentSuggester : ICommandIntentSuggester
+public sealed partial class QuickWorkCommandIntentSuggester : ICommandIntentSuggester
 {
     private readonly IChatClient _chat;
     private readonly IPowerShellCommandCatalog _psCatalog;
@@ -24,19 +24,9 @@ public sealed class QuickWorkCommandIntentSuggester : ICommandIntentSuggester
         if (string.IsNullOrWhiteSpace(intent))
             return ImmutableArray<CommandSuggestion>.Empty;
 
-        // Build a lean command catalog: MCP proxy cmdlets + core PowerShell cmdlets.
-        var mcpCmdlets = BuildMcpCmdletNames(offeredTools);
-        var psCmdlets = await _psCatalog.GetCmdletsAsync(cancellationToken).ConfigureAwait(false);
-
-        // Keep the prompt small. This is a nudge, not an exhaustive planner.
-        var catalog = mcpCmdlets.Concat(psCmdlets).Distinct(StringComparer.OrdinalIgnoreCase).Take(250).ToArray();
-
-        var prompt = "You are selecting PowerShell commands relevant to an intent.\n" +
-                     "Return STRICT JSON: an array of objects with properties name (string) and reason (string).\n" +
-                     "Return at most 8 items. Use only commands from the provided list.\n\n" +
-                     $"Intent: {intent}\n\n" +
-                     "Commands:\n" + string.Join("\n", catalog.Select(x => "- " + x)) +
-                     "\n\nJSON:";
+        var prompt = await BuildPromptAsync(intent, offeredTools, cancellationToken).ConfigureAwait(false);
+        if (prompt is null)
+            return ImmutableArray<CommandSuggestion>.Empty;
 
         var resp = await _chat.GetResponseAsync(
             new[] { new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.User, prompt) },
@@ -76,7 +66,7 @@ public sealed class QuickWorkCommandIntentSuggester : ICommandIntentSuggester
         }
     }
 
-    private static IEnumerable<string> BuildMcpCmdletNames(ImmutableArray<ToolDefinition> offeredTools)
+    private static IEnumerable<(string Name, string Synopsis)> BuildMcpCmdletInfos(ImmutableArray<ToolDefinition> offeredTools)
     {
         var verbs = McpApprovedVerbs.CreateDefault();
 
@@ -87,7 +77,7 @@ public sealed class QuickWorkCommandIntentSuggester : ICommandIntentSuggester
 
             var tool = t.Name[(idx + 2)..];
             var mapping = McpCmdletNameMapper.Map(tool, verbs);
-            yield return mapping.CmdletName;
+            yield return (mapping.CmdletName, t.Description ?? "");
         }
     }
 }

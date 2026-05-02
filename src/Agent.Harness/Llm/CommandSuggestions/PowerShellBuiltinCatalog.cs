@@ -6,40 +6,59 @@ namespace Agent.Harness.Llm.CommandSuggestions;
 
 public static class PowerShellBuiltinCatalog
 {
-    private static readonly object Gate = new();
-    private static ImmutableArray<string>? _cached;
+    public sealed record CmdletInfo(string Name, string Synopsis);
 
-    public static ImmutableArray<string> GetDefaultCmdlets()
+    private static readonly object Gate = new();
+    private static ImmutableArray<CmdletInfo>? _cached;
+
+    public static ImmutableArray<CmdletInfo> GetDefaultCmdlets()
     {
         lock (Gate)
         {
             if (_cached is not null) return _cached.Value;
 
-            // Lean filter: core modules only.
-            var allowedModules = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                "Microsoft.PowerShell.Management",
-                "Microsoft.PowerShell.Utility",
-            };
-
             using var runspace = RunspaceFactory.CreateRunspace(InitialSessionState.CreateDefault2());
             runspace.Open();
 
+            // NOTE: We do command discovery and synopsis extraction in PowerShell in one runspace.
+            // This method is called only via PowerShellCommandCatalog (Task.Run) so we avoid deadlocks
+            // when suggestions are invoked from within the shell.
             using var ps = PowerShell.Create();
             ps.Runspace = runspace;
-            ps.AddCommand("Get-Command").AddParameter("CommandType", new[] { "Cmdlet" });
-            var results = ps.Invoke<CommandInfo>();
+            ps.AddScript("""
+$allowed = @('Microsoft.PowerShell.Management','Microsoft.PowerShell.Utility')
 
-            var names = results
-                .Where(c => c.ModuleName is not null && allowedModules.Contains(c.ModuleName))
-                .Select(c => c.Name)
-                .Where(n => !string.IsNullOrWhiteSpace(n))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+$cmds = Get-Command -CommandType Cmdlet |
+  Where-Object { $_.ModuleName -and ($allowed -contains $_.ModuleName) } |
+  Sort-Object -Property Name |
+  Select-Object -First 200
+
+$cmds | ForEach-Object {
+  $h = Get-Help -Name $_.Name -ErrorAction SilentlyContinue
+  $syn = ''
+  if ($null -ne $h -and $null -ne $h.Synopsis) { $syn = ($h.Synopsis | Select-Object -First 1) }
+  [pscustomobject]@{ name = $_.Name; synopsis = $syn }
+}
+""");
+
+            var results = ps.Invoke();
+
+            var items = results
+                .Select(o =>
+                {
+                    var name = o.Properties["name"]?.Value?.ToString() ?? "";
+                    var synopsis = o.Properties["synopsis"]?.Value?.ToString() ?? "";
+                    return new CmdletInfo(name.Trim(), synopsis.Trim());
+                })
+                .Where(x => !string.IsNullOrWhiteSpace(x.Name))
+                .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
                 .ToImmutableArray();
 
-            _cached = names;
-            return names;
+            _cached = items;
+            return items;
         }
     }
 }
+
