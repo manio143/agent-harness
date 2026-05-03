@@ -8,24 +8,24 @@
              x:Class="Agent.Acp.Client.AvaloniaApp.Views.Connection.ConnectionView"
              x:DataType="vm:ConnectionViewModel">
 
-  <Border Padding="24">
+  <Border Padding="24" Background="#111318">
     <StackPanel Spacing="14" MaxWidth="760">
-      <TextBlock Text="Connect to ACP agent (stdio)" FontSize="22" FontWeight="SemiBold" />
-      <TextBlock Text="This client currently launches an ACP agent process and talks over line-delimited JSON-RPC on stdio." Opacity="0.7" TextWrapping="Wrap"/>
+      <TextBlock Text="Connect to ACP agent (stdio)" FontSize="22" FontWeight="SemiBold" Foreground="#E6E6E6" />
+      <TextBlock Text="This client currently launches an ACP agent process and talks over line-delimited JSON-RPC on stdio." Opacity="0.8" Foreground="#B9C0CC" TextWrapping="Wrap"/>
 
       <StackPanel Spacing="6">
-        <TextBlock Text="Command" />
-        <TextBox Text="{Binding Command}" PlaceholderText="dotnet" />
+        <TextBlock Text="Command" Foreground="#E6E6E6" />
+        <TextBox Text="{Binding Command}" PlaceholderText="dotnet" Background="#1A1D24" Foreground="#E6E6E6" />
       </StackPanel>
 
       <StackPanel Spacing="6">
-        <TextBlock Text="Arguments" />
-        <TextBox Text="{Binding Arguments}" PlaceholderText="run --project src/Agent.Server" />
+        <TextBlock Text="Arguments" Foreground="#E6E6E6" />
+        <TextBox Text="{Binding Arguments}" PlaceholderText="run --project src/Agent.Server" Background="#1A1D24" Foreground="#E6E6E6" />
       </StackPanel>
 
       <StackPanel Spacing="6">
-        <TextBlock Text="Working directory" />
-        <TextBox Text="{Binding WorkingDirectory}" />
+        <TextBlock Text="Working directory" Foreground="#E6E6E6" />
+        <TextBox Text="{Binding WorkingDirectory}" Background="#1A1D24" Foreground="#E6E6E6" />
       </StackPanel>
 
       <Border Background="#2A1515" CornerRadius="6" Padding="10" IsVisible="{Binding Error, Converter={x:Static c:StringConverters.IsNotNullOrEmpty}}">
@@ -33,11 +33,11 @@
       </Border>
 
       <StackPanel Orientation="Horizontal" Spacing="10">
-        <Button Content="Connect" Command="{Binding ConnectCommand}" />
+        <Button Content="Connect" Command="{Binding ConnectCommand}" Background="#3B82F6" Foreground="#FFFFFF" />
         <Button Content="Settings" IsEnabled="False" />
       </StackPanel>
 
-      <TextBlock Text="Next: session/list → session/new → session/prompt" Opacity="0.6" />
+      <TextBlock Text="Next: session/list → session/new → session/prompt" Opacity="0.8" Foreground="#B9C0CC" />
     </StackPanel>
   </Border>
 </UserControl>

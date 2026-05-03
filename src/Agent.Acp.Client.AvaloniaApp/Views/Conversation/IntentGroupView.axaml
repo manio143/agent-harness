@@ -8,22 +8,24 @@
              x:Class="Agent.Acp.Client.AvaloniaApp.Views.Conversation.IntentGroupView"
              x:DataType="vm:IntentGroupViewModel">
 
+  <Border Background="#111318" Padding="12">
   <Expander IsExpanded="{Binding IsExpanded}">
     <Expander.Header>
       <StackPanel Orientation="Horizontal" Spacing="8">
-        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
-        <TextBlock Text="(tools)" Opacity="0.6" />
+        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" Foreground="#E6E6E6" />
+        <TextBlock Text="(tools)" Opacity="0.8" Foreground="#B9C0CC" />
       </StackPanel>
     </Expander.Header>
 
-    <Border Background="#101010" CornerRadius="6" Padding="10" Margin="0,6,0,0">
+    <Border Background="#1A1D24" CornerRadius="6" Padding="10" Margin="0,6,0,0">
       <ItemsControl ItemsSource="{Binding Items}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="sys:Object">
-            <TextBlock Text="{Binding}" FontFamily="Consolas" />
+            <TextBlock Text="{Binding}" FontFamily="Consolas" Foreground="#E6E6E6" />
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
     </Border>
   </Expander>
+  </Border>
 </UserControl>
