@@ -40,4 +40,18 @@ public static class AcpClientBootstrap
 
         return conn.RequestAsync<NewSessionRequest, NewSessionResponse>("session/new", req, cancellationToken);
     }
+
+    public static Task<PromptResponse> PromptAsync(AcpClientConnection conn, string sessionId, string text, CancellationToken cancellationToken = default)
+    {
+        var req = new PromptRequest
+        {
+            SessionId = sessionId,
+            Prompt = new[]
+            {
+                new TextContent { Text = text }
+            },
+        };
+
+        return conn.RequestAsync<PromptRequest, PromptResponse>("session/prompt", req, cancellationToken);
+    }
 }
