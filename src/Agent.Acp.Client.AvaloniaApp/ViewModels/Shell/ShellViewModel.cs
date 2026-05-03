@@ -185,17 +185,19 @@ public sealed partial class ShellViewModel : ObservableObject
 
         var list = await AcpClientBootstrap.ListSessionsAsync(_process.Connection, cwd: cwd, cancellationToken: ct);
 
-        SessionPicker.Sessions.Clear();
+        var items = new System.Collections.Generic.List<SessionListItemViewModel>();
         foreach (var s in list.Sessions)
         {
             if (s is null || string.IsNullOrWhiteSpace(s.SessionId))
                 continue;
 
-            SessionPicker.Sessions.Add(new SessionListItemViewModel(
+            items.Add(new SessionListItemViewModel(
                 sessionId: s.SessionId,
                 title: s.Title,
                 updatedAt: s.UpdatedAt));
         }
+
+        SessionPicker.SetSessions(items);
 
         // Default select: most recently updatedAt (best-effort).
         SessionListItemViewModel? best = null;

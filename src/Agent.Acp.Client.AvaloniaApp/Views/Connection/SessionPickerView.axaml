@@ -14,8 +14,11 @@
 
       <CheckBox IsChecked="{Binding StartNewSession}" Content="Start new session" Foreground="#B9C0CC" FontSize="12" />
 
+      <TextBox Text="{Binding FilterText}" PlaceholderText="Filter sessions (title or id)" Background="#1A1D24" Foreground="#E6E6E6"
+               BorderBrush="#2A3040" BorderThickness="1" />
+
       <Border Background="#0B0D10" BorderBrush="#2A3040" BorderThickness="1" CornerRadius="6" Padding="8">
-        <ListBox ItemsSource="{Binding Sessions}" SelectedItem="{Binding Selected}" Height="260">
+        <ListBox ItemsSource="{Binding FilteredSessions}" SelectedItem="{Binding Selected}" Height="260">
           <ListBox.ItemTemplate>
             <DataTemplate>
               <Border Padding="8" Background="Transparent">
