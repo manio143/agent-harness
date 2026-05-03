@@ -255,13 +255,13 @@ public sealed class ProjectDriveContentProvider : NavigationCmdletProvider, ICon
                     continue;
 
                 var text = item.ToString() ?? string.Empty;
-                while (target.Count < _position)
+                if (target.Count < _position)
                     target.AddRange(Enumerable.Repeat(string.Empty, _position - target.Count));
 
-                if (_position < target.Count)
-                    target[_position] = text;
-                else
+                if (_position == target.Count)
                     target.Add(text);
+                else
+                    target[_position] = text;
 
                 _position++;
             }
