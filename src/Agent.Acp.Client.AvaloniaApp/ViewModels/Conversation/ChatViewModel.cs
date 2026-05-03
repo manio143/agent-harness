@@ -46,6 +46,13 @@ public sealed partial class ChatViewModel : ObservableObject
         RebuildTranscript();
     }
 
+    public void ApplyLocalSystemMessage(string text)
+    {
+        _state = ChatReducer.Reduce(_state, new ChatLocalSystemMessage(text));
+        _isStreaming = false;
+        RebuildTranscript();
+    }
+
     public void Replay(IEnumerable<Domain.Conversation.ChatEvent> events)
     {
         _state = ChatState.Empty;

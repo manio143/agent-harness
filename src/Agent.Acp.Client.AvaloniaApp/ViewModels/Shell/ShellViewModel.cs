@@ -148,6 +148,9 @@ public sealed partial class ShellViewModel : ObservableObject
         // Reload last conversation into transcript (so the user sees continuity).
         ReloadLastSession();
 
+        _chat.ApplyLocalSystemMessage("— Restarting agent (client rebuild) —");
+        _log?.Append(new Domain.Conversation.ChatLocalSystemMessage("— Restarting agent (client rebuild) —"));
+
         // Then start a fresh agent+session and continue appending to the same conversation log.
         await ConnectAsync(psi);
 

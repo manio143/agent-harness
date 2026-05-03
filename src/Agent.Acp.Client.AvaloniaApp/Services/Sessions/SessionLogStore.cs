@@ -33,6 +33,7 @@ public sealed class SessionLogStore
         var record = e switch
         {
             ChatUserPrompt up => new StoredRecord("user_prompt", null, JsonSerializer.Serialize(up, JsonOptions)),
+            ChatLocalSystemMessage sm => new StoredRecord("system", null, JsonSerializer.Serialize(sm, JsonOptions)),
             ChatSessionUpdate su => new StoredRecord("session_update", su.SessionId, JsonSerializer.Serialize(su.Update, JsonOptions)),
             _ => throw new NotSupportedException($"Unsupported event type: {e.GetType().Name}")
         };
@@ -58,6 +59,13 @@ public sealed class SessionLogStore
                 {
                     var up = JsonSerializer.Deserialize<ChatUserPrompt>(record.PayloadJson, JsonOptions);
                     if (up is not null) list.Add(up);
+                    break;
+                }
+
+                case "system":
+                {
+                    var sm = JsonSerializer.Deserialize<ChatLocalSystemMessage>(record.PayloadJson, JsonOptions);
+                    if (sm is not null) list.Add(sm);
                     break;
                 }
 

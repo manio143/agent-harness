@@ -10,3 +10,8 @@ public sealed record ChatSessionUpdate(string SessionId, SessionUpdate Update) :
 /// Local user input (before/while sending to agent). Not part of ACP session/update stream.
 /// </summary>
 public sealed record ChatUserPrompt(string Text) : ChatEvent;
+
+/// <summary>
+/// Local system notice (client-side).
+/// </summary>
+public sealed record ChatLocalSystemMessage(string Text) : ChatEvent;

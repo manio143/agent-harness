@@ -13,6 +13,7 @@ public static class ChatReducer
         {
             ChatSessionUpdate u => ReduceSessionUpdate(state, u),
             ChatUserPrompt p => ReduceUserPrompt(state, p),
+            ChatLocalSystemMessage m => ReduceLocalSystemMessage(state, m),
             _ => state,
         };
 
@@ -24,6 +25,18 @@ public static class ChatReducer
         return state with
         {
             Items = state.Items.Add(new ChatUserText(p.Text.Trim())),
+            LastChunk = LastChunkKind.None
+        };
+    }
+
+    private static ChatState ReduceLocalSystemMessage(ChatState state, ChatLocalSystemMessage m)
+    {
+        if (string.IsNullOrWhiteSpace(m.Text))
+            return state;
+
+        return state with
+        {
+            Items = state.Items.Add(new ChatSystemText(m.Text.Trim())),
             LastChunk = LastChunkKind.None
         };
     }
