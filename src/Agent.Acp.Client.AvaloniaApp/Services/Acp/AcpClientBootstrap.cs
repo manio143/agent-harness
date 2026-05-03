@@ -41,6 +41,37 @@ public static class AcpClientBootstrap
         return conn.RequestAsync<NewSessionRequest, NewSessionResponse>("session/new", req, cancellationToken);
     }
 
+    public static Task<ListSessionsResponse> ListSessionsAsync(AcpClientConnection conn, string? cwd = null, string? cursor = null, CancellationToken cancellationToken = default)
+    {
+        if (!string.IsNullOrWhiteSpace(cwd) && !System.IO.Path.IsPathRooted(cwd))
+            throw new ArgumentException("cwd must be an absolute path", nameof(cwd));
+
+        var req = new ListSessionsRequest
+        {
+            Cwd = cwd,
+            Cursor = cursor,
+        };
+
+        return conn.RequestAsync<ListSessionsRequest, ListSessionsResponse>("session/list", req, cancellationToken);
+    }
+
+    public static Task<LoadSessionResponse> LoadSessionAsync(AcpClientConnection conn, string sessionId, string cwd, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId))
+            throw new ArgumentException("sessionId is required", nameof(sessionId));
+
+        if (string.IsNullOrWhiteSpace(cwd) || !System.IO.Path.IsPathRooted(cwd))
+            throw new ArgumentException("cwd must be an absolute path", nameof(cwd));
+
+        var req = new LoadSessionRequest
+        {
+            SessionId = sessionId,
+            Cwd = cwd,
+        };
+
+        return conn.RequestAsync<LoadSessionRequest, LoadSessionResponse>("session/load", req, cancellationToken);
+    }
+
     public static Task<PromptResponse> PromptAsync(AcpClientConnection conn, string sessionId, string text, CancellationToken cancellationToken = default)
     {
         var req = new PromptRequest
