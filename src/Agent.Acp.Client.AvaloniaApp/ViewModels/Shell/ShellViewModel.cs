@@ -46,6 +46,8 @@ public sealed partial class ShellViewModel : ObservableObject
 
     public bool CanDisconnect => _process is not null;
 
+    public bool CanReconnect => _lastStartInfo is not null;
+
     [ObservableProperty]
     private string? _status;
 
@@ -89,6 +91,7 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsChat));
         OnPropertyChanged(nameof(CanDisconnect));
         DisconnectCommand.NotifyCanExecuteChanged();
+        ReconnectCommand.NotifyCanExecuteChanged();
 
         Status = "Disconnected";
     }
@@ -96,7 +99,7 @@ public sealed partial class ShellViewModel : ObservableObject
     [RelayCommand]
     private void ReloadLastSession()
     {
-        // Reload transcript from last persisted log (best-effort).
+        // Reload transcript from last persisted conversation log (best-effort).
         var cwd = _lastStartInfo?.WorkingDirectory;
         if (string.IsNullOrWhiteSpace(cwd))
         {
@@ -104,29 +107,51 @@ public sealed partial class ShellViewModel : ObservableObject
             return;
         }
 
-        var dir = System.IO.Path.Combine(cwd, ".acp-client", "sessions");
-        if (!System.IO.Directory.Exists(dir))
+        var pointer = new ConversationPointerStore(cwd);
+        var path = pointer.TryRead();
+        if (string.IsNullOrWhiteSpace(path) || !System.IO.File.Exists(path))
         {
-            Status = "No saved sessions";
+            Status = "No saved conversation";
             return;
         }
-
-        var latest = System.IO.Directory.GetFiles(dir, "*.jsonl");
-        if (latest.Length == 0)
-        {
-            Status = "No saved sessions";
-            return;
-        }
-
-        Array.Sort(latest, StringComparer.Ordinal);
-        var path = latest[^1];
 
         var store = new SessionLogStore(path);
         _chat.Replay(store.LoadAll());
         CurrentScreen = Screen.Chat;
         OnPropertyChanged(nameof(IsConnection));
         OnPropertyChanged(nameof(IsChat));
-        Status = $"Reloaded session log: {System.IO.Path.GetFileName(path)}";
+        Status = $"Reloaded conversation: {System.IO.Path.GetFileName(path)}";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanReconnect))]
+    private async Task ReconnectAsync()
+    {
+        var psi = _lastStartInfo;
+        if (psi is null)
+            return;
+
+        Status = "Reconnecting...";
+
+        // Make sure we fully disconnect first.
+        if (_process is not null)
+        {
+            await _process.DisposeAsync();
+            _process = null;
+        }
+
+        _pump = null;
+        _sessionId = null;
+
+        OnPropertyChanged(nameof(CanDisconnect));
+        DisconnectCommand.NotifyCanExecuteChanged();
+
+        // Reload last conversation into transcript (so the user sees continuity).
+        ReloadLastSession();
+
+        // Then start a fresh agent+session and continue appending to the same conversation log.
+        await ConnectAsync(psi);
+
+        Status = "Reconnected";
     }
 
     private async Task ConnectAsync(System.Diagnostics.ProcessStartInfo psi)
@@ -147,8 +172,17 @@ public sealed partial class ShellViewModel : ObservableObject
             _sessionId = session.SessionId;
 
             // Local persistence so we can reload transcript after client rebuild/restart.
-            var logPath = System.IO.Path.Combine(cwd, ".acp-client", "sessions", $"{_sessionId}.jsonl");
+            // We use a *conversation* log (not per-session) so reconnect can continue appending.
+            var pointer = new ConversationPointerStore(cwd);
+            var existingConversation = pointer.TryRead();
+            var logPath = existingConversation ?? System.IO.Path.Combine(
+                cwd,
+                ".acp-client",
+                "conversations",
+                $"conversation-{DateTime.UtcNow:yyyyMMdd-HHmmss}.jsonl");
+
             _log = new SessionLogStore(logPath);
+            pointer.Write(logPath);
 
             _pump = new AcpSessionUpdatePump(_sessionId, _chat);
             _process.Connection.NotificationReceived += n =>
@@ -164,6 +198,9 @@ public sealed partial class ShellViewModel : ObservableObject
             OnPropertyChanged(nameof(IsChat));
             Status = $"Connected (session: {_sessionId})";
             OnPropertyChanged(nameof(CanDisconnect));
+            OnPropertyChanged(nameof(CanReconnect));
+            DisconnectCommand.NotifyCanExecuteChanged();
+            ReconnectCommand.NotifyCanExecuteChanged();
         }
         catch (Exception ex)
         {

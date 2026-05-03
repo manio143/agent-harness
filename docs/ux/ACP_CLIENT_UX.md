@@ -158,10 +158,12 @@ Planned features:
 - (Later) optional protocol support for session replay / attach if ACP adds it
 
 Implementation notes (initial):
-- `SessionLogStore` (JSONL) under `{cwd}/.acp-client/sessions/{sessionId}.jsonl`
+- `SessionLogStore` (JSONL) is used as a **conversation log** under `{cwd}/.acp-client/conversations/conversation-<timestamp>.jsonl`
+- `ConversationPointerStore` stores `{cwd}/.acp-client/last-conversation.txt` to find the most recent conversation log
 - On connect, append each handled `SessionUpdate`
 - On send, append user prompt
 - Reload replays stored events into `ChatReducer`
+- Reconnect: reload conversation, then start a fresh agent+session and continue appending to the same conversation log
 
 ---
 
