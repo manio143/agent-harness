@@ -21,36 +21,12 @@ public sealed partial class QuickWorkCommandIntentSuggester
             .Select(x => new CatalogItem(x.Name, x.Synopsis, Source: "mcp"))
             .ToImmutableArray();
 
-        var ps = await _psCatalog.GetCmdletsAsync(cancellationToken).ConfigureAwait(false);
-        var psItems = ps
-            .Select(x => new CatalogItem(x.Name, x.Synopsis, Source: "powershell"))
-            .ToImmutableArray();
-
-        // Smart truncation: include all MCP tools (usually small), then pick PowerShell builtins by keyword overlap.
-        var intentTokens = Tokenize(intent);
-
-        var scoredPs = psItems
-            .Where(i => ShouldIncludeBuiltin(i.Name))
-            .Select(i => (i, score: Score(i, intentTokens)))
-            .OrderByDescending(x => x.score)
-            .ThenBy(x => x.i.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(x => x.i)
-            .ToImmutableArray();
-
-        var selected = ImmutableArray.CreateBuilder<CatalogItem>();
-        selected.AddRange(mcp);
+        if (mcp.Length == 0)
+            return null;
 
         var sbCatalog = new StringBuilder();
-        foreach (var i in selected)
+        foreach (var i in mcp)
             AppendItem(sbCatalog, i);
-
-        foreach (var i in scoredPs)
-        {
-            if (sbCatalog.Length >= MaxCatalogChars)
-                break;
-
-            AppendItem(sbCatalog, i);
-        }
 
         return sbCatalog.ToString();
     }

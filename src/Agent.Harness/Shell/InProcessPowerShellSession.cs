@@ -160,8 +160,6 @@ function Find-AgentCommand {
                     description: "Agent session sandbox drive",
                     credential: null), scope: "Global");
             }
-
-            _runspace.SessionStateProxy.Path.SetLocation("sandbox:\\");
         }
         catch
         {
@@ -245,6 +243,9 @@ function Find-AgentCommand {
             // Re-anchor location at the start of every call.
             try
             {
+                if (_runspace.SessionStateProxy.Drive.Get("project") is not null)
+                    _runspace.SessionStateProxy.Path.SetLocation("project:\\");
+                else
                 _runspace.SessionStateProxy.Path.SetLocation("sandbox:\\");
             }
             catch
