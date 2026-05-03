@@ -61,6 +61,27 @@ public sealed class AgentShellExecuteProjectDriveTests
     }
 
     [Fact]
+    public void ProjectDriveContentReader_UsesInitialSnapshot_UntilNewReaderIsCreated()
+    {
+        var projectDir = CreateTempProjectDir();
+        var (_, _, fake) = Arrange(projectDir);
+        var path = Path.GetFullPath(Path.Combine(projectDir, "demo.txt"));
+        fake.Seed(path, "one\ntwo");
+        var ctx = new Agent.Harness.Shell.ProjectDrivePsContext("s1", fake, projectDir, store: null);
+        var reader = new Agent.Harness.Shell.ProjectDriveContentProvider.ProjectDriveContentReader(ctx, path);
+
+        reader.Read(1).Cast<string>().Should().Equal("one");
+
+        fake.Seed(path, "updated");
+        reader.Seek(0, SeekOrigin.Begin);
+        reader.Read(2).Cast<string>().Should().Equal("one", "two");
+
+        var refreshedReader = new Agent.Harness.Shell.ProjectDriveContentProvider.ProjectDriveContentReader(ctx, path);
+        refreshedReader.Read(1).Cast<string>().Should().Equal("updated");
+        fake.ReadCount.Should().Be(2);
+    }
+
+    [Fact]
     public void ProjectDriveContentWriter_SeekFromEnd_AppendsToExistingContent()
     {
         var projectDir = CreateTempProjectDir();
@@ -77,6 +98,25 @@ public sealed class AgentShellExecuteProjectDriveTests
         fake.LastReadPath.Should().Be(path);
         fake.LastWritePath.Should().Be(path);
         fake.Read(path).Should().Be("hello" + Environment.NewLine + "world");
+    }
+
+    [Fact]
+    public void ProjectDriveContentWriter_SeekFromEnd_LoadsLatestContent_WhenSnapshotIsFirstNeeded()
+    {
+        var projectDir = CreateTempProjectDir();
+        var (_, _, fake) = Arrange(projectDir);
+        var path = Path.GetFullPath(Path.Combine(projectDir, "demo.txt"));
+        fake.Seed(path, "stale");
+        var ctx = new Agent.Harness.Shell.ProjectDrivePsContext("s1", fake, projectDir, store: null);
+        var writer = new Agent.Harness.Shell.ProjectDriveContentProvider.ProjectDriveContentWriter(ctx, path);
+
+        fake.Seed(path, "fresh");
+        writer.Seek(0, SeekOrigin.End);
+        writer.Write(new ArrayList { "next" });
+        writer.Close();
+
+        fake.ReadCount.Should().Be(1);
+        fake.Read(path).Should().Be("fresh" + Environment.NewLine + "next");
     }
 
     [Fact]
@@ -346,6 +386,7 @@ public sealed class AgentShellExecuteProjectDriveTests
         public ClientCapabilities ClientCapabilities { get; }
         public string? LastReadPath { get; private set; }
         public string? LastWritePath { get; private set; }
+        public int ReadCount { get; private set; }
 
         public void Seed(string path, string content) => _files[path] = content;
         public string Read(string path) => _files[path];
@@ -357,6 +398,7 @@ public sealed class AgentShellExecuteProjectDriveTests
                 case "fs/read_text_file":
                 {
                     var r = (ReadTextFileRequest)(object)request!;
+                    ReadCount++;
                     LastReadPath = r.Path;
                     _files.TryGetValue(r.Path, out var content);
                     object resp = new ReadTextFileResponse { Content = content ?? string.Empty };
