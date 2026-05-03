@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Immutable;
 using System.Text.Json;
 using Agent.Acp.Acp;
@@ -25,6 +26,57 @@ public sealed class AgentShellExecuteProjectDriveTests
         fake.LastWritePath.Should().Be(Path.GetFullPath(Path.Combine(projectDir, "demo.txt")));
         fake.LastReadPath.Should().Be(Path.GetFullPath(Path.Combine(projectDir, "demo.txt")));
         File.Exists(Path.Combine(projectDir, "demo.txt")).Should().BeFalse("content operations should stay ACP-backed");
+    }
+
+    [Fact]
+    public async Task AgentShellExecute_ProjectDrive_AddContent_AppendsViaVirtualSeek()
+    {
+        var projectDir = CreateTempProjectDir();
+        var (exec, state, fake) = Arrange(projectDir);
+        fake.Seed(Path.GetFullPath(Path.Combine(projectDir, "demo.txt")), "hello");
+
+        var res = await RunPs(exec, state, toolId: "t1",
+            script: "Add-Content -Path project:\\demo.txt -Value 'world'; Get-Content -Path project:\\demo.txt");
+
+        res.GetProperty("ok").GetBoolean().Should().BeTrue(res.GetProperty("stderr").GetString());
+        res.GetProperty("stdout").GetString().Should().Be("hello\nworld");
+        fake.Read(Path.GetFullPath(Path.Combine(projectDir, "demo.txt"))).Should().Be("hello" + Environment.NewLine + "world");
+    }
+
+    [Fact]
+    public void ProjectDriveContentReader_SeekFromEnd_ReadsTrailingLines()
+    {
+        var projectDir = CreateTempProjectDir();
+        var (_, _, fake) = Arrange(projectDir);
+        var path = Path.GetFullPath(Path.Combine(projectDir, "demo.txt"));
+        fake.Seed(path, "one\ntwo\nthree");
+        var ctx = new Agent.Harness.Shell.ProjectDrivePsContext("s1", fake, projectDir, store: null);
+        var reader = new Agent.Harness.Shell.ProjectDriveContentProvider.ProjectDriveContentReader(ctx, path);
+
+        reader.Seek(-1, SeekOrigin.End);
+        var chunk = reader.Read(1).Cast<string>().ToArray();
+
+        chunk.Should().Equal("three");
+        fake.LastReadPath.Should().Be(path);
+    }
+
+    [Fact]
+    public void ProjectDriveContentWriter_SeekFromEnd_AppendsToExistingContent()
+    {
+        var projectDir = CreateTempProjectDir();
+        var (_, _, fake) = Arrange(projectDir);
+        var path = Path.GetFullPath(Path.Combine(projectDir, "demo.txt"));
+        fake.Seed(path, "hello");
+        var ctx = new Agent.Harness.Shell.ProjectDrivePsContext("s1", fake, projectDir, store: null);
+        var writer = new Agent.Harness.Shell.ProjectDriveContentProvider.ProjectDriveContentWriter(ctx, path);
+
+        writer.Seek(0, SeekOrigin.End);
+        writer.Write(new ArrayList { "world" });
+        writer.Close();
+
+        fake.LastReadPath.Should().Be(path);
+        fake.LastWritePath.Should().Be(path);
+        fake.Read(path).Should().Be("hello" + Environment.NewLine + "world");
     }
 
     [Fact]
@@ -294,6 +346,9 @@ public sealed class AgentShellExecuteProjectDriveTests
         public ClientCapabilities ClientCapabilities { get; }
         public string? LastReadPath { get; private set; }
         public string? LastWritePath { get; private set; }
+
+        public void Seed(string path, string content) => _files[path] = content;
+        public string Read(string path) => _files[path];
 
         public Task<TResponse> RequestAsync<TRequest, TResponse>(string method, TRequest request, CancellationToken cancellationToken = default)
         {

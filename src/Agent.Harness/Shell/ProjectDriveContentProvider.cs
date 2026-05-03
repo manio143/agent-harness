@@ -170,11 +170,12 @@ public sealed class ProjectDriveContentProvider : NavigationCmdletProvider, ICon
         }
     }
 
-    private sealed class ProjectDriveContentReader : IContentReader
+    internal sealed class ProjectDriveContentReader : IContentReader
     {
         private readonly ProjectDrivePsContext _ctx;
         private readonly string _path;
-        private bool _done;
+        private List<string>? _content;
+        private int _position;
 
         public ProjectDriveContentReader(ProjectDrivePsContext ctx, string path)
         {
@@ -184,8 +185,41 @@ public sealed class ProjectDriveContentProvider : NavigationCmdletProvider, ICon
 
         public IList Read(long readCount)
         {
-            if (_done) return Array.Empty<string>();
-            _done = true;
+            var content = EnsureContentLoaded();
+            if (_position >= content.Count)
+                return Array.Empty<string>();
+
+            var remaining = content.Count - _position;
+            var take = readCount <= 0
+                ? remaining
+                : (int)Math.Min(readCount, remaining);
+
+            var chunk = content.GetRange(_position, take);
+            _position += take;
+            return chunk;
+        }
+
+        public void Seek(long offset, SeekOrigin origin)
+        {
+            var content = EnsureContentLoaded();
+            var originOffset = origin switch
+            {
+                SeekOrigin.Begin => 0,
+                SeekOrigin.Current => _position,
+                SeekOrigin.End => content.Count,
+                _ => throw new ArgumentOutOfRangeException(nameof(origin)),
+            };
+
+            _position = ClampPosition(originOffset + offset, content.Count);
+        }
+
+        public void Close() { }
+        public void Dispose() { }
+
+        private List<string> EnsureContentLoaded()
+        {
+            if (_content is not null)
+                return _content;
 
             var client = _ctx.RequireClient();
             var resp = client.ReadTextFileAsync(new Agent.Acp.Schema.ReadTextFileRequest
@@ -194,19 +228,17 @@ public sealed class ProjectDriveContentProvider : NavigationCmdletProvider, ICon
                 Path = _path,
             }).GetAwaiter().GetResult();
 
-            return new[] { resp.Content };
+            _content = SplitContentLines(resp.Content);
+            return _content;
         }
-
-        public void Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
-        public void Close() { }
-        public void Dispose() { }
     }
 
-    private sealed class ProjectDriveContentWriter : IContentWriter
+    internal sealed class ProjectDriveContentWriter : IContentWriter
     {
         private readonly ProjectDrivePsContext _ctx;
         private readonly string _path;
-        private readonly List<string> _chunks = new();
+        private List<string>? _content;
+        private int _position;
 
         public ProjectDriveContentWriter(ProjectDrivePsContext ctx, string path)
         {
@@ -216,21 +248,48 @@ public sealed class ProjectDriveContentProvider : NavigationCmdletProvider, ICon
 
         public IList Write(IList content)
         {
+            var target = _content ??= [];
             foreach (var item in content)
             {
-                if (item is null) continue;
-                _chunks.Add(item.ToString() ?? string.Empty);
+                if (item is null)
+                    continue;
+
+                var text = item.ToString() ?? string.Empty;
+                while (target.Count < _position)
+                    target.Add(string.Empty);
+
+                if (_position < target.Count)
+                    target[_position] = text;
+                else
+                    target.Add(text);
+
+                _position++;
             }
 
             return Array.Empty<string>();
         }
 
-        public void Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public void Seek(long offset, SeekOrigin origin)
+        {
+            var target = origin == SeekOrigin.End
+                ? EnsureExistingContentLoaded()
+                : (_content ??= []);
+
+            var originOffset = origin switch
+            {
+                SeekOrigin.Begin => 0,
+                SeekOrigin.Current => _position,
+                SeekOrigin.End => target.Count,
+                _ => throw new ArgumentOutOfRangeException(nameof(origin)),
+            };
+
+            _position = ClampPosition(originOffset + offset, target.Count);
+        }
 
         public void Close()
         {
             var client = _ctx.RequireClient();
-            var text = string.Join(Environment.NewLine, _chunks);
+            var text = string.Join(Environment.NewLine, _content ?? []);
 
             client.WriteTextFileAsync(new Agent.Acp.Schema.WriteTextFileRequest
             {
@@ -244,5 +303,43 @@ public sealed class ProjectDriveContentProvider : NavigationCmdletProvider, ICon
         {
             // PowerShell calls Close() explicitly.
         }
+
+        private List<string> EnsureExistingContentLoaded()
+        {
+            if (_content is not null)
+                return _content;
+
+            var client = _ctx.RequireClient();
+            var resp = client.ReadTextFileAsync(new Agent.Acp.Schema.ReadTextFileRequest
+            {
+                SessionId = _ctx.SessionId ?? string.Empty,
+                Path = _path,
+            }).GetAwaiter().GetResult();
+
+            _content = SplitContentLines(resp.Content);
+            _position = Math.Min(_position, _content.Count);
+            return _content;
+        }
+    }
+
+    private static int ClampPosition(long value, int count)
+    {
+        if (value <= 0)
+            return 0;
+
+        if (value >= count)
+            return count;
+
+        return (int)value;
+    }
+
+    private static List<string> SplitContentLines(string? content)
+    {
+        var lines = new List<string>();
+        using var reader = new StringReader(content ?? string.Empty);
+        while (reader.ReadLine() is { } line)
+            lines.Add(line);
+
+        return lines;
     }
 }
