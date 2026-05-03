@@ -1,11 +1,19 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 
+using System;
+using System.Threading.Tasks;
+using Agent.Acp.Client.AvaloniaApp.Services.Clipboard;
+using CommunityToolkit.Mvvm.Input;
+
 namespace Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation;
 
 public sealed partial class ToolCallDetailViewModel : ObservableObject
 {
-    public ToolCallDetailViewModel(string toolCallId, string title, string status, string? rawInputJson, string? rawOutputJson)
+    private readonly IClipboardService? _clipboard;
+
+    public ToolCallDetailViewModel(string toolCallId, string title, string status, string? rawInputJson, string? rawOutputJson, IClipboardService? clipboard = null)
     {
+        _clipboard = clipboard;
         ToolCallId = toolCallId;
         Title = title;
         Status = status;
@@ -22,4 +30,22 @@ public sealed partial class ToolCallDetailViewModel : ObservableObject
     public string? RawInputJson { get; }
 
     public string? RawOutputJson { get; }
+
+    [RelayCommand]
+    private async Task CopyInputAsync()
+    {
+        if (_clipboard is null)
+            throw new InvalidOperationException("Clipboard service not configured");
+
+        await _clipboard.SetTextAsync(RawInputJson ?? string.Empty).ConfigureAwait(false);
+    }
+
+    [RelayCommand]
+    private async Task CopyOutputAsync()
+    {
+        if (_clipboard is null)
+            throw new InvalidOperationException("Clipboard service not configured");
+
+        await _clipboard.SetTextAsync(RawOutputJson ?? string.Empty).ConfigureAwait(false);
+    }
 }

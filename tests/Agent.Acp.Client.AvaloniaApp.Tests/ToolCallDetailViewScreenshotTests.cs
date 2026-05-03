@@ -1,4 +1,5 @@
 using System.IO;
+using Agent.Acp.Client.AvaloniaApp.Tests.Fakes;
 using Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation;
 using Agent.Acp.Client.AvaloniaApp.Views.Conversation;
 using Avalonia;
@@ -18,7 +19,8 @@ public sealed class ToolCallDetailViewScreenshotTests
             title: "read_text_file",
             status: "completed",
             rawInputJson: "{\"path\":\"README.md\"}",
-            rawOutputJson: "{\"text\":\"hello world\"}");
+            rawOutputJson: "{\"text\":\"hello world\"}",
+            clipboard: new FakeClipboardService());
 
         var view = new ToolCallDetailView { DataContext = vm };
         Save(view, "tool-detail.png");

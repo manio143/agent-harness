@@ -28,7 +28,10 @@
         </Border>
       </StackPanel>
 
-      <TextBlock Text="(copy buttons next)" Foreground="#B9C0CC" />
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Button Content="Copy input" Command="{Binding CopyInputCommand}" />
+        <Button Content="Copy output" Command="{Binding CopyOutputCommand}" />
+      </StackPanel>
     </StackPanel>
   </Border>
 </UserControl>
