@@ -23,6 +23,9 @@ public sealed partial class ConnectionViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
+    [ObservableProperty]
+    private bool _continueLastSession = true;
+
     public event Action<ProcessStartInfo>? ConnectRequested;
 
     // Test-friendly entry point (avoids needing to raise the event from tests).

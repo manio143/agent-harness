@@ -101,13 +101,58 @@ public sealed partial class ShellViewModel : ObservableObject
             // Use the working directory as the ACP session cwd.
             var cwd = psi.WorkingDirectory;
 
-            // TODO(v-next): support selecting/reloading an existing ACP session via server replay.
-            // For now, we always create a new session on connect.
-            var session = await AcpClientBootstrap.NewSessionAsync(_process.Connection, cwd, ct);
-            _sessionId = session.SessionId;
+            // Always reset transcript on connect; if we load an existing session, replay will rebuild it.
+            _chat.Reset();
 
-            _pump = new AcpSessionUpdatePump(_sessionId, _chat);
-            _process.Connection.NotificationReceived += n => _pump.TryHandle(n);
+            if (Connection.ContinueLastSession)
+            {
+                var list = await AcpClientBootstrap.ListSessionsAsync(_process.Connection, cwd: cwd, cancellationToken: ct);
+
+                string? lastSessionId = null;
+                DateTimeOffset? lastUpdated = null;
+
+                foreach (var s in list.Sessions)
+                {
+                    if (s is null || string.IsNullOrWhiteSpace(s.SessionId))
+                        continue;
+
+                    DateTimeOffset? updated = null;
+                    if (!string.IsNullOrWhiteSpace(s.UpdatedAt) && DateTimeOffset.TryParse(s.UpdatedAt, out var parsed))
+                        updated = parsed;
+
+                    if (lastSessionId is null || (updated is not null && (lastUpdated is null || updated > lastUpdated)))
+                    {
+                        lastSessionId = s.SessionId;
+                        lastUpdated = updated;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(lastSessionId))
+                {
+                    _sessionId = lastSessionId;
+                    _pump = new AcpSessionUpdatePump(_sessionId, _chat);
+                    _process.Connection.NotificationReceived += n => _pump.TryHandle(n);
+
+                    // ACP contract: replay via session/update happens before completing session/load.
+                    _ = await AcpClientBootstrap.LoadSessionAsync(_process.Connection, _sessionId, cwd, ct);
+                }
+                else
+                {
+                    var session = await AcpClientBootstrap.NewSessionAsync(_process.Connection, cwd, ct);
+                    _sessionId = session.SessionId;
+
+                    _pump = new AcpSessionUpdatePump(_sessionId, _chat);
+                    _process.Connection.NotificationReceived += n => _pump.TryHandle(n);
+                }
+            }
+            else
+            {
+                var session = await AcpClientBootstrap.NewSessionAsync(_process.Connection, cwd, ct);
+                _sessionId = session.SessionId;
+
+                _pump = new AcpSessionUpdatePump(_sessionId, _chat);
+                _process.Connection.NotificationReceived += n => _pump.TryHandle(n);
+            }
 
             CurrentScreen = Screen.Chat;
             OnPropertyChanged(nameof(IsConnection));

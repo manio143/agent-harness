@@ -31,6 +31,9 @@
                  BorderBrush="#2A3040" BorderThickness="1" />
       </StackPanel>
 
+      <CheckBox IsChecked="{Binding ContinueLastSession}" Content="Continue last session (server replay)"
+                Foreground="#B9C0CC" FontSize="12" />
+
       <Border Background="#2A1515" CornerRadius="4" Padding="8" BorderBrush="#5C2020" BorderThickness="1"
               IsVisible="{Binding Error, Converter={x:Static c:StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Text="{Binding Error}" Foreground="#FFB4B4" FontSize="12" />
