@@ -53,7 +53,7 @@ public sealed class ChatViewScreenshotTests
         });
 
         var view = new ChatView { DataContext = vm };
-        Save(view, "chat-sample.png");
+        ScreenshotTestHarness.Save(view, width: 900, height: 700, fileName: "chat-sample.png");
     }
 
     private static object Json(string json)
@@ -62,35 +62,4 @@ public sealed class ChatViewScreenshotTests
         return doc.RootElement.Clone();
     }
 
-    private static void Save(ChatView view, string fileName)
-    {
-        view.Measure(new Size(900, 700));
-        view.Arrange(new Rect(0, 0, 900, 700));
-        view.UpdateLayout();
-
-        var pixelSize = new PixelSize(900, 700);
-        using var bmp = new RenderTargetBitmap(pixelSize, new Vector(96, 96));
-        bmp.Render(view);
-
-        var outDir = Path.Combine(GetRepoRoot(), "docs", "ux", "screens");
-        Directory.CreateDirectory(outDir);
-
-        var outPath = Path.Combine(outDir, fileName);
-        using var ms = new MemoryStream();
-        bmp.Save(ms);
-        File.WriteAllBytes(outPath, ms.ToArray());
-
-        var fi = new FileInfo(outPath);
-        Assert.True(fi.Exists);
-        Assert.True(fi.Length > 0);
-    }
-
-    private static string GetRepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Agent.slnx")))
-            dir = dir.Parent;
-
-        return dir?.FullName ?? throw new DirectoryNotFoundException("Could not locate repo root (Agent.slnx)");
-    }
 }

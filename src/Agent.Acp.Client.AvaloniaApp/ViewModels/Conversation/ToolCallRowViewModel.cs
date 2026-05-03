@@ -36,6 +36,8 @@ public sealed partial class ToolCallRowViewModel : ObservableObject
             rawInputJson: RawInputJson,
             rawOutputJson: RawOutputJson);
 
+    // NOTE: clipboard wiring will be injected from Shell/runtime later.
+
     private static string? Preview(string? s)
     {
         if (string.IsNullOrWhiteSpace(s)) return null;

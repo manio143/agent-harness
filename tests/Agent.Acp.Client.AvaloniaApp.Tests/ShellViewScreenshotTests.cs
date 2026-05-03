@@ -18,7 +18,7 @@ public sealed class ShellViewScreenshotTests
         vm.CurrentScreen = ShellViewModel.Screen.Connection;
 
         var view = new ShellView { DataContext = vm };
-        Save(view, "shell-connection.png");
+        ScreenshotTestHarness.Save(view, width: 1000, height: 720, fileName: "shell-connection.png");
     }
 
     [AvaloniaFact]
@@ -35,38 +35,7 @@ public sealed class ShellViewScreenshotTests
         });
 
         var view = new ShellView { DataContext = vm };
-        Save(view, "shell-chat.png");
+        ScreenshotTestHarness.Save(view, width: 1000, height: 720, fileName: "shell-chat.png");
     }
 
-    private static void Save(ShellView view, string fileName)
-    {
-        view.Measure(new Size(1000, 720));
-        view.Arrange(new Rect(0, 0, 1000, 720));
-        view.UpdateLayout();
-
-        var pixelSize = new PixelSize(1000, 720);
-        using var bmp = new RenderTargetBitmap(pixelSize, new Vector(96, 96));
-        bmp.Render(view);
-
-        var outDir = Path.Combine(GetRepoRoot(), "docs", "ux", "screens");
-        Directory.CreateDirectory(outDir);
-
-        var outPath = Path.Combine(outDir, fileName);
-        using var ms = new MemoryStream();
-        bmp.Save(ms);
-        File.WriteAllBytes(outPath, ms.ToArray());
-
-        var fi = new FileInfo(outPath);
-        Assert.True(fi.Exists);
-        Assert.True(fi.Length > 0);
-    }
-
-    private static string GetRepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Agent.slnx")))
-            dir = dir.Parent;
-
-        return dir?.FullName ?? throw new DirectoryNotFoundException("Could not locate repo root (Agent.slnx)");
-    }
 }

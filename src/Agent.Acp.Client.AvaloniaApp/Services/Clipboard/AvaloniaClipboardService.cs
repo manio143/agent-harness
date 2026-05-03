@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input.Platform;
 
 namespace Agent.Acp.Client.AvaloniaApp.Services.Clipboard;
 
@@ -15,8 +16,6 @@ public sealed class AvaloniaClipboardService : IClipboardService
         if (cb is null)
             throw new InvalidOperationException("Clipboard is not available");
 
-        var data = new Avalonia.Input.DataObject();
-        data.Set(Avalonia.Input.DataFormats.Text, text);
-        await cb.SetDataObjectAsync(data);
+        await cb.SetTextAsync(text);
     }
 }
