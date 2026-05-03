@@ -63,6 +63,10 @@ Connect screen (error state):
 
 ![](screens/connect-screen-error.png)
 
+Chat sample (intent group + tools + assistant text):
+
+![](screens/chat-sample.png)
+
 Intent group (expanded):
 
 ![](screens/intent-group-expanded.png)

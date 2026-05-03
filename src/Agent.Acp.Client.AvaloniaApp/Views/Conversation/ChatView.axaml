@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation"
+             xmlns:views="clr-namespace:Agent.Acp.Client.AvaloniaApp.Views.Conversation"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             mc:Ignorable="d"
+             x:Class="Agent.Acp.Client.AvaloniaApp.Views.Conversation.ChatView"
+             x:DataType="vm:ChatViewModel">
+
+  <Border Background="#111318" Padding="18">
+    <StackPanel Spacing="10">
+      <TextBlock Text="Chat (WIP)" FontSize="18" FontWeight="SemiBold" Foreground="#E6E6E6"/>
+
+      <ItemsControl ItemsSource="{Binding Transcript}">
+        <ItemsControl.DataTemplates>
+          <DataTemplate DataType="vm:IntentGroupViewModel">
+            <views:IntentGroupView />
+          </DataTemplate>
+
+          <DataTemplate DataType="sys:String">
+            <Border Background="#1A1D24" CornerRadius="6" Padding="10" Margin="0,0,0,6">
+              <TextBlock Text="{Binding}" Foreground="#E6E6E6" TextWrapping="Wrap"/>
+            </Border>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:ToolCallRowViewModel">
+            <Border Background="#1A1D24" CornerRadius="6" Padding="10" Margin="0,0,0,6">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="{Binding Status}" Foreground="#B9C0CC" />
+                <TextBlock Text="{Binding Title}" Foreground="#E6E6E6" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.DataTemplates>
+      </ItemsControl>
+    </StackPanel>
+  </Border>
+</UserControl>
