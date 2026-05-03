@@ -12,7 +12,16 @@ Goals:
 
 ## Screens
 
+### 1.5) Session Picker
+
+**Purpose:** choose a previous session to resume via `session/load` (server-side replay) or start a new session.
+
+Screenshot: `docs/ux/screens/session-picker.png`
+
 ### 1) Connect
+
+Notes:
+- Optional: **Continue last session (server replay)**. If enabled and sessions exist, the client shows a **Session Picker** after launching the agent.
 
 **Purpose:** connect to an ACP agent endpoint.
 

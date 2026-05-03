@@ -22,6 +22,7 @@
 
     <Grid RowDefinitions="*,Auto">
       <viewsConn:ConnectionView Grid.Row="0" DataContext="{Binding Connection}" IsVisible="{Binding $parent[UserControl].DataContext.IsConnection}" />
+      <viewsConn:SessionPickerView Grid.Row="0" DataContext="{Binding SessionPicker}" IsVisible="{Binding $parent[UserControl].DataContext.IsSessionPicker}" />
 
       <DockPanel Grid.Row="0" LastChildFill="True" IsVisible="{Binding $parent[UserControl].DataContext.IsChat}">
         <viewsComposer:ComposerView DockPanel.Dock="Bottom" DataContext="{Binding Composer}" />

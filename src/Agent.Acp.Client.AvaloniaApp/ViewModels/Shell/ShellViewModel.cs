@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Agent.Acp.Client.AvaloniaApp.Services.Acp;
 using Agent.Acp.Client.AvaloniaApp.ViewModels.Connection;
 using Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation;
+using Agent.Acp.Schema;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -17,6 +18,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public ShellViewModel()
     {
         Connection = new ConnectionViewModel();
+        SessionPicker = new SessionPickerViewModel();
 
         // Runtime services
         var clipboard = new Agent.Acp.Client.AvaloniaApp.Services.Clipboard.AvaloniaClipboardService();
@@ -26,12 +28,17 @@ public sealed partial class ShellViewModel : ObservableObject
 
         CurrentScreen = Screen.Connection;
         OnPropertyChanged(nameof(IsConnection));
+        OnPropertyChanged(nameof(IsSessionPicker));
         OnPropertyChanged(nameof(IsChat));
 
         Connection.ConnectRequested += async psi => await ConnectAsync(psi);
+        SessionPicker.OpenRequested += async sessionId => await OpenSessionAsync(sessionId);
+        SessionPicker.CancelRequested += async () => await CancelSessionPickerAsync();
     }
 
     public ConnectionViewModel Connection { get; }
+
+    public SessionPickerViewModel SessionPicker { get; }
 
     public ChatViewModel Chat => _chat;
 
@@ -41,6 +48,7 @@ public sealed partial class ShellViewModel : ObservableObject
     private Screen _currentScreen;
 
     public bool IsConnection => CurrentScreen == Screen.Connection;
+    public bool IsSessionPicker => CurrentScreen == Screen.SessionPicker;
     public bool IsChat => CurrentScreen == Screen.Chat;
 
     public bool CanDisconnect => _process is not null;
@@ -80,6 +88,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
         CurrentScreen = Screen.Connection;
         OnPropertyChanged(nameof(IsConnection));
+        OnPropertyChanged(nameof(IsSessionPicker));
         OnPropertyChanged(nameof(IsChat));
         OnPropertyChanged(nameof(CanDisconnect));
         DisconnectCommand.NotifyCanExecuteChanged();
@@ -95,69 +104,82 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             var ct = CancellationToken.None;
 
+            // Ensure clean slate.
+            if (_process is not null)
+            {
+                await _process.DisposeAsync();
+                _process = null;
+            }
+
+            _pump = null;
+            _sessionId = null;
+
             _process = await StdioAcpAgentProcess.StartAsync(psi, ct);
             _ = await AcpClientBootstrap.InitializeAsync(_process.Connection, ct);
 
             // Use the working directory as the ACP session cwd.
             var cwd = psi.WorkingDirectory;
 
-            // Always reset transcript on connect; if we load an existing session, replay will rebuild it.
+            // Reset transcript on connect; if we load an existing session, replay will rebuild it.
             _chat.Reset();
 
-            if (Connection.ContinueLastSession)
+            if (!Connection.ContinueLastSession)
             {
-                var list = await AcpClientBootstrap.ListSessionsAsync(_process.Connection, cwd: cwd, cancellationToken: ct);
-
-                string? lastSessionId = null;
-                DateTimeOffset? lastUpdated = null;
-
-                foreach (var s in list.Sessions)
-                {
-                    if (s is null || string.IsNullOrWhiteSpace(s.SessionId))
-                        continue;
-
-                    DateTimeOffset? updated = null;
-                    if (!string.IsNullOrWhiteSpace(s.UpdatedAt) && DateTimeOffset.TryParse(s.UpdatedAt, out var parsed))
-                        updated = parsed;
-
-                    if (lastSessionId is null || (updated is not null && (lastUpdated is null || updated > lastUpdated)))
-                    {
-                        lastSessionId = s.SessionId;
-                        lastUpdated = updated;
-                    }
-                }
-
-                if (!string.IsNullOrWhiteSpace(lastSessionId))
-                {
-                    _sessionId = lastSessionId;
-                    _pump = new AcpSessionUpdatePump(_sessionId, _chat);
-                    _process.Connection.NotificationReceived += n => _pump.TryHandle(n);
-
-                    // ACP contract: replay via session/update happens before completing session/load.
-                    _ = await AcpClientBootstrap.LoadSessionAsync(_process.Connection, _sessionId, cwd, ct);
-                }
-                else
-                {
-                    var session = await AcpClientBootstrap.NewSessionAsync(_process.Connection, cwd, ct);
-                    _sessionId = session.SessionId;
-
-                    _pump = new AcpSessionUpdatePump(_sessionId, _chat);
-                    _process.Connection.NotificationReceived += n => _pump.TryHandle(n);
-                }
-            }
-            else
-            {
-                var session = await AcpClientBootstrap.NewSessionAsync(_process.Connection, cwd, ct);
-                _sessionId = session.SessionId;
-
-                _pump = new AcpSessionUpdatePump(_sessionId, _chat);
-                _process.Connection.NotificationReceived += n => _pump.TryHandle(n);
+                // Straight to a brand-new session.
+                await OpenSessionAsync(sessionId: null);
+                return;
             }
 
-            CurrentScreen = Screen.Chat;
+            Status = "Fetching sessions...";
+
+            var list = await AcpClientBootstrap.ListSessionsAsync(_process.Connection, cwd: cwd, cancellationToken: ct);
+
+            SessionPicker.Sessions.Clear();
+            foreach (var s in list.Sessions)
+            {
+                if (s is null || string.IsNullOrWhiteSpace(s.SessionId))
+                    continue;
+
+                SessionPicker.Sessions.Add(new SessionListItemViewModel(
+                    sessionId: s.SessionId,
+                    title: s.Title,
+                    updatedAt: s.UpdatedAt));
+            }
+
+            // Default select: most recently updatedAt (best-effort).
+            SessionListItemViewModel? best = null;
+            DateTimeOffset? bestUpdated = null;
+
+            foreach (var item in SessionPicker.Sessions)
+            {
+                if (string.IsNullOrWhiteSpace(item.UpdatedAt))
+                    continue;
+
+                if (!DateTimeOffset.TryParse(item.UpdatedAt, out var parsed))
+                    continue;
+
+                if (best is null || bestUpdated is null || parsed > bestUpdated)
+                {
+                    best = item;
+                    bestUpdated = parsed;
+                }
+            }
+
+            SessionPicker.Selected = best;
+            SessionPicker.StartNewSession = SessionPicker.Sessions.Count == 0;
+
+            if (SessionPicker.Sessions.Count == 0)
+            {
+                // Nothing to pick — just start a new session.
+                await OpenSessionAsync(sessionId: null);
+                return;
+            }
+
+            CurrentScreen = Screen.SessionPicker;
             OnPropertyChanged(nameof(IsConnection));
+            OnPropertyChanged(nameof(IsSessionPicker));
             OnPropertyChanged(nameof(IsChat));
-            Status = $"Connected (session: {_sessionId})";
+            Status = "Select a session";
             OnPropertyChanged(nameof(CanDisconnect));
             DisconnectCommand.NotifyCanExecuteChanged();
         }
@@ -177,9 +199,58 @@ public sealed partial class ShellViewModel : ObservableObject
         }
     }
 
+    private async Task CancelSessionPickerAsync()
+    {
+        // Cancel returns to Connect screen but keeps the agent running (so user can still Disconnect explicitly).
+        CurrentScreen = Screen.Connection;
+        OnPropertyChanged(nameof(IsConnection));
+        OnPropertyChanged(nameof(IsSessionPicker));
+        OnPropertyChanged(nameof(IsChat));
+        Status = "Cancelled";
+    }
+
+    private async Task OpenSessionAsync(string? sessionId)
+    {
+        if (_process is null)
+            throw new InvalidOperationException("Not connected");
+
+        var ct = CancellationToken.None;
+        var cwd = Connection.WorkingDirectory;
+
+        Status = sessionId is null ? "Creating new session..." : $"Loading session: {sessionId}";
+
+        if (sessionId is null)
+        {
+            var session = await AcpClientBootstrap.NewSessionAsync(_process.Connection, cwd, ct);
+            _sessionId = session.SessionId;
+        }
+        else
+        {
+            _sessionId = sessionId;
+        }
+
+        _pump = new AcpSessionUpdatePump(_sessionId, _chat);
+        _process.Connection.NotificationReceived += n => _pump.TryHandle(n);
+
+        if (sessionId is not null)
+        {
+            // ACP contract: replay via session/update happens before completing session/load.
+            _ = await AcpClientBootstrap.LoadSessionAsync(_process.Connection, _sessionId, cwd, ct);
+        }
+
+        CurrentScreen = Screen.Chat;
+        OnPropertyChanged(nameof(IsConnection));
+        OnPropertyChanged(nameof(IsSessionPicker));
+        OnPropertyChanged(nameof(IsChat));
+        Status = $"Connected (session: {_sessionId})";
+        OnPropertyChanged(nameof(CanDisconnect));
+        DisconnectCommand.NotifyCanExecuteChanged();
+    }
+
     public enum Screen
     {
         Connection,
+        SessionPicker,
         Chat,
     }
 }
