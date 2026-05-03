@@ -5,7 +5,7 @@ This sample demonstrates:
 - `agent_shell_execute` (PowerShell Core in-process shell)
 - Per-thread shell state persistence (variables)
 - `sandbox:` drive for agent-local working dir
-- `project:` drive mapping directly to the session cwd with normal filesystem navigation
+- `project:` drive rooted at the session cwd, with local filesystem listing/navigation and ACP-backed file reads/writes
 
 The run is designed to be deterministic and end with exactly `DONE`.
 

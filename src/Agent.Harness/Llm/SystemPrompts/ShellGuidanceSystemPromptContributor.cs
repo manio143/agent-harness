@@ -14,11 +14,12 @@ public sealed class ShellGuidanceSystemPromptContributor : ISystemPromptContribu
         "- The shell provides Find-AgentCommand -Intent \"...\" to get suggested commands for a natural-language intent.\n" +
         "- Suggestions are best-effort and may be disabled by configuration (in that case, the command returns an empty list).\n" +
         "\n" +
-        "Project filesystem drive (project:):\n" +
-        "- If available in the shell, a PSDrive named project: maps directly to the session cwd on the agent host.\n" +
-        "- project: supports normal filesystem navigation and content commands, including Get-ChildItem, Get-Content, and Set-Content.\n" +
-        "- project: is rooted at the session cwd.\n" +
+        "Project drive (project:):\n" +
+        "- If available in the shell, a PSDrive named project: is rooted at the session cwd.\n" +
+        "- Directory listing/navigation on project: is handled outside ACP, so commands like Get-ChildItem can inspect the local project tree.\n" +
+        "- File content reads/writes on project: use ACP fs/read_text_file and fs/write_text_file so client-specific file-editing UX is preserved.\n" +
         "  Examples: project:\\README.md or project:/src/Agent.Server\n" +
+        "- If ACP fs capabilities are missing, project: content operations will error, but listing/navigation may still work.\n" +
         "- Use sandbox: for temporary agent-local artifacts and project: for files that belong to the current project.\n";
 
     public IEnumerable<SystemPromptFragment> Build(SystemPromptContext ctx)

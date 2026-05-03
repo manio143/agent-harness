@@ -14,7 +14,8 @@ namespace Agent.Harness.Shell;
 /// - Per-session (and per-thread) instance, so state (variables, functions) can persist.
 /// - Best-effort filesystem containment via:
 ///   - ConstrainedLanguage
-///   - FileSystem PSDrives rooted at the session sandbox (sandbox:) and session cwd (project:, when available)
+///   - A FileSystem PSDrive rooted at a session-specific directory (sandbox:)
+///   - A hybrid project: drive (ACP content operations + local listing/navigation) when session cwd is known
 ///
 /// This is a tool-surface restriction, not a perfect sandbox.
 /// </summary>
@@ -76,6 +77,16 @@ public sealed class InProcessPowerShellSession : IDisposable
             "Microsoft.PowerShell.Utility",
         });
 
+        var canCreateProjectDrive = !string.IsNullOrWhiteSpace(sessionCwd)
+            || (!string.IsNullOrWhiteSpace(sessionId) && store is not null);
+        if (canCreateProjectDrive)
+        {
+            iss.Providers.Add(new SessionStateProviderEntry(
+                name: "ProjectDrive",
+                implementingType: typeof(ProjectDriveContentProvider),
+                helpFileName: null));
+        }
+
         // Full language mode: required for richer PowerShell UX (dynamic modules/functions)
         // and for invoking non-core methods during MCP proxy cmdlet bridging.
         // This is still a best-effort containment mechanism, not a hardened sandbox.
@@ -116,33 +127,17 @@ function Find-AgentCommand {
             // ignore: shell still works without suggestion helpers
         }
 
-        // Best-effort: expose a project: drive rooted at the session cwd.
-        var projectRoot = sessionCwd;
-        if (string.IsNullOrWhiteSpace(projectRoot) && !string.IsNullOrWhiteSpace(sessionId))
-            projectRoot = store?.TryLoadMetadata(sessionId!)?.Cwd;
-
-        if (!string.IsNullOrWhiteSpace(projectRoot))
+        // Best-effort: expose a project: drive with ACP-backed content and local listing/navigation.
+        if (canCreateProjectDrive)
         {
             try
             {
-                var projectRootFullPath = Path.GetFullPath(projectRoot);
-                if (File.Exists(projectRootFullPath))
-                    throw new IOException($"project_drive_root_is_file:{projectRootFullPath}");
-
-                Directory.CreateDirectory(projectRootFullPath);
-
+                _runspace.SessionStateProxy.SetVariable("__project_drive_ctx", new ProjectDrivePsContext(sessionId, client, sessionCwd, store));
                 try { _runspace.SessionStateProxy.Drive.Remove("project", force: true, scope: "Global"); } catch { /* ignore */ }
-
-                var fs = _runspace.SessionStateProxy.Provider.Get("FileSystem").FirstOrDefault();
-                if (fs is not null)
-                {
-                    _runspace.SessionStateProxy.Drive.New(new PSDriveInfo(
-                        name: "project",
-                        provider: fs,
-                        root: projectRootFullPath,
-                        description: "Project root drive",
-                        credential: null), scope: "Global");
-                }
+                using var ps = PowerShell.Create();
+                ps.Runspace = _runspace;
+                ps.AddScript("New-PSDrive -Name project -PSProvider ProjectDrive -Root / -Scope Global | Out-Null");
+                ps.Invoke();
             }
             catch
             {
