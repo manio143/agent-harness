@@ -125,7 +125,11 @@ function Find-AgentCommand {
         {
             try
             {
-                Directory.CreateDirectory(projectRoot);
+                var projectRootFullPath = Path.GetFullPath(projectRoot);
+                if (File.Exists(projectRootFullPath))
+                    throw new IOException($"project_drive_root_is_file:{projectRootFullPath}");
+
+                Directory.CreateDirectory(projectRootFullPath);
 
                 try { _runspace.SessionStateProxy.Drive.Remove("project", force: true, scope: "Global"); } catch { /* ignore */ }
 
@@ -135,7 +139,7 @@ function Find-AgentCommand {
                     _runspace.SessionStateProxy.Drive.New(new PSDriveInfo(
                         name: "project",
                         provider: fs,
-                        root: Path.GetFullPath(projectRoot),
+                        root: projectRootFullPath,
                         description: "Project root drive",
                         credential: null), scope: "Global");
                 }
