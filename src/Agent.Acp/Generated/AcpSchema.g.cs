@@ -2714,7 +2714,6 @@ namespace Agent.Acp.Schema
         /// </summary>
 
         [System.Text.Json.Serialization.JsonPropertyName("outcome")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
         public RequestPermissionOutcomeOutcome Outcome { get; set; } = default!;
 
         /// <summary>
@@ -3014,7 +3013,6 @@ namespace Agent.Acp.Schema
 
 
         [System.Text.Json.Serialization.JsonPropertyName("type")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
         public SessionConfigOptionType Type { get; set; } = default!;
 
 

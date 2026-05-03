@@ -75,7 +75,29 @@ public static class CodegenPostProcessor
             code = RemovePartialClassDeclaration(code, typeName: defName);
         }
 
+        // Strip bare [JsonConverter(typeof(JsonStringEnumConverter))] attributes emitted by NJsonSchema
+        // on individual enum properties. Without a naming policy argument those attributes override the
+        // global AcpJson.Options converter (which uses JsonNamingPolicy.CamelCase) and cause enum values
+        // to serialize as PascalCase (e.g. "Select" instead of "select"), breaking ACP clients.
+        code = StripBareEnumConverterAttributes(code);
+
         return code;
+    }
+
+    /// <summary>
+    /// Removes per-property <c>[JsonConverter(typeof(JsonStringEnumConverter))]</c> attributes that
+    /// NJsonSchema emits without a naming policy. The global <c>AcpJson.Options</c> already registers
+    /// <c>new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)</c>, so these per-property attributes
+    /// are redundant and harmful (they shadow the camelCase policy).
+    /// </summary>
+    public static string StripBareEnumConverterAttributes(string code)
+    {
+        // Match the exact form NJsonSchema emits: no naming-policy argument.
+        // Use a line-oriented pattern so we remove the entire attribute line (including trailing newline).
+        var re = new Regex(
+            @"[ \t]*\[System\.Text\.Json\.Serialization\.JsonConverter\(typeof\(System\.Text\.Json\.Serialization\.JsonStringEnumConverter\)\)\]\r?\n",
+            RegexOptions.Compiled);
+        return re.Replace(code, string.Empty);
     }
 
     private static string PatchPropertyType(string code, string jsonPropName, string placeholderTypePattern, string replacementTypeName)

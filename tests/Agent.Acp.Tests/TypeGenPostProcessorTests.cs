@@ -284,4 +284,82 @@ public class TypeGenPostProcessorTests
 
         Assert.Equal(once, twice);
     }
+
+    // ── StripBareEnumConverterAttributes tests ────────────────────────────────
+
+    [Fact]
+    public void StripsBareEnumConverterAttribute_FromEnumProperty()
+    {
+        // NJsonSchema emits [JsonConverter(typeof(JsonStringEnumConverter))] without a naming policy.
+        // The post-processor should strip it so that the global AcpJson.Options camelCase converter wins.
+        var schema = new JsonSchema();
+
+        var input =
+            "        [System.Text.Json.Serialization.JsonPropertyName(\"type\")]\n" +
+            "        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]\n" +
+            "        public SessionConfigOptionType Type { get; set; } = default!;\n";
+
+        var output = CodegenPostProcessor.StripBareEnumConverterAttributes(input);
+
+        Assert.DoesNotContain("[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]", output);
+        Assert.Contains("[System.Text.Json.Serialization.JsonPropertyName(\"type\")]", output);
+        Assert.Contains("public SessionConfigOptionType Type { get; set; }", output);
+    }
+
+    [Fact]
+    public void StripsBareEnumConverterAttribute_LeavesOtherAttributes_Intact()
+    {
+        var schema = new JsonSchema();
+
+        var input =
+            "        [System.Text.Json.Serialization.JsonPropertyName(\"outcome\")]\n" +
+            "        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]\n" +
+            "        public MyEnum Outcome { get; set; } = default!;\n" +
+            "        [System.Text.Json.Serialization.JsonPropertyName(\"name\")]\n" +
+            "        public string Name { get; set; } = default!;\n";
+
+        var output = CodegenPostProcessor.StripBareEnumConverterAttributes(input);
+
+        // The bare enum converter is gone…
+        Assert.DoesNotContain("JsonStringEnumConverter", output);
+        // …but unrelated attributes and properties survive.
+        Assert.Contains("[System.Text.Json.Serialization.JsonPropertyName(\"outcome\")]", output);
+        Assert.Contains("public MyEnum Outcome { get; set; }", output);
+        Assert.Contains("[System.Text.Json.Serialization.JsonPropertyName(\"name\")]", output);
+        Assert.Contains("public string Name { get; set; }", output);
+    }
+
+    [Fact]
+    public void StripsBareEnumConverterAttribute_IsIdempotent()
+    {
+        var input =
+            "        [System.Text.Json.Serialization.JsonPropertyName(\"type\")]\n" +
+            "        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]\n" +
+            "        public MyEnum Type { get; set; } = default!;\n";
+
+        var once = CodegenPostProcessor.StripBareEnumConverterAttributes(input);
+        var twice = CodegenPostProcessor.StripBareEnumConverterAttributes(once);
+
+        Assert.Equal(once, twice);
+    }
+
+    [Fact]
+    public void PostProcessGeneratedCode_RemovesBareEnumConverter_ViaFullPipeline()
+    {
+        // Verify the full PostProcessGeneratedCode pipeline also strips the attribute.
+        var schema = new JsonSchema();
+
+        var input =
+            "namespace Agent.Acp.Schema\n{\n" +
+            "    public partial class SessionConfigOption\n    {\n" +
+            "        [System.Text.Json.Serialization.JsonPropertyName(\"type\")]\n" +
+            "        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]\n" +
+            "        public SessionConfigOptionType Type { get; set; } = default!;\n" +
+            "    }\n}\n";
+
+        var output = CodegenPostProcessor.PostProcessGeneratedCode(schema, input);
+
+        Assert.DoesNotContain("[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]", output);
+        Assert.Contains("public SessionConfigOptionType Type { get; set; }", output);
+    }
 }

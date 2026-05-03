@@ -29,6 +29,15 @@ public class GeneratedModelQualityGateTests
         Assert.DoesNotMatch(new Regex(@"\bStopReason2\b", RegexOptions.Compiled), code);
         // StopReason should not be generated as an object-model class.
         Assert.DoesNotMatch(new Regex(@"\bpublic\s+partial\s+class\s+StopReason\b", RegexOptions.Compiled), code);
+
+        // NJsonSchema emits [JsonConverter(typeof(JsonStringEnumConverter))] without a naming policy on
+        // enum properties, which causes PascalCase serialization (e.g. "Select" instead of "select").
+        // The post-processor must strip these; verify the gate here.
+        Assert.DoesNotMatch(
+            new Regex(
+                @"\[System\.Text\.Json\.Serialization\.JsonConverter\(typeof\(System\.Text\.Json\.Serialization\.JsonStringEnumConverter\)\)\]",
+                RegexOptions.Compiled),
+            code);
     }
 
     private static string FindRepoRoot(string startDir)
