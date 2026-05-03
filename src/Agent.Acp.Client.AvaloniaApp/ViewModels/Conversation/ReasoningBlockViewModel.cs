@@ -4,11 +4,14 @@ namespace Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation;
 
 public sealed partial class ReasoningBlockViewModel : ObservableObject
 {
-    public ReasoningBlockViewModel(string text)
+    public ReasoningBlockViewModel(int thoughtId, string text, bool isExpanded)
     {
+        ThoughtId = thoughtId;
         Text = text;
-        IsExpanded = false;
+        IsExpanded = isExpanded;
     }
+
+    public int ThoughtId { get; }
 
     public string Text { get; }
 

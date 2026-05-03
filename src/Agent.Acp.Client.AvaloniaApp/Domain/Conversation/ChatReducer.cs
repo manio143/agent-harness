@@ -60,16 +60,21 @@ public static class ChatReducer
         if (state.LastChunk == LastChunkKind.AgentThought && items.Length > 0 && items[^1] is ChatThought last)
         {
             items = items.SetItem(items.Length - 1, last with { Text = last.Text + t.Text });
+            return state with
+            {
+                Items = items,
+                LastChunk = LastChunkKind.AgentThought
+            };
         }
-        else
-        {
-            items = items.Add(new ChatThought(t.Text));
-        }
+
+        var thoughtId = state.NextThoughtId;
+        items = items.Add(new ChatThought(thoughtId, t.Text));
 
         return state with
         {
             Items = items,
-            LastChunk = LastChunkKind.AgentThought
+            LastChunk = LastChunkKind.AgentThought,
+            NextThoughtId = thoughtId + 1
         };
     }
 

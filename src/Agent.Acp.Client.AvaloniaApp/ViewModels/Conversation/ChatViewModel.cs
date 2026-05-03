@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Agent.Acp.Client.AvaloniaApp.Domain.Conversation;
 using Agent.Acp.Schema;
@@ -13,6 +14,10 @@ public sealed partial class ChatViewModel : ObservableObject
     private ChatState _state = ChatState.Empty;
 
     private bool _isStreaming;
+
+    // Persist expand/collapse state across transcript rebuilds.
+    private readonly Dictionary<int, bool> _thoughtExpandedById = new();
+    private bool _lastThoughtExpanded = false;
 
     public ObservableCollection<object> Transcript { get; } = new();
 
@@ -60,7 +65,23 @@ public sealed partial class ChatViewModel : ObservableObject
 
                 case ChatThought th:
                     pendingGroup = null;
-                    Transcript.Add(new ReasoningBlockViewModel(th.Text));
+
+                    var initialExpanded = _thoughtExpandedById.TryGetValue(th.ThoughtId, out var expanded)
+                        ? expanded
+                        : _lastThoughtExpanded;
+
+                    var reasoningVm = new ReasoningBlockViewModel(th.ThoughtId, th.Text, initialExpanded);
+                    reasoningVm.PropertyChanged += (_, e) =>
+                    {
+                        if (e.PropertyName == nameof(ReasoningBlockViewModel.IsExpanded))
+                        {
+                            _thoughtExpandedById[reasoningVm.ThoughtId] = reasoningVm.IsExpanded;
+                            _lastThoughtExpanded = reasoningVm.IsExpanded;
+                        }
+                    };
+
+                    _thoughtExpandedById[th.ThoughtId] = reasoningVm.IsExpanded;
+                    Transcript.Add(reasoningVm);
                     break;
             }
         }

@@ -24,5 +24,6 @@ public sealed class ChatReducerThoughtStreamingTests
         Assert.Single(s.Items);
         var t = Assert.IsType<ChatThought>(s.Items[0]);
         Assert.Equal("Reasoning", t.Text);
+        Assert.Equal(1, t.ThoughtId);
     }
 }

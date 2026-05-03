@@ -6,8 +6,9 @@ public sealed record ChatText(string Text) : ChatItem;
 
 /// <summary>
 /// Agent reasoning / thoughts. Render separately (italic) and optionally collapsible.
+/// ThoughtId is stable across streaming updates so the UI can preserve expand/collapse state.
 /// </summary>
-public sealed record ChatThought(string Text) : ChatItem;
+public sealed record ChatThought(int ThoughtId, string Text) : ChatItem;
 
 /// <summary>
 /// A tool call event on the timeline. The UI layer may group consecutive tool calls with the same intent.
