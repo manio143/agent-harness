@@ -256,7 +256,7 @@ public sealed class ProjectDriveContentProvider : NavigationCmdletProvider, ICon
 
                 var text = item.ToString() ?? string.Empty;
                 while (target.Count < _position)
-                    target.Add(string.Empty);
+                    target.AddRange(Enumerable.Repeat(string.Empty, _position - target.Count));
 
                 if (_position < target.Count)
                     target[_position] = text;
@@ -317,7 +317,6 @@ public sealed class ProjectDriveContentProvider : NavigationCmdletProvider, ICon
             }).GetAwaiter().GetResult();
 
             _content = SplitContentLines(resp.Content);
-            _position = Math.Min(_position, _content.Count);
             return _content;
         }
     }
