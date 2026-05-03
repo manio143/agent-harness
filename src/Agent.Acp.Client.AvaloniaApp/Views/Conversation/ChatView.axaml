@@ -9,35 +9,41 @@
              x:Class="Agent.Acp.Client.AvaloniaApp.Views.Conversation.ChatView"
              x:DataType="vm:ChatViewModel">
 
-  <Border Background="#111318" Padding="18">
+  <Border Background="#111318" Padding="12">
     <DockPanel LastChildFill="True">
-      <StackPanel DockPanel.Dock="Top" Spacing="10">
-        <TextBlock Text="Chat (WIP)" FontSize="18" FontWeight="SemiBold" Foreground="#E6E6E6"/>
-      </StackPanel>
+      <!-- Removed "Chat (WIP)" header per Opus review -->
 
       <ScrollViewer Name="TranscriptScroller" VerticalScrollBarVisibility="Auto">
-        <ItemsControl ItemsSource="{Binding Transcript}">
-        <ItemsControl.DataTemplates>
-          <DataTemplate DataType="vm:IntentGroupViewModel">
-            <views:IntentGroupView />
-          </DataTemplate>
+        <ItemsControl ItemsSource="{Binding Transcript}" Margin="0,0,0,8">
+          <ItemsControl.Styles>
+            <Style Selector="ItemsControl > ContentPresenter">
+              <Setter Property="Margin" Value="0,0,0,8"/>
+            </Style>
+          </ItemsControl.Styles>
 
-          <DataTemplate DataType="sys:String">
-            <Border Background="#1A1D24" CornerRadius="6" Padding="10" Margin="0,0,0,6">
-              <TextBlock Text="{Binding}" Foreground="#E6E6E6" TextWrapping="Wrap"/>
-            </Border>
-          </DataTemplate>
+          <ItemsControl.DataTemplates>
+            <DataTemplate DataType="vm:IntentGroupViewModel">
+              <views:IntentGroupView />
+            </DataTemplate>
 
-          <DataTemplate DataType="vm:ToolCallRowViewModel">
-            <Border Background="#1A1D24" CornerRadius="6" Padding="10" Margin="0,0,0,6">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="{Binding Status}" Foreground="#B9C0CC" />
-                <TextBlock Text="{Binding Title}" Foreground="#E6E6E6" />
-              </StackPanel>
-            </Border>
-          </DataTemplate>
-        </ItemsControl.DataTemplates>
-      </ItemsControl>
+            <DataTemplate DataType="sys:String">
+              <Border Background="#1A1D24" CornerRadius="6" Padding="10"
+                      BorderBrush="#2A3040" BorderThickness="1">
+                <TextBlock Text="{Binding}" Foreground="#E6E6E6" TextWrapping="Wrap"/>
+              </Border>
+            </DataTemplate>
+
+            <DataTemplate DataType="vm:ToolCallRowViewModel">
+              <Border Background="#1A1D24" CornerRadius="6" Padding="8"
+                      BorderBrush="#2A3040" BorderThickness="1">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <Ellipse Width="8" Height="8" Fill="{Binding StatusColor}" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Title}" Foreground="#E6E6E6" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.DataTemplates>
+        </ItemsControl>
       </ScrollViewer>
     </DockPanel>
   </Border>

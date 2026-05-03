@@ -9,16 +9,19 @@
              x:Class="Agent.Acp.Client.AvaloniaApp.Views.Conversation.IntentGroupView"
              x:DataType="vm:IntentGroupViewModel">
 
-  <Border Background="#111318" Padding="12">
+  <!-- Removed outer Border; ChatView controls spacing via ItemContainerStyle -->
   <Expander IsExpanded="{Binding IsExpanded}">
     <Expander.Header>
       <StackPanel Orientation="Horizontal" Spacing="8">
-        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" Foreground="#E6E6E6" />
-        <TextBlock Text="(tools)" Opacity="0.8" Foreground="#B9C0CC" />
+        <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="Bold" Foreground="#E6E6E6" />
+        <Border Background="#2A3142" CornerRadius="4" Padding="6,2">
+          <TextBlock Text="{Binding Items.Count}" FontSize="11" Foreground="#8B95A5" />
+        </Border>
       </StackPanel>
     </Expander.Header>
 
-    <Border Background="#1A1D24" CornerRadius="6" Padding="10" Margin="0,6,0,0">
+    <Border Background="#1A1D24" CornerRadius="6" Padding="8" Margin="0,4,0,0"
+            BorderBrush="#2A3040" BorderThickness="1">
       <ItemsControl ItemsSource="{Binding Items}">
         <ItemsControl.DataTemplates>
           <DataTemplate DataType="vm:ToolCallRowViewModel">
@@ -29,15 +32,19 @@
                 </Flyout>
               </Button.Flyout>
 
-              <Border Background="#151820" CornerRadius="6" Padding="8" Margin="0,0,0,6">
-                <StackPanel Spacing="4">
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="{Binding Status}" Foreground="#B9C0CC" />
-                    <TextBlock Text="{Binding Title}" Foreground="#E6E6E6" FontWeight="SemiBold" />
+              <Border Background="#151820" CornerRadius="4" Padding="6" Margin="0,0,0,4"
+                      BorderBrush="#2A3040" BorderThickness="1">
+                <StackPanel Spacing="2">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <!-- Status dot instead of text -->
+                    <Ellipse Width="8" Height="8" Fill="{Binding StatusColor}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding Title}" Foreground="#E6E6E6" FontWeight="Medium" />
                   </StackPanel>
 
-                  <TextBlock Text="{Binding InputPreview}" Foreground="#B9C0CC" FontFamily="Consolas" />
-                  <TextBlock Text="{Binding OutputPreview}" Foreground="#8FBFA3" FontFamily="Consolas" />
+                  <TextBlock Text="{Binding InputPreview}" Foreground="#6B7280" FontFamily="Consolas" FontSize="11"
+                             MaxLines="1" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding OutputPreview}" Foreground="#6B9A7D" FontFamily="Consolas" FontSize="11"
+                             MaxLines="1" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
               </Border>
             </Button>
@@ -50,5 +57,4 @@
       </ItemsControl>
     </Border>
   </Expander>
-  </Border>
 </UserControl>

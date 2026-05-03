@@ -7,30 +7,35 @@
              x:Class="Agent.Acp.Client.AvaloniaApp.Views.Conversation.ToolCallDetailView"
              x:DataType="vm:ToolCallDetailViewModel">
 
-  <Border Background="#0B0D10" Padding="12" CornerRadius="8" Width="520">
-    <StackPanel Spacing="10">
-      <StackPanel Orientation="Horizontal" Spacing="10">
-        <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" Foreground="#E6E6E6" />
-        <TextBlock Text="{Binding Status}" Foreground="#B9C0CC" />
+  <Border Background="#0B0D10" Padding="12" CornerRadius="8" MinWidth="400" MaxWidth="700"
+          BorderBrush="#2A3040" BorderThickness="1">
+    <StackPanel Spacing="8">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" Foreground="#E6E6E6" />
+        <TextBlock Text="{Binding Status}" Foreground="#6B7280" FontSize="12" VerticalAlignment="Center" />
       </StackPanel>
 
-      <StackPanel Spacing="6">
-        <TextBlock Text="Input" Foreground="#B9C0CC" />
-        <Border Background="#151820" CornerRadius="6" Padding="8">
-          <TextBlock Text="{Binding RawInputJson}" Foreground="#E6E6E6" FontFamily="Consolas" TextWrapping="Wrap" />
+      <StackPanel Spacing="4">
+        <TextBlock Text="Input" Foreground="#6B7280" FontSize="11" />
+        <Border Background="#151820" CornerRadius="4" Padding="6" BorderBrush="#2A3040" BorderThickness="1">
+          <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto">
+            <TextBlock Text="{Binding RawInputJson}" Foreground="#B9C0CC" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" />
+          </ScrollViewer>
         </Border>
       </StackPanel>
 
-      <StackPanel Spacing="6">
-        <TextBlock Text="Output" Foreground="#B9C0CC" />
-        <Border Background="#151820" CornerRadius="6" Padding="8">
-          <TextBlock Text="{Binding RawOutputJson}" Foreground="#8FBFA3" FontFamily="Consolas" TextWrapping="Wrap" />
+      <StackPanel Spacing="4">
+        <TextBlock Text="Output" Foreground="#6B7280" FontSize="11" />
+        <Border Background="#151820" CornerRadius="4" Padding="6" BorderBrush="#2A3040" BorderThickness="1">
+          <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto">
+            <TextBlock Text="{Binding RawOutputJson}" Foreground="#8FBFA3" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" />
+          </ScrollViewer>
         </Border>
       </StackPanel>
 
-      <StackPanel Orientation="Horizontal" Spacing="10">
-        <Button Content="Copy input" Command="{Binding CopyInputCommand}" />
-        <Button Content="Copy output" Command="{Binding CopyOutputCommand}" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="Copy input" Command="{Binding CopyInputCommand}" FontSize="12" Padding="8,4" />
+        <Button Content="Copy output" Command="{Binding CopyOutputCommand}" FontSize="12" Padding="8,4" />
       </StackPanel>
     </StackPanel>
   </Border>
