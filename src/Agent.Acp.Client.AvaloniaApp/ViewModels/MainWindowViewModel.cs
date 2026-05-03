@@ -1,6 +1,13 @@
-﻿namespace Agent.Acp.Client.AvaloniaApp.ViewModels;
+using Agent.Acp.Client.AvaloniaApp.ViewModels.Connection;
 
-public partial class MainWindowViewModel : ViewModelBase
+namespace Agent.Acp.Client.AvaloniaApp.ViewModels;
+
+public sealed class MainWindowViewModel : ViewModelBase
 {
-    public string Greeting { get; } = "Welcome to Avalonia!";
+    public MainWindowViewModel()
+    {
+        Connection = new ConnectionViewModel();
+    }
+
+    public ConnectionViewModel Connection { get; }
 }
