@@ -7,16 +7,14 @@ public sealed record ChatState(
     string? CurrentIntent,
     ImmutableDictionary<string, ChatToolCall> ToolCallsById,
     LastChunkKind LastChunk,
-    int NextThoughtId,
-    string? CurrentSessionId)
+    int NextThoughtId)
 {
     public static ChatState Empty { get; } = new(
         Items: ImmutableArray<ChatItem>.Empty,
         CurrentIntent: null,
         ToolCallsById: ImmutableDictionary<string, ChatToolCall>.Empty,
         LastChunk: LastChunkKind.None,
-        NextThoughtId: 1,
-        CurrentSessionId: null);
+        NextThoughtId: 1);
 }
 
 public enum LastChunkKind

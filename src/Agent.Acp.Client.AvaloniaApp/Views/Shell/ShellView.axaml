@@ -14,8 +14,6 @@
     <Border DockPanel.Dock="Top" Background="#0B0D10" Padding="10">
       <DockPanel LastChildFill="True">
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
-          <Button Content="Reload" Command="{Binding ReloadLastSessionCommand}" Padding="10,4" />
-          <Button Content="Reconnect" Command="{Binding ReconnectCommand}" IsEnabled="{Binding CanReconnect}" Padding="10,4" />
           <Button Content="Disconnect" Command="{Binding DisconnectCommand}" IsEnabled="{Binding CanDisconnect}" Padding="10,4" />
         </StackPanel>
         <TextBlock Text="{Binding Status}" Foreground="#B9C0CC" />

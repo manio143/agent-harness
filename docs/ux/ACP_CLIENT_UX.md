@@ -147,23 +147,15 @@ Implementation:
 
 ## Session reload + disconnect/reconnect (P2)
 
-**Goal:** allow disconnecting the client (e.g., rebuild after code changes) and then **reloading** a prior transcript and **continuing**.
+**Goal:** allow rebuilding the client after making source changes and then continuing the same conversation/session.
 
-**Important constraint:** current transport is **stdio-only**, so a restarted client cannot truly reattach to an already-running agent process via stdio. v1 approach is client-side persistence + replay.
+**Plan:** rely on **ACP server session replay** (the server replays committed session events on session open/attach).
 
-Planned features:
-- Persist transcript events locally (user prompts + `session/update` updates)
-- "Reload last session" command to replay events into the transcript
-- "Disconnect" command to dispose agent process and return to Connect screen
-- (Later) optional protocol support for session replay / attach if ACP adds it
+Client responsibilities (v1 target):
+- Support **disconnect** (stop/cleanup agent process)
+- Support **reconnect** by opening an existing ACP session (no client-side transcript persistence)
 
-Implementation notes (initial):
-- `SessionLogStore` (JSONL) is used as a **conversation log** under `{cwd}/.acp-client/conversations/conversation-<timestamp>.jsonl`
-- `ConversationPointerStore` stores `{cwd}/.acp-client/last-conversation.txt` to find the most recent conversation log
-- On connect, append each handled `SessionUpdate`
-- On send, append user prompt
-- Reload replays stored events into `ChatReducer`
-- Reconnect: reload conversation, then start a fresh agent+session and continue appending to the same conversation log
+**Note:** current transport is **stdio-only**. True “reattach to an already-running process” is not possible over stdio; reconnect will typically mean launching the agent again and then asking it to open/replay an existing session if supported.
 
 ---
 

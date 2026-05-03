@@ -11,9 +11,8 @@ public static class ChatReducer
     public static ChatState Reduce(ChatState state, ChatEvent e)
         => e switch
         {
-            ChatSessionUpdate u => ReduceSessionUpdate(state, u),
+            ChatSessionUpdate u => Reduce(state, u.Update),
             ChatUserPrompt p => ReduceUserPrompt(state, p),
-            ChatLocalSystemMessage m => ReduceLocalSystemMessage(state, m),
             _ => state,
         };
 
@@ -27,39 +26,6 @@ public static class ChatReducer
             Items = state.Items.Add(new ChatUserText(p.Text.Trim())),
             LastChunk = LastChunkKind.None
         };
-    }
-
-    private static ChatState ReduceLocalSystemMessage(ChatState state, ChatLocalSystemMessage m)
-    {
-        if (string.IsNullOrWhiteSpace(m.Text))
-            return state;
-
-        return state with
-        {
-            Items = state.Items.Add(new ChatSystemText(m.Text.Trim())),
-            LastChunk = LastChunkKind.None
-        };
-    }
-
-    private static ChatState ReduceSessionUpdate(ChatState state, ChatSessionUpdate e)
-    {
-        var next = state;
-
-        if (!string.Equals(state.CurrentSessionId, e.SessionId, StringComparison.Ordinal))
-        {
-            if (!string.IsNullOrWhiteSpace(state.CurrentSessionId))
-            {
-                next = next with
-                {
-                    Items = next.Items.Add(new ChatSystemText($"— Reconnected (session: {e.SessionId}) —")),
-                    LastChunk = LastChunkKind.None
-                };
-            }
-
-            next = next with { CurrentSessionId = e.SessionId };
-        }
-
-        return Reduce(next, e.Update);
     }
 
     private static ChatState Reduce(ChatState state, SessionUpdate update)

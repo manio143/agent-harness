@@ -7,8 +7,6 @@ public sealed record ChatText(string Text) : ChatItem;
 /// <summary>Local user message bubble.</summary>
 public sealed record ChatUserText(string Text) : ChatItem;
 
-/// <summary>System/timeline separator (e.g., reconnect boundaries).</summary>
-public sealed record ChatSystemText(string Text) : ChatItem;
 
 /// <summary>
 /// Agent reasoning / thoughts. Render separately (italic) and optionally collapsible.

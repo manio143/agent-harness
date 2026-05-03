@@ -28,27 +28,17 @@ public sealed partial class ChatViewModel : ObservableObject
 
     public ObservableCollection<object> Transcript { get; } = new();
 
-    public void Apply(string sessionId, SessionUpdate update)
+    public void Apply(SessionUpdate update)
     {
-        _state = ChatReducer.Reduce(_state, new ChatSessionUpdate(sessionId, update));
+        _state = ChatReducer.Reduce(_state, new ChatSessionUpdate(update));
 
         _isStreaming = update is AgentMessageChunk or AgentThoughtChunk;
         RebuildTranscript();
     }
 
-    public void Apply(SessionUpdate update)
-        => Apply(sessionId: "local", update);
-
     public void ApplyUserPrompt(string text)
     {
         _state = ChatReducer.Reduce(_state, new ChatUserPrompt(text));
-        _isStreaming = false;
-        RebuildTranscript();
-    }
-
-    public void ApplyLocalSystemMessage(string text)
-    {
-        _state = ChatReducer.Reduce(_state, new ChatLocalSystemMessage(text));
         _isStreaming = false;
         RebuildTranscript();
     }
@@ -107,10 +97,6 @@ public sealed partial class ChatViewModel : ObservableObject
                     Transcript.Add(new UserMessageViewModel(u.Text));
                     break;
 
-                case ChatSystemText sys:
-                    pendingGroup = null;
-                    Transcript.Add(new SystemMessageViewModel(sys.Text));
-                    break;
 
                 case ChatThought th:
                     pendingGroup = null;
