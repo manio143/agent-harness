@@ -19,20 +19,21 @@ public static class ChatReducer
         => update switch
         {
             AgentMessageChunk m => ReduceAgentMessageChunk(state, m),
+            AgentThoughtChunk t => ReduceAgentThoughtChunk(state, t),
             ToolCall c => ReduceToolCall(state, c),
             ToolCallUpdate u => ReduceToolCallUpdate(state, u),
-            _ => state with { LastWasAgentMessageChunk = false },
+            _ => state with { LastChunk = LastChunkKind.None },
         };
 
     private static ChatState ReduceAgentMessageChunk(ChatState state, AgentMessageChunk m)
     {
         if (m.Content is not TextContent t)
-            return state with { LastWasAgentMessageChunk = false };
+            return state with { LastChunk = LastChunkKind.None };
 
         var items = state.Items;
 
         // Streaming: consecutive agent_message_chunk updates append to the same ChatText item.
-        if (state.LastWasAgentMessageChunk && items.Length > 0 && items[^1] is ChatText last)
+        if (state.LastChunk == LastChunkKind.AgentMessage && items.Length > 0 && items[^1] is ChatText last)
         {
             items = items.SetItem(items.Length - 1, last with { Text = last.Text + t.Text });
         }
@@ -44,7 +45,31 @@ public static class ChatReducer
         return state with
         {
             Items = items,
-            LastWasAgentMessageChunk = true
+            LastChunk = LastChunkKind.AgentMessage
+        };
+    }
+
+    private static ChatState ReduceAgentThoughtChunk(ChatState state, AgentThoughtChunk m)
+    {
+        if (m.Content is not TextContent t)
+            return state with { LastChunk = LastChunkKind.None };
+
+        var items = state.Items;
+
+        // Streaming: consecutive agent_thought_chunk updates append to the same ChatThought item.
+        if (state.LastChunk == LastChunkKind.AgentThought && items.Length > 0 && items[^1] is ChatThought last)
+        {
+            items = items.SetItem(items.Length - 1, last with { Text = last.Text + t.Text });
+        }
+        else
+        {
+            items = items.Add(new ChatThought(t.Text));
+        }
+
+        return state with
+        {
+            Items = items,
+            LastChunk = LastChunkKind.AgentThought
         };
     }
 
@@ -57,23 +82,26 @@ public static class ChatReducer
             if (string.IsNullOrWhiteSpace(intent))
                 return state;
 
-            // Create a new group entry if the last item isn't already that group.
-            var items = state.Items;
-            if (items.Length == 0 || items[^1] is not ChatIntentGroup g || g.Title != intent)
-                items = items.Add(new ChatIntentGroup(intent, ToolCalls: Array.Empty<ChatToolCall>()));
-
-            return state with { CurrentIntent = intent, Items = items, LastWasAgentMessageChunk = false };
+            // Streaming/ordering requirement: don't reorder the timeline.
+            // report_intent only sets the label for subsequent tool calls.
+            return state with { CurrentIntent = intent, LastChunk = LastChunkKind.None };
         }
+
+        var currentIntentTitle = state.CurrentIntent;
+        if (string.IsNullOrWhiteSpace(currentIntentTitle)) currentIntentTitle = "Tools";
 
         var tool = new ChatToolCall(
             call.ToolCallId,
             call.Title,
             Status: call.Status,
             RawInputJson: ToolJson.TryStringify(call.RawInput),
-            RawOutputJson: ToolJson.TryStringify(call.RawOutput));
-        var byId = state.ToolCallsById.SetItem(call.ToolCallId, tool);
+            RawOutputJson: ToolJson.TryStringify(call.RawOutput),
+            IntentTitle: currentIntentTitle);
 
-        return AddToolToCurrentGroup(state with { ToolCallsById = byId, LastWasAgentMessageChunk = false }, tool);
+        var byId = state.ToolCallsById.SetItem(call.ToolCallId, tool);
+        var items = state.Items.Add(tool);
+
+        return state with { ToolCallsById = byId, Items = items, LastChunk = LastChunkKind.None };
     }
 
     private static ChatState ReduceToolCallUpdate(ChatState state, ToolCallUpdate update)
@@ -92,86 +120,36 @@ public static class ChatReducer
             };
             var byId = state.ToolCallsById.SetItem(update.ToolCallId, updated);
             var items = ReplaceTool(state.Items, updated);
-            return state with { ToolCallsById = byId, Items = items, LastWasAgentMessageChunk = false };
+            return state with { ToolCallsById = byId, Items = items, LastChunk = LastChunkKind.None };
         }
 
         // Late tool update: create a placeholder tool call.
         var title = string.IsNullOrWhiteSpace(update.Title) ? update.ToolCallId : update.Title;
+        var intent = state.CurrentIntent;
+        if (string.IsNullOrWhiteSpace(intent)) intent = "Tools";
+
         var toolLate = new ChatToolCall(
             update.ToolCallId,
             title,
             Status: update.Status,
             RawInputJson: ToolJson.HasMeaningful(update.RawInput) ? ToolJson.TryStringify(update.RawInput) : null,
-            RawOutputJson: ToolJson.HasMeaningful(update.RawOutput) ? ToolJson.TryStringify(update.RawOutput) : null);
+            RawOutputJson: ToolJson.HasMeaningful(update.RawOutput) ? ToolJson.TryStringify(update.RawOutput) : null,
+            IntentTitle: intent);
 
         var byIdLate = state.ToolCallsById.SetItem(update.ToolCallId, toolLate);
-        return AddToolToCurrentGroup(state with { ToolCallsById = byIdLate, LastWasAgentMessageChunk = false }, toolLate);
-    }
-
-    private static ChatState AddToolToCurrentGroup(ChatState state, ChatToolCall tool)
-    {
-        var items = state.Items;
-
-        // Find last group matching CurrentIntent.
-        var groupIndex = FindTargetGroupIndex(items, state.CurrentIntent);
-        if (groupIndex < 0)
-        {
-            // Fallback group.
-            const string fallback = "Tools";
-            groupIndex = FindTargetGroupIndex(items, fallback);
-            if (groupIndex < 0)
-            {
-                items = items.Add(new ChatIntentGroup(fallback, Array.Empty<ChatToolCall>()));
-                groupIndex = items.Length - 1;
-            }
-        }
-
-        var group = (ChatIntentGroup)items[groupIndex];
-        var newList = group.ToolCalls.Add(tool);
-        items = items.SetItem(groupIndex, group with { ToolCalls = newList });
-
-        return state with { Items = items };
-    }
-
-    private static int FindTargetGroupIndex(ImmutableArray<ChatItem> items, string? intent)
-    {
-        if (string.IsNullOrWhiteSpace(intent))
-            return -1;
-
-        for (var i = items.Length - 1; i >= 0; i--)
-        {
-            if (items[i] is ChatIntentGroup g && g.Title == intent)
-                return i;
-        }
-
-        return -1;
+        var itemsLate = state.Items.Add(toolLate);
+        return state with { ToolCallsById = byIdLate, Items = itemsLate, LastChunk = LastChunkKind.None };
     }
 
     private static ImmutableArray<ChatItem> ReplaceTool(ImmutableArray<ChatItem> items, ChatToolCall updated)
     {
-        // Replace inside any group tool list.
         for (var i = 0; i < items.Length; i++)
         {
-            if (items[i] is not ChatIntentGroup g)
-                continue;
-
-            var idx = IndexOfTool(g.ToolCalls, updated.ToolCallId);
-            if (idx < 0) continue;
-
-            var newList = g.ToolCalls.SetItem(idx, updated);
-            items = items.SetItem(i, g with { ToolCalls = newList });
-            return items;
+            if (items[i] is ChatToolCall t && t.ToolCallId == updated.ToolCallId)
+                return items.SetItem(i, updated);
         }
 
         return items;
-    }
-
-    private static int IndexOfTool(IReadOnlyList<ChatToolCall> tools, string toolCallId)
-    {
-        for (var i = 0; i < tools.Count; i++)
-            if (tools[i].ToolCallId == toolCallId)
-                return i;
-        return -1;
     }
 
     private static string? TryGetIntent(object rawInput)

@@ -47,6 +47,11 @@ public sealed class ChatViewScreenshotTests
             Status = ToolCallStatus.Completed,
         });
 
+        vm.Apply(new AgentThoughtChunk
+        {
+            Content = new TextContent { Text = "Thinking: verify output, then respond." }
+        });
+
         // Simulate streaming chunks.
         vm.Apply(new AgentMessageChunk
         {

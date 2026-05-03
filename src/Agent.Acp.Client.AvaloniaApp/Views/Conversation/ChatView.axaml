@@ -42,6 +42,22 @@
                 </StackPanel>
               </Border>
             </DataTemplate>
+
+            <DataTemplate DataType="vm:ReasoningBlockViewModel">
+              <Border Background="#0B0D10" CornerRadius="6" Padding="8"
+                      BorderBrush="#2A3040" BorderThickness="1">
+                <Expander IsExpanded="{Binding IsExpanded}">
+                  <Expander.Header>
+                    <TextBlock Text="{Binding Preview}" Foreground="#6B7280" FontStyle="Italic" />
+                  </Expander.Header>
+
+                  <Border Background="#151820" CornerRadius="4" Padding="8" Margin="0,6,0,0"
+                          BorderBrush="#2A3040" BorderThickness="1">
+                    <TextBlock Text="{Binding Text}" Foreground="#B9C0CC" FontStyle="Italic" TextWrapping="Wrap" />
+                  </Border>
+                </Expander>
+              </Border>
+            </DataTemplate>
           </ItemsControl.DataTemplates>
         </ItemsControl>
       </ScrollViewer>

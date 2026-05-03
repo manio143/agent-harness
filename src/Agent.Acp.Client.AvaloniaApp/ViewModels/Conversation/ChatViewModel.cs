@@ -24,30 +24,40 @@ public sealed partial class ChatViewModel : ObservableObject
     {
         Transcript.Clear();
 
+        IntentGroupViewModel? pendingGroup = null;
+
         foreach (var item in _state.Items)
         {
             switch (item)
             {
+                case ChatToolCall tc:
+                {
+                    // Group consecutive tool calls with the same intent title.
+                    if (pendingGroup is null || pendingGroup.Title != tc.IntentTitle)
+                    {
+                        pendingGroup = new IntentGroupViewModel(tc.IntentTitle, items: []);
+                        Transcript.Add(pendingGroup);
+                    }
+
+                    pendingGroup.Items.Add(new ToolCallRowViewModel(tc.ToolCallId, tc.Title)
+                    {
+                        Status = tc.Status,
+                        RawInputJson = tc.RawInputJson,
+                        RawOutputJson = tc.RawOutputJson,
+                    });
+
+                    break;
+                }
+
                 case ChatText t:
+                    pendingGroup = null;
                     Transcript.Add(t.Text);
                     break;
 
-                case ChatIntentGroup g:
-                {
-                    var groupVm = new IntentGroupViewModel(g.Title, items: []);
-                    foreach (var tc in g.ToolCalls)
-                    {
-                        var row = new ToolCallRowViewModel(tc.ToolCallId, tc.Title)
-                        {
-                            Status = tc.Status,
-                            RawInputJson = tc.RawInputJson,
-                            RawOutputJson = tc.RawOutputJson,
-                        };
-                        groupVm.Items.Add(row);
-                    }
-                    Transcript.Add(groupVm);
+                case ChatThought th:
+                    pendingGroup = null;
+                    Transcript.Add(new ReasoningBlockViewModel(th.Text));
                     break;
-                }
             }
         }
     }
