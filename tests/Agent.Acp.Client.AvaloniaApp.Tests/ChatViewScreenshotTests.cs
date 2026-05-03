@@ -47,9 +47,15 @@ public sealed class ChatViewScreenshotTests
             Status = ToolCallStatus.Completed,
         });
 
+        // Simulate streaming chunks.
         vm.Apply(new AgentMessageChunk
         {
-            Content = new TextContent { Text = "Done." }
+            Content = new TextContent { Text = "Do" }
+        });
+
+        vm.Apply(new AgentMessageChunk
+        {
+            Content = new TextContent { Text = "ne." }
         });
 
         var view = new ChatView { DataContext = vm };
