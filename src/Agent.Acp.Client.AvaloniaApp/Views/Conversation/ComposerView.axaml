@@ -16,7 +16,7 @@
         <TextBlock DockPanel.Dock="Left" Text="{Binding Error}" Foreground="#FFB4B4"
                    IsVisible="{Binding Error, Converter={x:Static c:StringConverters.IsNotNullOrEmpty}}" />
 
-        <Button DockPanel.Dock="Right" Content="Send" Command="{Binding SendCommand}" IsEnabled="{Binding IsBusy, Converter={x:Static c:BoolConverters.Not}}" />
+        <Button DockPanel.Dock="Right" Content="Send" Command="{Binding SendCommand}" IsEnabled="{Binding CanSend}" />
       </DockPanel>
     </StackPanel>
   </Border>

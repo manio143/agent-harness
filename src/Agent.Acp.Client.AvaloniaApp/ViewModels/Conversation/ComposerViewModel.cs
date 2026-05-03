@@ -22,20 +22,21 @@ public sealed partial class ComposerViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
+    public bool CanSend => !IsBusy && !string.IsNullOrWhiteSpace(Text);
+
     [ObservableProperty]
     private string? _error;
 
-    public void SetText(string value) => Text = value;
+    partial void OnTextChanged(string value) => OnPropertyChanged(nameof(CanSend));
+
+    partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(CanSend));
 
     [RelayCommand]
     private async Task SendAsync(CancellationToken cancellationToken)
     {
         Error = null;
 
-        if (IsBusy)
-            return;
-
-        if (string.IsNullOrWhiteSpace(Text))
+        if (!CanSend)
             return;
 
         if (_send is null)

@@ -25,6 +25,9 @@ public sealed partial class ConnectionViewModel : ObservableObject
 
     public event Action<ProcessStartInfo>? ConnectRequested;
 
+    // Test-friendly entry point (avoids needing to raise the event from tests).
+    public void RequestConnect(ProcessStartInfo psi) => ConnectRequested?.Invoke(psi);
+
     [RelayCommand]
     private void Connect()
     {
