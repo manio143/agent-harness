@@ -14,7 +14,8 @@ namespace Agent.Harness.Shell;
 /// - Per-session (and per-thread) instance, so state (variables, functions) can persist.
 /// - Best-effort filesystem containment via:
 ///   - ConstrainedLanguage
-///   - A single FileSystem PSDrive rooted at a session-specific directory (sandbox:)
+///   - A FileSystem PSDrive rooted at a session-specific directory (sandbox:)
+///   - A hybrid project: drive (ACP content operations + local listing/navigation) when session cwd is known
 ///
 /// This is a tool-surface restriction, not a perfect sandbox.
 /// </summary>
@@ -76,12 +77,13 @@ public sealed class InProcessPowerShellSession : IDisposable
             "Microsoft.PowerShell.Utility",
         });
 
-        // Register ACP-backed provider for client: drive (if ACP client context was provided).
-        if (client is not null)
+        var canCreateProjectDrive = !string.IsNullOrWhiteSpace(sessionCwd)
+            || (!string.IsNullOrWhiteSpace(sessionId) && store is not null);
+        if (canCreateProjectDrive)
         {
             iss.Providers.Add(new SessionStateProviderEntry(
-                name: "AcpClient",
-                implementingType: typeof(AcpClientContentProvider),
+                name: "ProjectDrive",
+                implementingType: typeof(ProjectDriveContentProvider),
                 helpFileName: null));
         }
 
@@ -125,25 +127,21 @@ function Find-AgentCommand {
             // ignore: shell still works without suggestion helpers
         }
 
-        // Attach ACP client context + create client: drive (rooted at session cwd).
-        if (client is not null)
+        // Best-effort: expose a project: drive with ACP-backed content and local listing/navigation.
+        if (canCreateProjectDrive)
         {
-            if (string.IsNullOrWhiteSpace(sessionId))
-                throw new InvalidOperationException("client_drive_requires_sessionId");
-
-            _runspace.SessionStateProxy.SetVariable("__acp_client_ctx", new AcpClientPsContext(sessionId!, client, sessionCwd, store));
-
-            // Create the drive (no listing support; content operations map to ACP).
             try
             {
+                _runspace.SessionStateProxy.SetVariable("__project_drive_ctx", new ProjectDrivePsContext(sessionId, client, sessionCwd, store));
+                try { _runspace.SessionStateProxy.Drive.Remove("project", force: true, scope: "Global"); } catch { /* ignore */ }
                 using var ps = PowerShell.Create();
                 ps.Runspace = _runspace;
-                ps.AddScript("New-PSDrive -Name client -PSProvider AcpClient -Root / -Scope Global | Out-Null");
+                ps.AddScript("New-PSDrive -Name project -PSProvider ProjectDrive -Root / -Scope Global | Out-Null");
                 ps.Invoke();
             }
             catch
             {
-                // ignore: the shell still works without client:
+                // ignore: the shell still works without project:
             }
         }
 

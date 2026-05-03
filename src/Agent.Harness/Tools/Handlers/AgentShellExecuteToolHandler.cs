@@ -75,7 +75,7 @@ public sealed class AgentShellExecuteToolHandler : IToolHandler, IDisposable
         _ps ??= new InProcessPowerShellSession(
             workingDir: GetWorkingDir(),
             client: _client,
-            sessionId: _client is null ? null : _sessionId,
+            sessionId: _sessionId,
             sessionCwd: _sessionCwd,
             store: _store,
             mcp: _mcp,

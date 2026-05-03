@@ -14,13 +14,13 @@ public sealed class ShellGuidanceSystemPromptContributor : ISystemPromptContribu
         "- The shell provides Find-AgentCommand -Intent \"...\" to get suggested commands for a natural-language intent.\n" +
         "- Suggestions are best-effort and may be disabled by configuration (in that case, the command returns an empty list).\n" +
         "\n" +
-        "ACP client filesystem drive (client:):\n" +
-        "- If available in the shell, a PSDrive named client: maps file reads/writes to ACP fs/read_text_file and fs/write_text_file (remote client filesystem).\n" +
-        "- client: is rooted at the ACP session cwd. Paths must be relative to that root.\n" +
-        "  Examples: client:\\demo.txt or client:/dir/file.txt\n" +
-        "  Disallowed: client:\\C:\\x.txt or client:\\env:PATH (embedded drive/provider)\n" +
-        "- Listing is not supported (ACP has no directory listing APIs). Prefer direct Get-Content/Set-Content on known paths.\n" +
-        "- If ACP fs capabilities are missing, client: operations will error.\n";
+        "Project drive (project:):\n" +
+        "- If available in the shell, a PSDrive named project: is rooted at the session cwd.\n" +
+        "- Directory listing/navigation on project: is handled outside ACP, so commands like Get-ChildItem can inspect the local project tree.\n" +
+        "- File content reads/writes on project: use ACP fs/read_text_file and fs/write_text_file so client-specific file-editing UX is preserved.\n" +
+        "  Examples: project:\\README.md or project:/src/Agent.Server\n" +
+        "- If ACP fs capabilities are missing, project: content operations will error, but listing/navigation may still work.\n" +
+        "- Use sandbox: for temporary agent-local artifacts and project: for files that belong to the current project.\n";
 
     public IEnumerable<SystemPromptFragment> Build(SystemPromptContext ctx)
     {
