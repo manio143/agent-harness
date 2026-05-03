@@ -12,8 +12,21 @@ public static class ChatReducer
         => e switch
         {
             ChatSessionUpdate u => Reduce(state, u.Update),
+            ChatUserPrompt p => ReduceUserPrompt(state, p),
             _ => state,
         };
+
+    private static ChatState ReduceUserPrompt(ChatState state, ChatUserPrompt p)
+    {
+        if (string.IsNullOrWhiteSpace(p.Text))
+            return state;
+
+        return state with
+        {
+            Items = state.Items.Add(new ChatUserText(p.Text.Trim())),
+            LastChunk = LastChunkKind.None
+        };
+    }
 
     private static ChatState Reduce(ChatState state, SessionUpdate update)
         => update switch

@@ -33,6 +33,13 @@
               </Border>
             </DataTemplate>
 
+            <DataTemplate DataType="vm:UserMessageViewModel">
+              <Border Background="#1A1D24" CornerRadius="6" Padding="10"
+                      BorderBrush="#3B82F6" BorderThickness="1">
+                <TextBlock Text="{Binding Text}" Foreground="#E6E6E6" TextWrapping="Wrap" />
+              </Border>
+            </DataTemplate>
+
             <DataTemplate DataType="vm:ToolCallRowViewModel">
               <Border Background="#1A1D24" CornerRadius="6" Padding="8"
                       BorderBrush="#2A3040" BorderThickness="1">

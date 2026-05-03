@@ -16,7 +16,11 @@ public sealed partial class ShellViewModel : ObservableObject
     public ShellViewModel()
     {
         Connection = new ConnectionViewModel();
-        _chat = new ChatViewModel();
+
+        // Runtime services
+        var clipboard = new Agent.Acp.Client.AvaloniaApp.Services.Clipboard.AvaloniaClipboardService();
+
+        _chat = new ChatViewModel(clipboard);
         _composer = new ComposerViewModel(send: SendPromptAsync);
 
         CurrentScreen = Screen.Connection;
@@ -51,6 +55,10 @@ public sealed partial class ShellViewModel : ObservableObject
             throw new InvalidOperationException("Not connected");
 
         var text = _composer.Text;
+
+        // Local echo: show what the user sent.
+        _chat.ApplyUserPrompt(text);
+
         return AcpClientBootstrap.PromptAsync(_process.Connection, _sessionId, text, cancellationToken);
     }
 

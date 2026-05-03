@@ -4,6 +4,9 @@ public abstract record ChatItem;
 
 public sealed record ChatText(string Text) : ChatItem;
 
+/// <summary>Local user message bubble.</summary>
+public sealed record ChatUserText(string Text) : ChatItem;
+
 /// <summary>
 /// Agent reasoning / thoughts. Render separately (italic) and optionally collapsible.
 /// ThoughtId is stable across streaming updates so the UI can preserve expand/collapse state.

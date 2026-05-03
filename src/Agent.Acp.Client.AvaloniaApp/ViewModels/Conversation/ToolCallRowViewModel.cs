@@ -12,8 +12,11 @@ public sealed partial class ToolCallRowViewModel : ObservableObject
     private static readonly IBrush ErrorBrush = new SolidColorBrush(Color.Parse("#EF4444")); // red
     private static readonly IBrush DefaultBrush = new SolidColorBrush(Color.Parse("#6B7280")); // gray
 
-    public ToolCallRowViewModel(string toolCallId, string title)
+    private readonly Agent.Acp.Client.AvaloniaApp.Services.Clipboard.IClipboardService? _clipboard;
+
+    public ToolCallRowViewModel(string toolCallId, string title, Agent.Acp.Client.AvaloniaApp.Services.Clipboard.IClipboardService? clipboard = null)
     {
+        _clipboard = clipboard;
         ToolCallId = toolCallId;
         Title = title;
     }
@@ -62,9 +65,8 @@ public sealed partial class ToolCallRowViewModel : ObservableObject
             title: Title,
             status: Status.ToString(),
             rawInputJson: RawInputJson,
-            rawOutputJson: RawOutputJson);
-
-    // NOTE: clipboard wiring will be injected from Shell/runtime later.
+            rawOutputJson: RawOutputJson,
+            clipboard: _clipboard);
 
     private static string? Preview(string? s)
     {

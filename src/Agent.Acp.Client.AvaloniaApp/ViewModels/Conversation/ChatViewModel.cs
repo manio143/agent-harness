@@ -11,6 +11,13 @@ namespace Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation;
 /// </summary>
 public sealed partial class ChatViewModel : ObservableObject
 {
+    private readonly Agent.Acp.Client.AvaloniaApp.Services.Clipboard.IClipboardService? _clipboard;
+
+    public ChatViewModel(Agent.Acp.Client.AvaloniaApp.Services.Clipboard.IClipboardService? clipboard = null)
+    {
+        _clipboard = clipboard;
+    }
+
     private ChatState _state = ChatState.Empty;
 
     private bool _isStreaming;
@@ -26,6 +33,13 @@ public sealed partial class ChatViewModel : ObservableObject
         _state = ChatReducer.Reduce(_state, new ChatSessionUpdate(update));
 
         _isStreaming = update is AgentMessageChunk or AgentThoughtChunk;
+        RebuildTranscript();
+    }
+
+    public void ApplyUserPrompt(string text)
+    {
+        _state = ChatReducer.Reduce(_state, new ChatUserPrompt(text));
+        _isStreaming = false;
         RebuildTranscript();
     }
 
@@ -48,7 +62,7 @@ public sealed partial class ChatViewModel : ObservableObject
                         Transcript.Add(pendingGroup);
                     }
 
-                    pendingGroup.Items.Add(new ToolCallRowViewModel(tc.ToolCallId, tc.Title)
+                    pendingGroup.Items.Add(new ToolCallRowViewModel(tc.ToolCallId, tc.Title, clipboard: _clipboard)
                     {
                         Status = tc.Status,
                         RawInputJson = tc.RawInputJson,
@@ -61,6 +75,11 @@ public sealed partial class ChatViewModel : ObservableObject
                 case ChatText t:
                     pendingGroup = null;
                     Transcript.Add(t.Text);
+                    break;
+
+                case ChatUserText u:
+                    pendingGroup = null;
+                    Transcript.Add(new UserMessageViewModel(u.Text));
                     break;
 
                 case ChatThought th:

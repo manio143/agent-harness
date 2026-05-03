@@ -16,6 +16,9 @@ public sealed class ChatViewScreenshotTests
     {
         var vm = new ChatViewModel();
 
+        // Local user prompt (echoed in transcript)
+        vm.ApplyUserPrompt("Patch README: add a quickstart section");
+
         // Simulate the flow: report_intent → tool calls → assistant text
         vm.Apply(new ToolCall
         {
