@@ -72,6 +72,14 @@ Shell (chat state):
 
 ![](screens/shell-chat.png)
 
+Composer:
+
+![](screens/composer.png)
+
+Composer (error):
+
+![](screens/composer-error.png)
+
 Chat sample (intent group + tools + assistant text):
 
 ![](screens/chat-sample.png)

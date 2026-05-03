@@ -11,11 +11,13 @@ namespace Agent.Acp.Client.AvaloniaApp.ViewModels.Shell;
 public sealed partial class ShellViewModel : ObservableObject
 {
     private readonly ChatViewModel _chat;
+    private readonly ComposerViewModel _composer;
 
     public ShellViewModel()
     {
         Connection = new ConnectionViewModel();
         _chat = new ChatViewModel();
+        _composer = new ComposerViewModel(send: SendPromptAsync);
 
         CurrentScreen = Screen.Connection;
         OnPropertyChanged(nameof(IsConnection));
@@ -27,6 +29,8 @@ public sealed partial class ShellViewModel : ObservableObject
     public ConnectionViewModel Connection { get; }
 
     public ChatViewModel Chat => _chat;
+
+    public ComposerViewModel Composer => _composer;
 
     [ObservableProperty]
     private Screen _currentScreen;
@@ -40,6 +44,15 @@ public sealed partial class ShellViewModel : ObservableObject
     private StdioAcpAgentProcess? _process;
     private AcpSessionUpdatePump? _pump;
     private string? _sessionId;
+
+    private Task SendPromptAsync(CancellationToken cancellationToken)
+    {
+        if (_process is null || string.IsNullOrWhiteSpace(_sessionId))
+            throw new InvalidOperationException("Not connected");
+
+        var text = _composer.Text;
+        return AcpClientBootstrap.PromptAsync(_process.Connection, _sessionId, text, cancellationToken);
+    }
 
     private async Task ConnectAsync(System.Diagnostics.ProcessStartInfo psi)
     {

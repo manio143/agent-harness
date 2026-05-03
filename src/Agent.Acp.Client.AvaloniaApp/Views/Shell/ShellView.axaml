@@ -5,6 +5,7 @@
              xmlns:vm="clr-namespace:Agent.Acp.Client.AvaloniaApp.ViewModels.Shell"
              xmlns:viewsConn="clr-namespace:Agent.Acp.Client.AvaloniaApp.Views.Connection"
              xmlns:viewsChat="clr-namespace:Agent.Acp.Client.AvaloniaApp.Views.Conversation"
+             xmlns:viewsComposer="clr-namespace:Agent.Acp.Client.AvaloniaApp.Views.Conversation"
              mc:Ignorable="d"
              x:Class="Agent.Acp.Client.AvaloniaApp.Views.Shell.ShellView"
              x:DataType="vm:ShellViewModel">
@@ -14,9 +15,13 @@
       <TextBlock Text="{Binding Status}" Foreground="#B9C0CC" />
     </Border>
 
-    <Grid>
-      <viewsConn:ConnectionView DataContext="{Binding Connection}" IsVisible="{Binding $parent[UserControl].DataContext.IsConnection}" />
-      <viewsChat:ChatView DataContext="{Binding Chat}" IsVisible="{Binding $parent[UserControl].DataContext.IsChat}" />
+    <Grid RowDefinitions="*,Auto">
+      <viewsConn:ConnectionView Grid.Row="0" DataContext="{Binding Connection}" IsVisible="{Binding $parent[UserControl].DataContext.IsConnection}" />
+
+      <DockPanel Grid.Row="0" LastChildFill="True" IsVisible="{Binding $parent[UserControl].DataContext.IsChat}">
+        <viewsComposer:ComposerView DockPanel.Dock="Bottom" DataContext="{Binding Composer}" />
+        <viewsChat:ChatView DataContext="{Binding Chat}" />
+      </DockPanel>
     </Grid>
   </DockPanel>
 </UserControl>

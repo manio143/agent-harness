@@ -10,10 +10,15 @@
              x:DataType="vm:ChatViewModel">
 
   <Border Background="#111318" Padding="18">
-    <StackPanel Spacing="10">
-      <TextBlock Text="Chat (WIP)" FontSize="18" FontWeight="SemiBold" Foreground="#E6E6E6"/>
+    <DockPanel LastChildFill="True">
+      <Border DockPanel.Dock="Bottom" Background="#0B0D10" Padding="10">
+        <TextBlock Text="(composer placeholder in ChatViewModel-only mode)" Foreground="#B9C0CC" />
+      </Border>
 
-      <ItemsControl ItemsSource="{Binding Transcript}">
+      <StackPanel Spacing="10">
+        <TextBlock Text="Chat (WIP)" FontSize="18" FontWeight="SemiBold" Foreground="#E6E6E6"/>
+
+        <ItemsControl ItemsSource="{Binding Transcript}">
         <ItemsControl.DataTemplates>
           <DataTemplate DataType="vm:IntentGroupViewModel">
             <views:IntentGroupView />
@@ -36,5 +41,6 @@
         </ItemsControl.DataTemplates>
       </ItemsControl>
     </StackPanel>
+    </DockPanel>
   </Border>
 </UserControl>
