@@ -32,13 +32,13 @@ Rules:
 
 Now do the work (tool calls only):
 
-Call tool report_intent with arguments: {"intent":"PowerShell shell + client drive demo"}.
+Call tool report_intent with arguments: {"intent":"PowerShell shell + project drive demo"}.
 
 Call tool agent_shell_execute with arguments: {"script":"$x = 41; $x + 1"}.
 
 Call tool agent_shell_execute with arguments: {"script":"'hello-sandbox' | Set-Content -Path sandbox:\\local.txt; Get-Content -Path sandbox:\\local.txt"}.
 
-Call tool agent_shell_execute with arguments: {"script":"'hello-client' | Set-Content -Path client:\\remote.txt; Get-Content -Path client:\\remote.txt"}.
+Call tool agent_shell_execute with arguments: {"script":"Get-ChildItem -Path project:\\ | Select-Object -First 1 | Out-Null; 'hello-project' | Set-Content -Path project:\\remote.txt; Get-Content -Path project:\\remote.txt"}.
 
 Then output EXACTLY: DONE.
 EOF

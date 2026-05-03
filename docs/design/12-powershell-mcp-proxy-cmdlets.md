@@ -24,7 +24,7 @@ Expose MCP-provided tools as PowerShell commands inside the agent-internal Power
 ## Background / Current State
 - The harness exposes an agent-internal tool `agent_shell_execute` backed by an in-process PowerShell Core runspace.
 - The shell has an agent-local working drive `sandbox:` rooted at session `pwsh_work`.
-- The shell optionally provides a `client:` PSDrive backed by ACP fs operations (read/write), rooted at ACP session cwd.
+- The shell optionally provides a `project:` PSDrive backed by the local filesystem, rooted at the session cwd.
 - MCP tools exist in the offered tool catalog (server namespaced with `{server}__{tool}`), and are invoked via a harness MCP invoker.
 
 ## High-level Approach
