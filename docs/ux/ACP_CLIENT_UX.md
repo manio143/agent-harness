@@ -81,6 +81,16 @@ Intent group (collapsed):
 
 ## Transport (current)
 
+### Live session updates
+
+The client expects agents to send streaming notifications:
+- JSON-RPC notification: `method = "session/update"`
+- `params = { sessionId, update }`
+
+Implementation:
+- `AcpSessionUpdatePump` parses notifications and applies the `update` as an ACP `SessionUpdate` union.
+
+
 ### stdio-only (current)
 
 At this stage the Avalonia client supports **stdio** only:
