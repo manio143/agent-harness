@@ -43,6 +43,21 @@ public sealed partial class ChatViewModel : ObservableObject
         RebuildTranscript();
     }
 
+    public void Replay(IEnumerable<Domain.Conversation.ChatEvent> events)
+    {
+        _state = ChatState.Empty;
+        _isStreaming = false;
+        _thoughtExpandedById.Clear();
+        _lastThoughtExpanded = false;
+
+        foreach (var e in events)
+        {
+            _state = ChatReducer.Reduce(_state, e);
+        }
+
+        RebuildTranscript();
+    }
+
     private void RebuildTranscript()
     {
         Transcript.Clear();

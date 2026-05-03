@@ -18,7 +18,11 @@ public sealed class AcpSessionUpdatePump
     }
 
     public bool TryHandle(JsonRpcNotification notif)
+        => TryHandle(notif, out _);
+
+    public bool TryHandle(JsonRpcNotification notif, out SessionUpdate? handledUpdate)
     {
+        handledUpdate = null;
         if (!string.Equals(notif.Method, "session/update", StringComparison.Ordinal))
             return false;
 
@@ -44,6 +48,7 @@ public sealed class AcpSessionUpdatePump
             return true;
 
         _chat.Apply(update);
+        handledUpdate = update;
         return true;
     }
 }
