@@ -75,6 +75,24 @@ Intent group (collapsed):
 
 ---
 
+## Transport (current)
+
+### stdio-only (current)
+
+At this stage the Avalonia client supports **stdio** only:
+- The client starts an ACP agent process (`ProcessStartInfo`) and connects using
+  newline-delimited JSON-RPC over stdio.
+
+Implementation:
+- `StdioAcpAgentProcess`
+- `LineDelimitedStreamTransport`
+- `AcpClientConnection`
+
+Covered by TDD (integration-style test using `samples/Acp.MinimalAgent`):
+- `StdioAcpAgentProcessTests`
+
+---
+
 ## Tool call detail (drill-in)
 
 Clicking a tool call should show:
