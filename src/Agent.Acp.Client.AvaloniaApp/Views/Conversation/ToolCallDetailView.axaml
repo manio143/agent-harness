@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation"
+             mc:Ignorable="d"
+             x:Class="Agent.Acp.Client.AvaloniaApp.Views.Conversation.ToolCallDetailView"
+             x:DataType="vm:ToolCallDetailViewModel">
+
+  <Border Background="#0B0D10" Padding="12" CornerRadius="8" Width="520">
+    <StackPanel Spacing="10">
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" Foreground="#E6E6E6" />
+        <TextBlock Text="{Binding Status}" Foreground="#B9C0CC" />
+      </StackPanel>
+
+      <StackPanel Spacing="6">
+        <TextBlock Text="Input" Foreground="#B9C0CC" />
+        <Border Background="#151820" CornerRadius="6" Padding="8">
+          <TextBlock Text="{Binding RawInputJson}" Foreground="#E6E6E6" FontFamily="Consolas" TextWrapping="Wrap" />
+        </Border>
+      </StackPanel>
+
+      <StackPanel Spacing="6">
+        <TextBlock Text="Output" Foreground="#B9C0CC" />
+        <Border Background="#151820" CornerRadius="6" Padding="8">
+          <TextBlock Text="{Binding RawOutputJson}" Foreground="#8FBFA3" FontFamily="Consolas" TextWrapping="Wrap" />
+        </Border>
+      </StackPanel>
+
+      <TextBlock Text="(copy buttons next)" Foreground="#B9C0CC" />
+    </StackPanel>
+  </Border>
+</UserControl>

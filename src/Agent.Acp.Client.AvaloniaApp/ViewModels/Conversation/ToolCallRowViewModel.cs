@@ -28,6 +28,14 @@ public sealed partial class ToolCallRowViewModel : ObservableObject
 
     public string? OutputPreview => Preview(RawOutputJson);
 
+    public ToolCallDetailViewModel Detail
+        => new ToolCallDetailViewModel(
+            toolCallId: ToolCallId,
+            title: Title,
+            status: Status.ToString(),
+            rawInputJson: RawInputJson,
+            rawOutputJson: RawOutputJson);
+
     private static string? Preview(string? s)
     {
         if (string.IsNullOrWhiteSpace(s)) return null;

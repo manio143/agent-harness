@@ -126,15 +126,21 @@ Covered by TDD (integration-style test using `samples/Acp.MinimalAgent`):
 
 ## Tool call detail (drill-in)
 
-Clicking a tool call should show:
+Tool calls support a drill-in panel (Flyout) showing full details:
 - Tool name
-- Arguments (formatted)
-- Output (truncated w/ expand)
-- Duration + status
-- Copy buttons
+- Status
+- Raw input JSON
+- Raw output JSON
+- (Next) Copy buttons + duration/exit code when available
 
-Implementation suggestion:
-- `Flyout` or right-side panel (SplitView)
+Screenshot:
+
+![](screens/tool-detail.png)
+
+Implementation:
+- `ToolCallDetailViewModel`
+- `ToolCallDetailView`
+- Attached as a `Flyout` to each tool-row button inside `IntentGroupView`
 
 ---
 
