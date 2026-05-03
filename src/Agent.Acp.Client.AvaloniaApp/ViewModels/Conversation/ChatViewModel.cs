@@ -12,11 +12,15 @@ public sealed partial class ChatViewModel : ObservableObject
 {
     private ChatState _state = ChatState.Empty;
 
+    private bool _isStreaming;
+
     public ObservableCollection<object> Transcript { get; } = new();
 
     public void Apply(SessionUpdate update)
     {
         _state = ChatReducer.Reduce(_state, new ChatSessionUpdate(update));
+
+        _isStreaming = update is AgentMessageChunk or AgentThoughtChunk;
         RebuildTranscript();
     }
 
@@ -59,6 +63,18 @@ public sealed partial class ChatViewModel : ObservableObject
                     Transcript.Add(new ReasoningBlockViewModel(th.Text));
                     break;
             }
+        }
+
+        if (_isStreaming)
+        {
+            var label = _state.LastChunk switch
+            {
+                LastChunkKind.AgentThought => "Reasoning…",
+                LastChunkKind.AgentMessage => "Streaming…",
+                _ => "Streaming…"
+            };
+
+            Transcript.Add(new StreamingIndicatorViewModel(label));
         }
     }
 

@@ -58,6 +58,16 @@
                 </Expander>
               </Border>
             </DataTemplate>
+
+            <DataTemplate DataType="vm:StreamingIndicatorViewModel">
+              <Border Background="#111318" CornerRadius="6" Padding="8"
+                      BorderBrush="#2A3040" BorderThickness="1">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="▍" Foreground="#6B7280" FontFamily="Consolas" />
+                  <TextBlock Text="{Binding Label}" Foreground="#6B7280" FontStyle="Italic" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
           </ItemsControl.DataTemplates>
         </ItemsControl>
       </ScrollViewer>
