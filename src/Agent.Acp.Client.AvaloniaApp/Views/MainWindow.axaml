@@ -1,6 +1,8 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Agent.Acp.Client.AvaloniaApp.ViewModels"
+        xmlns:shell="clr-namespace:Agent.Acp.Client.AvaloniaApp.ViewModels.Shell"
+        xmlns:viewsShell="clr-namespace:Agent.Acp.Client.AvaloniaApp.Views.Shell"
         xmlns:views="clr-namespace:Agent.Acp.Client.AvaloniaApp.Views.Connection"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -16,6 +18,12 @@
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <views:ConnectionView DataContext="{Binding Connection}" />
+    <ContentControl DataContext="{Binding Shell}">
+      <ContentControl.DataTemplates>
+        <DataTemplate DataType="shell:ShellViewModel">
+          <viewsShell:ShellView />
+        </DataTemplate>
+      </ContentControl.DataTemplates>
+    </ContentControl>
 
 </Window>

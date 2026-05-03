@@ -64,6 +64,14 @@ Connect screen (error state):
 
 ![](screens/connect-screen-error.png)
 
+Shell (connection state):
+
+![](screens/shell-connection.png)
+
+Shell (chat state):
+
+![](screens/shell-chat.png)
+
 Chat sample (intent group + tools + assistant text):
 
 ![](screens/chat-sample.png)
