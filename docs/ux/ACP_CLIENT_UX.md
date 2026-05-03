@@ -131,7 +131,8 @@ Tool calls support a drill-in panel (Flyout) showing full details:
 - Status
 - Raw input JSON
 - Raw output JSON
-- (Next) Copy buttons + duration/exit code when available
+- Copy buttons
+- (Next) duration/exit code when available
 
 Screenshot:
 
