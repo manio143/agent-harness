@@ -8,4 +8,9 @@ public sealed record ChatText(string Text) : ChatItem;
 
 public sealed record ChatIntentGroup(string Title, IReadOnlyList<ChatToolCall> ToolCalls) : ChatItem;
 
-public sealed record ChatToolCall(string ToolCallId, string Title, Agent.Acp.Schema.ToolCallStatus Status);
+public sealed record ChatToolCall(
+    string ToolCallId,
+    string Title,
+    Agent.Acp.Schema.ToolCallStatus Status,
+    string? RawInputJson,
+    string? RawOutputJson);

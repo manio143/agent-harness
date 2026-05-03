@@ -52,7 +52,12 @@ public static class ChatReducer
             return state with { CurrentIntent = intent, Items = items };
         }
 
-        var tool = new ChatToolCall(call.ToolCallId, call.Title, Status: call.Status);
+        var tool = new ChatToolCall(
+            call.ToolCallId,
+            call.Title,
+            Status: call.Status,
+            RawInputJson: ToolJson.TryStringify(call.RawInput),
+            RawOutputJson: ToolJson.TryStringify(call.RawOutput));
         var byId = state.ToolCallsById.SetItem(call.ToolCallId, tool);
 
         return AddToolToCurrentGroup(state with { ToolCallsById = byId }, tool);
@@ -66,7 +71,12 @@ public static class ChatReducer
         if (state.ToolCallsById.TryGetValue(update.ToolCallId, out var existing))
         {
             var status = update.Status != default ? update.Status : existing.Status;
-            var updated = existing with { Status = status };
+            var updated = existing with
+            {
+                Status = status,
+                RawInputJson = ToolJson.HasMeaningful(update.RawInput) ? ToolJson.TryStringify(update.RawInput) : existing.RawInputJson,
+                RawOutputJson = ToolJson.HasMeaningful(update.RawOutput) ? ToolJson.TryStringify(update.RawOutput) : existing.RawOutputJson,
+            };
             var byId = state.ToolCallsById.SetItem(update.ToolCallId, updated);
             var items = ReplaceTool(state.Items, updated);
             return state with { ToolCallsById = byId, Items = items };
@@ -74,7 +84,13 @@ public static class ChatReducer
 
         // Late tool update: create a placeholder tool call.
         var title = string.IsNullOrWhiteSpace(update.Title) ? update.ToolCallId : update.Title;
-        var toolLate = new ChatToolCall(update.ToolCallId, title, Status: update.Status);
+        var toolLate = new ChatToolCall(
+            update.ToolCallId,
+            title,
+            Status: update.Status,
+            RawInputJson: ToolJson.HasMeaningful(update.RawInput) ? ToolJson.TryStringify(update.RawInput) : null,
+            RawOutputJson: ToolJson.HasMeaningful(update.RawOutput) ? ToolJson.TryStringify(update.RawOutput) : null);
+
         var byIdLate = state.ToolCallsById.SetItem(update.ToolCallId, toolLate);
         return AddToolToCurrentGroup(state with { ToolCallsById = byIdLate }, toolLate);
     }

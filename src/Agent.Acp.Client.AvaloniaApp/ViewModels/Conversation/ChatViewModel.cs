@@ -36,7 +36,15 @@ public sealed partial class ChatViewModel : ObservableObject
                 {
                     var groupVm = new IntentGroupViewModel(g.Title, items: []);
                     foreach (var tc in g.ToolCalls)
-                        groupVm.Items.Add(new ToolCallRowViewModel(tc.ToolCallId, tc.Title) { Status = tc.Status });
+                    {
+                        var row = new ToolCallRowViewModel(tc.ToolCallId, tc.Title)
+                        {
+                            Status = tc.Status,
+                            RawInputJson = tc.RawInputJson,
+                            RawOutputJson = tc.RawOutputJson,
+                        };
+                        groupVm.Items.Add(row);
+                    }
                     Transcript.Add(groupVm);
                     break;
                 }

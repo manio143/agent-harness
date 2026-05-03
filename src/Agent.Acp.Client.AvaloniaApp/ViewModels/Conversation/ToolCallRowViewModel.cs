@@ -18,14 +18,20 @@ public sealed partial class ToolCallRowViewModel : ObservableObject
     [ObservableProperty]
     private ToolCallStatus _status;
 
-    public void Apply(ToolCall call)
-    {
-        Status = call.Status;
-    }
+    [ObservableProperty]
+    private string? _rawInputJson;
 
-    public void Apply(ToolCallUpdate update)
+    [ObservableProperty]
+    private string? _rawOutputJson;
+
+    public string? InputPreview => Preview(RawInputJson);
+
+    public string? OutputPreview => Preview(RawOutputJson);
+
+    private static string? Preview(string? s)
     {
-        if (update.Status != default)
-            Status = update.Status;
+        if (string.IsNullOrWhiteSpace(s)) return null;
+        s = s.Trim();
+        return s.Length <= 140 ? s : s[..140] + "…";
     }
 }
