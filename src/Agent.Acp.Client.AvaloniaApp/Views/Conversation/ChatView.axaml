@@ -48,7 +48,7 @@
                       BorderBrush="#2A3040" BorderThickness="1">
                 <Expander IsExpanded="{Binding IsExpanded}">
                   <Expander.Header>
-                    <TextBlock Text="{Binding Preview}" Foreground="#6B7280" FontStyle="Italic" />
+                    <TextBlock Text="{Binding HeaderText}" Foreground="#6B7280" FontStyle="Italic" />
                   </Expander.Header>
 
                   <Border Background="#151820" CornerRadius="4" Padding="8" Margin="0,6,0,0"

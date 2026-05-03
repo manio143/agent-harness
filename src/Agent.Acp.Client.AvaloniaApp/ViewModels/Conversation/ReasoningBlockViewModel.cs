@@ -27,4 +27,11 @@ public sealed partial class ReasoningBlockViewModel : ObservableObject
             return t[..80] + "…";
         }
     }
+
+    public string HeaderText => IsExpanded ? "Reasoning" : $"Reasoning… {Preview}";
+
+    partial void OnIsExpandedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(HeaderText));
+    }
 }
