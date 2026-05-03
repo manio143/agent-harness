@@ -23,6 +23,8 @@ public sealed partial class SessionPickerViewModel : ObservableObject
 
     public event Action<string?>? OpenRequested;
 
+    public event Action? RefreshRequested;
+
     public event Action? CancelRequested;
 
     partial void OnSelectedChanged(SessionListItemViewModel? value)
@@ -46,6 +48,10 @@ public sealed partial class SessionPickerViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanOpen))]
     private void Open()
         => OpenRequested?.Invoke(StartNewSession ? null : Selected?.SessionId);
+
+    [RelayCommand]
+    private void Refresh()
+        => RefreshRequested?.Invoke();
 
     [RelayCommand]
     private void Cancel()

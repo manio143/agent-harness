@@ -33,6 +33,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
         Connection.ConnectRequested += async psi => await ConnectAsync(psi);
         SessionPicker.OpenRequested += async sessionId => await OpenSessionAsync(sessionId);
+        SessionPicker.RefreshRequested += async () => await RefreshSessionsAsync();
         SessionPicker.CancelRequested += async () => await CancelSessionPickerAsync();
     }
 
@@ -59,6 +60,7 @@ public sealed partial class ShellViewModel : ObservableObject
     private StdioAcpAgentProcess? _process;
     private AcpSessionUpdatePump? _pump;
     private string? _sessionId;
+    private Action<Agent.Acp.Protocol.JsonRpcNotification>? _notifHandler;
 
     private Task SendPromptAsync(CancellationToken cancellationToken)
     {
@@ -79,10 +81,14 @@ public sealed partial class ShellViewModel : ObservableObject
 
         if (_process is not null)
         {
+            if (_notifHandler is not null)
+                _process.Connection.NotificationReceived -= _notifHandler;
+
             await _process.DisposeAsync();
             _process = null;
         }
 
+        _notifHandler = null;
         _pump = null;
         _sessionId = null;
 
@@ -107,10 +113,14 @@ public sealed partial class ShellViewModel : ObservableObject
             // Ensure clean slate.
             if (_process is not null)
             {
+                if (_notifHandler is not null)
+                    _process.Connection.NotificationReceived -= _notifHandler;
+
                 await _process.DisposeAsync();
                 _process = null;
             }
 
+            _notifHandler = null;
             _pump = null;
             _sessionId = null;
 
@@ -130,43 +140,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 return;
             }
 
-            Status = "Fetching sessions...";
-
-            var list = await AcpClientBootstrap.ListSessionsAsync(_process.Connection, cwd: cwd, cancellationToken: ct);
-
-            SessionPicker.Sessions.Clear();
-            foreach (var s in list.Sessions)
-            {
-                if (s is null || string.IsNullOrWhiteSpace(s.SessionId))
-                    continue;
-
-                SessionPicker.Sessions.Add(new SessionListItemViewModel(
-                    sessionId: s.SessionId,
-                    title: s.Title,
-                    updatedAt: s.UpdatedAt));
-            }
-
-            // Default select: most recently updatedAt (best-effort).
-            SessionListItemViewModel? best = null;
-            DateTimeOffset? bestUpdated = null;
-
-            foreach (var item in SessionPicker.Sessions)
-            {
-                if (string.IsNullOrWhiteSpace(item.UpdatedAt))
-                    continue;
-
-                if (!DateTimeOffset.TryParse(item.UpdatedAt, out var parsed))
-                    continue;
-
-                if (best is null || bestUpdated is null || parsed > bestUpdated)
-                {
-                    best = item;
-                    bestUpdated = parsed;
-                }
-            }
-
-            SessionPicker.Selected = best;
-            SessionPicker.StartNewSession = SessionPicker.Sessions.Count == 0;
+            await RefreshSessionsAsync(cwd);
 
             if (SessionPicker.Sessions.Count == 0)
             {
@@ -199,6 +173,53 @@ public sealed partial class ShellViewModel : ObservableObject
         }
     }
 
+    private async Task RefreshSessionsAsync(string? cwdOverride = null)
+    {
+        if (_process is null)
+            return;
+
+        var ct = CancellationToken.None;
+        var cwd = cwdOverride ?? Connection.WorkingDirectory;
+
+        Status = "Fetching sessions...";
+
+        var list = await AcpClientBootstrap.ListSessionsAsync(_process.Connection, cwd: cwd, cancellationToken: ct);
+
+        SessionPicker.Sessions.Clear();
+        foreach (var s in list.Sessions)
+        {
+            if (s is null || string.IsNullOrWhiteSpace(s.SessionId))
+                continue;
+
+            SessionPicker.Sessions.Add(new SessionListItemViewModel(
+                sessionId: s.SessionId,
+                title: s.Title,
+                updatedAt: s.UpdatedAt));
+        }
+
+        // Default select: most recently updatedAt (best-effort).
+        SessionListItemViewModel? best = null;
+        DateTimeOffset? bestUpdated = null;
+
+        foreach (var item in SessionPicker.Sessions)
+        {
+            if (string.IsNullOrWhiteSpace(item.UpdatedAt))
+                continue;
+
+            if (!DateTimeOffset.TryParse(item.UpdatedAt, out var parsed))
+                continue;
+
+            if (best is null || bestUpdated is null || parsed > bestUpdated)
+            {
+                best = item;
+                bestUpdated = parsed;
+            }
+        }
+
+        SessionPicker.Selected = best;
+        SessionPicker.StartNewSession = SessionPicker.Sessions.Count == 0;
+    }
+
     private async Task CancelSessionPickerAsync()
     {
         // Cancel returns to Connect screen but keeps the agent running (so user can still Disconnect explicitly).
@@ -229,8 +250,12 @@ public sealed partial class ShellViewModel : ObservableObject
             _sessionId = sessionId;
         }
 
+        if (_notifHandler is not null)
+            _process.Connection.NotificationReceived -= _notifHandler;
+
         _pump = new AcpSessionUpdatePump(_sessionId, _chat);
-        _process.Connection.NotificationReceived += n => _pump.TryHandle(n);
+        _notifHandler = n => _pump.TryHandle(n);
+        _process.Connection.NotificationReceived += _notifHandler;
 
         if (sessionId is not null)
         {
