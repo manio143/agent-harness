@@ -1,10 +1,12 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Agent.Acp.Client.AvaloniaApp/Agent.Acp.Client.AvaloniaApp.csproj" />
     <Project Path="src/Agent.Acp/Agent.Acp.csproj" />
     <Project Path="src/Agent.Harness/Agent.Harness.csproj" />
     <Project Path="src/Agent.Server/Agent.Server.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Agent.Acp.Client.AvaloniaApp.Tests/Agent.Acp.Client.AvaloniaApp.Tests.csproj" />
     <Project Path="tests/Agent.Acp.Tests/Agent.Acp.Tests.csproj" />
     <Project Path="tests/Agent.Harness.Tests/Agent.Harness.Tests.csproj" />
     <Project Path="tests/Agent.Server.Tests/Agent.Server.Tests.csproj" />
