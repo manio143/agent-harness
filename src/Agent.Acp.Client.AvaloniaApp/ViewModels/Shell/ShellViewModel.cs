@@ -57,6 +57,13 @@ public sealed partial class ShellViewModel : ObservableObject
     [ObservableProperty]
     private string? _status;
 
+    public string ConnectionSummary
+        => _process is null
+            ? "Agent: not running"
+            : string.IsNullOrWhiteSpace(_sessionId)
+                ? "Agent: running (no session)"
+                : $"Agent: running • Session: {_sessionId}";
+
     private StdioAcpAgentProcess? _process;
     private AcpSessionUpdatePump? _pump;
     private string? _sessionId;
@@ -97,6 +104,7 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsSessionPicker));
         OnPropertyChanged(nameof(IsChat));
         OnPropertyChanged(nameof(CanDisconnect));
+        OnPropertyChanged(nameof(ConnectionSummary));
         DisconnectCommand.NotifyCanExecuteChanged();
 
         Status = "Disconnected";
@@ -155,6 +163,7 @@ public sealed partial class ShellViewModel : ObservableObject
             OnPropertyChanged(nameof(IsChat));
             Status = "Select a session";
             OnPropertyChanged(nameof(CanDisconnect));
+            OnPropertyChanged(nameof(ConnectionSummary));
             DisconnectCommand.NotifyCanExecuteChanged();
         }
         catch (Exception ex)
@@ -169,6 +178,7 @@ public sealed partial class ShellViewModel : ObservableObject
             }
 
             OnPropertyChanged(nameof(CanDisconnect));
+            OnPropertyChanged(nameof(ConnectionSummary));
             DisconnectCommand.NotifyCanExecuteChanged();
         }
     }
@@ -234,7 +244,8 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsConnection));
         OnPropertyChanged(nameof(IsSessionPicker));
         OnPropertyChanged(nameof(IsChat));
-        Status = "Cancelled";
+        OnPropertyChanged(nameof(ConnectionSummary));
+        Status = "Back";
     }
 
     private async Task OpenSessionAsync(string? sessionId)
@@ -276,6 +287,7 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsChat));
         Status = $"Connected (session: {_sessionId})";
         OnPropertyChanged(nameof(CanDisconnect));
+        OnPropertyChanged(nameof(ConnectionSummary));
         DisconnectCommand.NotifyCanExecuteChanged();
     }
 

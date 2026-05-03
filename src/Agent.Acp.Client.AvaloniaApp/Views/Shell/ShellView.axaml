@@ -16,7 +16,10 @@
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
           <Button Content="Disconnect" Command="{Binding DisconnectCommand}" IsEnabled="{Binding CanDisconnect}" Padding="10,4" />
         </StackPanel>
-        <TextBlock Text="{Binding Status}" Foreground="#B9C0CC" />
+        <StackPanel Spacing="2">
+          <TextBlock Text="{Binding ConnectionSummary}" Foreground="#6B7280" FontSize="11" />
+          <TextBlock Text="{Binding Status}" Foreground="#B9C0CC" />
+        </StackPanel>
       </DockPanel>
     </Border>
 
