@@ -7,14 +7,19 @@
              x:Class="Agent.Acp.Client.AvaloniaApp.Views.Connection.SessionPickerView"
              x:DataType="vm:SessionPickerViewModel">
 
+  <UserControl.KeyBindings>
+    <KeyBinding Gesture="Enter" Command="{Binding OpenCommand}" />
+    <KeyBinding Gesture="Escape" Command="{Binding CancelCommand}" />
+  </UserControl.KeyBindings>
+
   <Border Padding="20" Background="#111318">
     <StackPanel Spacing="12" MaxWidth="720">
       <TextBlock Text="Open session" FontSize="18" FontWeight="SemiBold" Foreground="#E6E6E6" />
-      <TextBlock Text="Select a previous session to resume (server replay), or start a new session." Foreground="#6B7280" FontSize="12" />
+      <TextBlock Text="Select a previous session to resume (server replay), or start a new session. Use Back to return to Connect (agent stays running until you Disconnect)." Foreground="#6B7280" FontSize="12" />
 
       <CheckBox IsChecked="{Binding StartNewSession}" Content="Start new session" Foreground="#B9C0CC" FontSize="12" />
 
-      <TextBox Text="{Binding FilterText}" PlaceholderText="Filter sessions (title or id)" Background="#1A1D24" Foreground="#E6E6E6"
+      <TextBox Name="FilterBox" Text="{Binding FilterText}" PlaceholderText="Filter sessions (title or id)" Background="#1A1D24" Foreground="#E6E6E6"
                BorderBrush="#2A3040" BorderThickness="1" />
 
       <Border Background="#0B0D10" BorderBrush="#2A3040" BorderThickness="1" CornerRadius="6" Padding="8">
@@ -36,7 +41,7 @@
       <StackPanel Orientation="Horizontal" Spacing="8">
         <Button Content="Open" Command="{Binding OpenCommand}" Background="#3B82F6" Foreground="#FFFFFF" Padding="12,6" IsEnabled="{Binding CanOpen}" />
         <Button Content="Refresh" Command="{Binding RefreshCommand}" Padding="12,6" />
-        <Button Content="Cancel" Command="{Binding CancelCommand}" Padding="12,6" />
+        <Button Content="Back" Command="{Binding CancelCommand}" Padding="12,6" />
       </StackPanel>
     </StackPanel>
   </Border>

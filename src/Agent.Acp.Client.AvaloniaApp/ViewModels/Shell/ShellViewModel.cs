@@ -197,28 +197,33 @@ public sealed partial class ShellViewModel : ObservableObject
                 updatedAt: s.UpdatedAt));
         }
 
+        // Stable sort: updatedAt desc when available, then sessionId asc.
+        items.Sort((a, b) =>
+        {
+            var aOk = DateTimeOffset.TryParse(a.UpdatedAt, out var aDt);
+            var bOk = DateTimeOffset.TryParse(b.UpdatedAt, out var bDt);
+
+            if (aOk && bOk)
+            {
+                var cmp = bDt.CompareTo(aDt);
+                if (cmp != 0) return cmp;
+            }
+            else if (aOk)
+            {
+                return -1;
+            }
+            else if (bOk)
+            {
+                return 1;
+            }
+
+            return string.Compare(a.SessionId, b.SessionId, StringComparison.Ordinal);
+        });
+
         SessionPicker.SetSessions(items);
 
-        // Default select: most recently updatedAt (best-effort).
-        SessionListItemViewModel? best = null;
-        DateTimeOffset? bestUpdated = null;
-
-        foreach (var item in SessionPicker.Sessions)
-        {
-            if (string.IsNullOrWhiteSpace(item.UpdatedAt))
-                continue;
-
-            if (!DateTimeOffset.TryParse(item.UpdatedAt, out var parsed))
-                continue;
-
-            if (best is null || bestUpdated is null || parsed > bestUpdated)
-            {
-                best = item;
-                bestUpdated = parsed;
-            }
-        }
-
-        SessionPicker.Selected = best;
+        // Default select: first item (already sorted by recency).
+        SessionPicker.Selected = SessionPicker.Sessions.Count > 0 ? SessionPicker.Sessions[0] : null;
         SessionPicker.StartNewSession = SessionPicker.Sessions.Count == 0;
     }
 
