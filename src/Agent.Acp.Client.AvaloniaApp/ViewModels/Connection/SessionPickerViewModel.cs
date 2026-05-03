@@ -30,6 +30,8 @@ public sealed partial class SessionPickerViewModel : ObservableObject
 
     public event Action? RefreshRequested;
 
+    public event Action? DisconnectRequested;
+
     public event Action? CancelRequested;
 
     partial void OnSelectedChanged(SessionListItemViewModel? value)
@@ -98,6 +100,10 @@ public sealed partial class SessionPickerViewModel : ObservableObject
     [RelayCommand]
     private void Refresh()
         => RefreshRequested?.Invoke();
+
+    [RelayCommand]
+    private void Disconnect()
+        => DisconnectRequested?.Invoke();
 
     [RelayCommand]
     private void Cancel()

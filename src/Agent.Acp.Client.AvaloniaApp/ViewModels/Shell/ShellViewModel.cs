@@ -34,6 +34,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Connection.ConnectRequested += async psi => await ConnectAsync(psi);
         SessionPicker.OpenRequested += async sessionId => await OpenSessionAsync(sessionId);
         SessionPicker.RefreshRequested += async () => await RefreshSessionsAsync();
+        SessionPicker.DisconnectRequested += async () => await DisconnectAsync();
         SessionPicker.CancelRequested += async () => await CancelSessionPickerAsync();
     }
 
