@@ -12,7 +12,7 @@ public sealed partial class ConnectionViewModel : ObservableObject
     private string _command = "dotnet";
 
     [ObservableProperty]
-    private string _arguments = "run --project src/Agent.Server";
+    private string _arguments = "run --project src/Agent.Server -c Release";
 
     [ObservableProperty]
     private string _workingDirectory = Environment.CurrentDirectory;

@@ -20,7 +20,7 @@
 
       <StackPanel Spacing="6">
         <TextBlock Text="Arguments" Foreground="#E6E6E6" />
-        <TextBox Text="{Binding Arguments}" PlaceholderText="run --project src/Agent.Server" Background="#1A1D24" Foreground="#E6E6E6" />
+        <TextBox Text="{Binding Arguments}" PlaceholderText="run --project src/Agent.Server -c Release" Background="#1A1D24" Foreground="#E6E6E6" />
       </StackPanel>
 
       <StackPanel Spacing="6">

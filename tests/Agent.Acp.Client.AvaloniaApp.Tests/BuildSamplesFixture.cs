@@ -24,7 +24,12 @@ public sealed class BuildSamplesFixture
         });
 
         Assert.NotNull(p);
-        p!.WaitForExit(1000 * 60);
+        var exited = p!.WaitForExit(1000 * 60);
+        if (!exited)
+        {
+            try { p.Kill(entireProcessTree: true); } catch { /* ignore */ }
+            throw new TimeoutException("Timed out building sample Acp.MinimalAgent (dotnet build -c Release)");
+        }
 
         if (p.ExitCode != 0)
         {

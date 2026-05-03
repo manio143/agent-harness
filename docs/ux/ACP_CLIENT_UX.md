@@ -26,6 +26,7 @@ Goals:
 **Notes (implementation)**
 - ViewModel: `ConnectionViewModel`
 - Persist recent connections (file-based or user settings)
+- Default spawn target: `dotnet run --project src/Agent.Server -c Release`
 
 ---
 
