@@ -11,12 +11,12 @@ public sealed class ChatReducerStreamingTests
     {
         var s = ChatState.Empty;
 
-        s = ChatReducer.Reduce(s, new ChatSessionUpdate(new AgentMessageChunk
+        s = ChatReducer.Reduce(s, new ChatSessionUpdate("s1", new AgentMessageChunk
         {
             Content = new TextContent { Text = "Hel" }
         }));
 
-        s = ChatReducer.Reduce(s, new ChatSessionUpdate(new AgentMessageChunk
+        s = ChatReducer.Reduce(s, new ChatSessionUpdate("s1", new AgentMessageChunk
         {
             Content = new TextContent { Text = "lo" }
         }));
@@ -31,13 +31,13 @@ public sealed class ChatReducerStreamingTests
     {
         var s = ChatState.Empty;
 
-        s = ChatReducer.Reduce(s, new ChatSessionUpdate(new AgentMessageChunk
+        s = ChatReducer.Reduce(s, new ChatSessionUpdate("s1", new AgentMessageChunk
         {
             Content = new TextContent { Text = "Hello" }
         }));
 
         // Any non-agent_message_chunk update breaks the stream.
-        s = ChatReducer.Reduce(s, new ChatSessionUpdate(new ToolCall
+        s = ChatReducer.Reduce(s, new ChatSessionUpdate("s1", new ToolCall
         {
             ToolCallId = "t1",
             Title = "read_text_file",
@@ -49,7 +49,7 @@ public sealed class ChatReducerStreamingTests
             Locations = [],
         }));
 
-        s = ChatReducer.Reduce(s, new ChatSessionUpdate(new AgentMessageChunk
+        s = ChatReducer.Reduce(s, new ChatSessionUpdate("s1", new AgentMessageChunk
         {
             Content = new TextContent { Text = " world" }
         }));

@@ -189,7 +189,7 @@ public sealed partial class ShellViewModel : ObservableObject
             {
                 if (_pump.TryHandle(n, out var update) && update is not null)
                 {
-                    _log.Append(new Domain.Conversation.ChatSessionUpdate(update));
+                    _log.Append(new Domain.Conversation.ChatSessionUpdate(_sessionId!, update));
                 }
             };
 

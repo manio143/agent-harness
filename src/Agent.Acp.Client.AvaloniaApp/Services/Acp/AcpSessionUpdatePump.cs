@@ -47,7 +47,7 @@ public sealed class AcpSessionUpdatePump
         if (update is null)
             return true;
 
-        _chat.Apply(update);
+        _chat.Apply(_sessionId, update);
         handledUpdate = update;
         return true;
     }

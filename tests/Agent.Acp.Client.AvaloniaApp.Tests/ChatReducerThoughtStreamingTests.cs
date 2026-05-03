@@ -11,12 +11,12 @@ public sealed class ChatReducerThoughtStreamingTests
     {
         var s = ChatState.Empty;
 
-        s = ChatReducer.Reduce(s, new ChatSessionUpdate(new AgentThoughtChunk
+        s = ChatReducer.Reduce(s, new ChatSessionUpdate("s1", new AgentThoughtChunk
         {
             Content = new TextContent { Text = "Reason" }
         }));
 
-        s = ChatReducer.Reduce(s, new ChatSessionUpdate(new AgentThoughtChunk
+        s = ChatReducer.Reduce(s, new ChatSessionUpdate("s1", new AgentThoughtChunk
         {
             Content = new TextContent { Text = "ing" }
         }));
