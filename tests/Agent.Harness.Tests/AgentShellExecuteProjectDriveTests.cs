@@ -18,7 +18,7 @@ public sealed class AgentShellExecuteProjectDriveTests
         var (exec, state) = Arrange(projectDir);
 
         var res = await RunPs(exec, state, toolId: "t1",
-            script: "Set-Content -Path project:\\dir\\file.txt -Value 'x'; Get-Content -Path project:\\dir\\file.txt");
+            script: "New-Item -ItemType Directory -Path project:\\dir -Force | Out-Null; Set-Content -Path project:\\dir\\file.txt -Value 'x'; Get-Content -Path project:\\dir\\file.txt");
 
         res.GetProperty("ok").GetBoolean().Should().BeTrue(res.GetProperty("stderr").GetString());
         res.GetProperty("stdout").GetString().Should().Be("x");
@@ -97,7 +97,7 @@ public sealed class AgentShellExecuteProjectDriveTests
 
         var observed = await handler.ExecuteAsync(
             SessionState.Empty,
-            new ExecuteToolCall("t1", ToolSchemas.AgentShellExecute.Name, new { script = "Get-Location -PSDrive project | Select-Object -ExpandProperty Path" }),
+            new ExecuteToolCall("t1", ToolSchemas.AgentShellExecute.Name, new { script = "Get-PSDrive -Name project | Select-Object -ExpandProperty Root" }),
             CancellationToken.None);
 
         var completed = observed.OfType<ObservedToolCallCompleted>().Should().ContainSingle().Subject;
@@ -162,11 +162,19 @@ public sealed class AgentShellExecuteProjectDriveTests
 
     private sealed class NullMeaiChatClient : IChatClient
     {
-        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
-            => throw new NotImplementedException();
+        public Task<ChatResponse> GetResponseAsync(IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(new ChatResponse());
 
-        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
-            => throw new NotImplementedException();
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
+        {
+            return YieldStop();
+
+            static async IAsyncEnumerable<ChatResponseUpdate> YieldStop()
+            {
+                await Task.CompletedTask;
+                yield return new ChatResponseUpdate { FinishReason = ChatFinishReason.Stop };
+            }
+        }
 
         public object? GetService(Type serviceType, object? serviceKey = null) => null;
 
