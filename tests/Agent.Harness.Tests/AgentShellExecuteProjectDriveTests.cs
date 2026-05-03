@@ -56,6 +56,18 @@ public sealed class AgentShellExecuteProjectDriveTests
     }
 
     [Fact]
+    public void ProjectDrivePsContext_RejectsPathsThatEscapeProjectRoot()
+    {
+        var projectDir = CreateTempProjectDir();
+        var ctx = new Agent.Harness.Shell.ProjectDrivePsContext("s1", client: null, sessionCwd: projectDir, store: null);
+
+        var act = () => ctx.NormalizeProjectRelativePath("../../etc/passwd");
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("project_path_traversal_not_allowed:*");
+    }
+
+    [Fact]
     public async Task AgentShellExecute_ProjectDrive_RejectsProviderQualifiedPaths()
     {
         var projectDir = CreateTempProjectDir();

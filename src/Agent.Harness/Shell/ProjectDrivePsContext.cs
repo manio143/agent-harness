@@ -67,12 +67,26 @@ public sealed class ProjectDrivePsContext
         if (p.Contains(':'))
             throw new InvalidOperationException($"project_path_must_be_relative:{projectRelativePath}");
 
-        if (p.Split('/', StringSplitOptions.RemoveEmptyEntries).Any(seg => seg == ".."))
+        var root = ResolveProjectRoot();
+        var resolved = Path.GetFullPath(Path.Combine(root, projectRelativePath));
+        if (!IsUnderRoot(root, resolved))
             throw new InvalidOperationException($"project_path_traversal_not_allowed:{projectRelativePath}");
 
-        return Path.GetFullPath(Path.Combine(ResolveProjectRoot(), projectRelativePath));
+        return resolved;
     }
 
     private static string NormalizeProviderPath(string? path)
         => (path ?? string.Empty).TrimStart('\\', '/');
+
+    private static bool IsUnderRoot(string root, string candidate)
+    {
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var normalizedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
+        var normalizedCandidate = Path.TrimEndingDirectorySeparator(Path.GetFullPath(candidate));
+
+        if (string.Equals(normalizedRoot, normalizedCandidate, comparison))
+            return true;
+
+        return normalizedCandidate.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, comparison);
+    }
 }
