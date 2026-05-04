@@ -14,6 +14,8 @@ public sealed class BuildSamplesFixture
         Build(repo, Path.Combine(repo, "samples", "Acp.MinimalAgent", "Acp.MinimalAgent.csproj"));
         Build(repo, Path.Combine(repo, "samples", "Acp.SessionListAgent", "Acp.SessionListAgent.csproj"));
         Build(repo, Path.Combine(repo, "samples", "Acp.SessionListFlakyAgent", "Acp.SessionListFlakyAgent.csproj"));
+        Build(repo, Path.Combine(repo, "samples", "Acp.StreamingAgent", "Acp.StreamingAgent.csproj"));
+        Build(repo, Path.Combine(repo, "samples", "Acp.ToolLifecycleAgent", "Acp.ToolLifecycleAgent.csproj"));
     }
 
     private static void Build(string repo, string csproj)

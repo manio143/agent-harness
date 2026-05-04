@@ -1,8 +1,11 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
+using Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation;
 using Agent.Acp.Client.AvaloniaApp.ViewModels.Shell;
+using Agent.Acp.Schema;
 using Xunit;
 
 namespace Agent.Acp.Client.AvaloniaApp.Tests;
@@ -151,6 +154,73 @@ public sealed class ShellViewEndToEndTests
         Assert.True(vm.IsSessionPicker);
     }
 
+    [Fact]
+    public async Task Streaming_chunks_coalesce_into_single_items()
+    {
+        var (repo, exe) = GetStreamingAgent();
+
+        var vm = new ShellViewModel();
+
+        vm.Connection.RequestConnect(new ProcessStartInfo
+        {
+            FileName = exe,
+            Arguments = "",
+            WorkingDirectory = repo,
+        });
+
+        await WaitUntilAsync(() => vm.IsChat, timeoutMs: 10_000);
+
+        vm.Composer.Text = "go";
+        await vm.Composer.SendCommand.ExecuteAsync(Xunit.TestContext.Current.CancellationToken);
+
+        await WaitUntilAsync(() => HasText(vm.Chat, "done"), timeoutMs: 10_000);
+
+        // Agent message chunks A+B+C should be one single string item containing "ABC".
+        var abcStrings = vm.Chat.Transcript.OfType<string>().Where(s => s.Contains("ABC", StringComparison.Ordinal)).ToList();
+        Assert.Single(abcStrings);
+
+        // Thought chunks X+Y should be one single reasoning block with Text == "XY".
+        var reasoning = vm.Chat.Transcript.OfType<ReasoningBlockViewModel>().ToList();
+        Assert.Single(reasoning);
+        Assert.Equal("XY", reasoning[0].Text);
+    }
+
+    [Fact]
+    public async Task Tool_call_lifecycle_updates_status_and_output()
+    {
+        var (repo, exe) = GetToolLifecycleAgent();
+
+        var vm = new ShellViewModel();
+
+        vm.Connection.RequestConnect(new ProcessStartInfo
+        {
+            FileName = exe,
+            Arguments = "",
+            WorkingDirectory = repo,
+        });
+
+        await WaitUntilAsync(() => vm.IsChat, timeoutMs: 10_000);
+
+        vm.Composer.Text = "go";
+        await vm.Composer.SendCommand.ExecuteAsync(Xunit.TestContext.Current.CancellationToken);
+
+        await WaitUntilAsync(() => HasText(vm.Chat, "done"), timeoutMs: 10_000);
+
+        var groups = vm.Chat.Transcript.OfType<IntentGroupViewModel>().ToList();
+        if (groups.Count == 0)
+        {
+            var dump = string.Join("\n", vm.Chat.Transcript.Select(i => i.GetType().Name + ": " + i));
+            throw new Xunit.Sdk.XunitException("Expected at least one IntentGroupViewModel but transcript was:\n" + dump);
+        }
+
+        var tool = groups.SelectMany(g => g.Items).OfType<ToolCallRowViewModel>().FirstOrDefault();
+        Assert.NotNull(tool);
+
+        Assert.Equal(ToolCallStatus.Completed, tool!.Status);
+        Assert.NotNull(tool.RawOutputJson);
+        Assert.Contains("\"exitCode\":0", tool.RawOutputJson);
+    }
+
     private static bool HasText(Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation.ChatViewModel chat, string contains)
     {
         foreach (var it in chat.Transcript)
@@ -198,6 +268,22 @@ public sealed class ShellViewEndToEndTests
     {
         var repo = GetRepoRoot();
         var exe = Path.Combine(repo, "samples", "Acp.SessionListFlakyAgent", "bin", "Release", "net8.0", "Acp.SessionListFlakyAgent");
+        Assert.True(File.Exists(exe));
+        return (repo, exe);
+    }
+
+    private static (string repo, string exe) GetStreamingAgent()
+    {
+        var repo = GetRepoRoot();
+        var exe = Path.Combine(repo, "samples", "Acp.StreamingAgent", "bin", "Release", "net8.0", "Acp.StreamingAgent");
+        Assert.True(File.Exists(exe));
+        return (repo, exe);
+    }
+
+    private static (string repo, string exe) GetToolLifecycleAgent()
+    {
+        var repo = GetRepoRoot();
+        var exe = Path.Combine(repo, "samples", "Acp.ToolLifecycleAgent", "bin", "Release", "net8.0", "Acp.ToolLifecycleAgent");
         Assert.True(File.Exists(exe));
         return (repo, exe);
     }
