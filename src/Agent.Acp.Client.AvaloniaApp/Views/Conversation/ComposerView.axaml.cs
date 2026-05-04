@@ -1,3 +1,4 @@
+using System.Threading;
 using Avalonia.Controls;
 using Avalonia.Input;
 
@@ -18,7 +19,7 @@ public partial class ComposerView : UserControl
         if (e.Key == Key.Enter && e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             if (vm.SendCommand.CanExecute(null))
-                vm.SendCommand.Execute(null);
+                _ = vm.SendCommand.ExecuteAsync(CancellationToken.None);
 
             e.Handled = true;
         }

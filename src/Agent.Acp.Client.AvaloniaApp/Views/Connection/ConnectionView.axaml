@@ -15,19 +15,19 @@
 
       <StackPanel Spacing="4">
         <TextBlock Text="Command" Foreground="{StaticResource TextSecondary}" FontSize="12" />
-        <TextBox Text="{Binding Command}" PlaceholderText="dotnet" Background="{StaticResource BgSecondary}" Foreground="{StaticResource TextPrimary}"
+        <TextBox Name="CommandTextBox" Text="{Binding Command}" PlaceholderText="dotnet" Background="{StaticResource BgSecondary}" Foreground="{StaticResource TextPrimary}"
                  BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1" />
       </StackPanel>
 
       <StackPanel Spacing="4">
         <TextBlock Text="Arguments" Foreground="{StaticResource TextSecondary}" FontSize="12" />
-        <TextBox Text="{Binding Arguments}" PlaceholderText="run --project src/Agent.Server -c Release"
+        <TextBox Name="ArgumentsTextBox" Text="{Binding Arguments}" PlaceholderText="run --project src/Agent.Server -c Release"
                  Background="{StaticResource BgSecondary}" Foreground="{StaticResource TextPrimary}" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1" />
       </StackPanel>
 
       <StackPanel Spacing="4">
         <TextBlock Text="Working directory" Foreground="{StaticResource TextSecondary}" FontSize="12" />
-        <TextBox Text="{Binding WorkingDirectory}" Background="{StaticResource BgSecondary}" Foreground="{StaticResource TextPrimary}"
+        <TextBox Name="WorkingDirectoryTextBox" Text="{Binding WorkingDirectory}" Background="{StaticResource BgSecondary}" Foreground="{StaticResource TextPrimary}"
                  BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1" />
       </StackPanel>
 
@@ -40,7 +40,7 @@
       </Border>
 
       <StackPanel Orientation="Horizontal" Spacing="8">
-        <Button Content="Connect" Command="{Binding ConnectCommand}" Background="{StaticResource AccentPrimary}" Foreground="{StaticResource TextOnAccent}" Padding="12,6" />
+        <Button Name="ConnectButton" Content="Connect" Command="{Binding ConnectCommand}" Background="{StaticResource AccentPrimary}" Foreground="{StaticResource TextOnAccent}" Padding="12,6" />
         <Button Content="Settings" IsEnabled="False" Padding="12,6" />
       </StackPanel>
     </StackPanel>
