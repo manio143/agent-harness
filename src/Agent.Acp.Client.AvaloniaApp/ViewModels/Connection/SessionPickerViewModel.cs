@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -63,9 +64,20 @@ public sealed partial class SessionPickerViewModel : ObservableObject
 
     public void SetSessions(System.Collections.Generic.IEnumerable<SessionListItemViewModel> sessions)
     {
+        var selectedId = Selected?.SessionId;
+
         Sessions.Clear();
         foreach (var s in sessions)
             Sessions.Add(s);
+
+        // Selection retention: if the previously-selected session still exists after refresh,
+        // keep it selected (unless user explicitly chose StartNewSession).
+        if (!StartNewSession && !string.IsNullOrWhiteSpace(selectedId))
+        {
+            var match = Sessions.FirstOrDefault(s => s.SessionId == selectedId);
+            if (match is not null)
+                Selected = match;
+        }
 
         ApplyFilter();
     }

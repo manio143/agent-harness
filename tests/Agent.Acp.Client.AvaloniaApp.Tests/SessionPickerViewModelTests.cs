@@ -65,6 +65,31 @@ public sealed class SessionPickerViewModelTests
     }
 
     [Fact]
+    public void SetSessions_retains_Selected_by_session_id_when_refreshing()
+    {
+        var vm = new SessionPickerViewModel();
+
+        vm.SetSessions(new[]
+        {
+            Item("s1", "First"),
+            Item("s2", "Second"),
+        });
+
+        vm.Selected = vm.Sessions.Single(s => s.SessionId == "s2");
+
+        // Refresh with new instances (as would happen after session/list).
+        vm.SetSessions(new[]
+        {
+            Item("s1", "First (updated)"),
+            Item("s2", "Second (updated)"),
+        });
+
+        Assert.NotNull(vm.Selected);
+        Assert.Equal("s2", vm.Selected!.SessionId);
+        Assert.Equal("Second (updated)", vm.Selected.DisplayTitle);
+    }
+
+    [Fact]
     public void Selecting_a_session_disables_StartNewSession_and_enables_CanOpen()
     {
         var vm = new SessionPickerViewModel();
