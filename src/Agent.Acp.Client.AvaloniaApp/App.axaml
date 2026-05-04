@@ -25,6 +25,8 @@
 
     <SolidColorBrush x:Key="AccentPrimary" Color="#3B82F6" />
     <SolidColorBrush x:Key="AccentHover" Color="#2563EB" />
+
+    <SolidColorBrush x:Key="BgErrorBanner" Color="#2A1515" />
   </Application.Resources>
 
   <Application.DataTemplates>

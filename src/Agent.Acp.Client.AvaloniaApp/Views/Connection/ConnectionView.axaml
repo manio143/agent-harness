@@ -8,39 +8,39 @@
              x:Class="Agent.Acp.Client.AvaloniaApp.Views.Connection.ConnectionView"
              x:DataType="vm:ConnectionViewModel">
 
-  <Border Padding="20" Background="#111318">
+  <Border Padding="20" Background="{StaticResource BgPrimary}">
     <StackPanel Spacing="12" MaxWidth="600">
-      <TextBlock Text="Connect to ACP agent" FontSize="18" FontWeight="SemiBold" Foreground="#E6E6E6" />
-      <TextBlock Text="Launch an ACP agent process (stdio JSON-RPC)." Foreground="#6B7280" FontSize="12" />
+      <TextBlock Text="Connect to ACP agent" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" />
+      <TextBlock Text="Launch an ACP agent process (stdio JSON-RPC)." Foreground="{StaticResource TextMuted}" FontSize="12" />
 
       <StackPanel Spacing="4">
-        <TextBlock Text="Command" Foreground="#B9C0CC" FontSize="12" />
-        <TextBox Text="{Binding Command}" PlaceholderText="dotnet" Background="#1A1D24" Foreground="#E6E6E6"
-                 BorderBrush="#2A3040" BorderThickness="1" />
+        <TextBlock Text="Command" Foreground="{StaticResource TextSecondary}" FontSize="12" />
+        <TextBox Text="{Binding Command}" PlaceholderText="dotnet" Background="{StaticResource BgSecondary}" Foreground="{StaticResource TextPrimary}"
+                 BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1" />
       </StackPanel>
 
       <StackPanel Spacing="4">
-        <TextBlock Text="Arguments" Foreground="#B9C0CC" FontSize="12" />
+        <TextBlock Text="Arguments" Foreground="{StaticResource TextSecondary}" FontSize="12" />
         <TextBox Text="{Binding Arguments}" PlaceholderText="run --project src/Agent.Server -c Release"
-                 Background="#1A1D24" Foreground="#E6E6E6" BorderBrush="#2A3040" BorderThickness="1" />
+                 Background="{StaticResource BgSecondary}" Foreground="{StaticResource TextPrimary}" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1" />
       </StackPanel>
 
       <StackPanel Spacing="4">
-        <TextBlock Text="Working directory" Foreground="#B9C0CC" FontSize="12" />
-        <TextBox Text="{Binding WorkingDirectory}" Background="#1A1D24" Foreground="#E6E6E6"
-                 BorderBrush="#2A3040" BorderThickness="1" />
+        <TextBlock Text="Working directory" Foreground="{StaticResource TextSecondary}" FontSize="12" />
+        <TextBox Text="{Binding WorkingDirectory}" Background="{StaticResource BgSecondary}" Foreground="{StaticResource TextPrimary}"
+                 BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1" />
       </StackPanel>
 
       <CheckBox IsChecked="{Binding ContinueLastSession}" Content="Continue last session (server replay)"
-                Foreground="#B9C0CC" FontSize="12" />
+                Foreground="{StaticResource TextSecondary}" FontSize="12" />
 
-      <Border Background="#2A1515" CornerRadius="4" Padding="8" BorderBrush="#5C2020" BorderThickness="1"
+      <Border Background="{StaticResource BgErrorBanner}" CornerRadius="4" Padding="8" BorderBrush="{StaticResource BorderError}" BorderThickness="1"
               IsVisible="{Binding Error, Converter={x:Static c:StringConverters.IsNotNullOrEmpty}}">
-        <TextBlock Text="{Binding Error}" Foreground="#FFB4B4" FontSize="12" />
+        <TextBlock Text="{Binding Error}" Foreground="{StaticResource TextError}" FontSize="12" />
       </Border>
 
       <StackPanel Orientation="Horizontal" Spacing="8">
-        <Button Content="Connect" Command="{Binding ConnectCommand}" Background="#3B82F6" Foreground="#FFFFFF" Padding="12,6" />
+        <Button Content="Connect" Command="{Binding ConnectCommand}" Background="{StaticResource AccentPrimary}" Foreground="#FFFFFF" Padding="12,6" />
         <Button Content="Settings" IsEnabled="False" Padding="12,6" />
       </StackPanel>
     </StackPanel>

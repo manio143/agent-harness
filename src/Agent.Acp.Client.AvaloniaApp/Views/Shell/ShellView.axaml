@@ -11,14 +11,14 @@
              x:DataType="vm:ShellViewModel">
 
   <DockPanel>
-    <Border DockPanel.Dock="Top" Background="#0B0D10" Padding="10">
+    <Border DockPanel.Dock="Top" Background="{StaticResource BgBase}" Padding="10">
       <DockPanel LastChildFill="True">
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
           <Button Content="Disconnect" Command="{Binding DisconnectCommand}" IsEnabled="{Binding CanDisconnect}" Padding="10,4" />
         </StackPanel>
         <StackPanel Spacing="2">
-          <TextBlock Text="{Binding ConnectionSummary}" Foreground="#6B7280" FontSize="11" />
-          <TextBlock Text="{Binding Status}" Foreground="#B9C0CC" />
+          <TextBlock Text="{Binding ConnectionSummary}" Foreground="{StaticResource TextMuted}" FontSize="11" />
+          <TextBlock Text="{Binding Status}" Foreground="{StaticResource TextSecondary}" />
         </StackPanel>
       </DockPanel>
     </Border>

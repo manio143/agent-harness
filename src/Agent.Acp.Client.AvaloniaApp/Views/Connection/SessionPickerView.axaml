@@ -12,25 +12,25 @@
     <KeyBinding Gesture="Escape" Command="{Binding CancelCommand}" />
   </UserControl.KeyBindings>
 
-  <Border Padding="20" Background="#111318">
+  <Border Padding="20" Background="{StaticResource BgPrimary}">
     <StackPanel Spacing="12" MaxWidth="720">
-      <TextBlock Text="Open session" FontSize="18" FontWeight="SemiBold" Foreground="#E6E6E6" />
-      <TextBlock Text="Select a previous session to resume (server replay), or start a new session. Use Back to return to Connect (agent stays running until you Disconnect)." Foreground="#6B7280" FontSize="12" />
+      <TextBlock Text="Open session" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" />
+      <TextBlock Text="Select a previous session to resume (server replay), or start a new session. Use Back to return to Connect (agent stays running until you Disconnect)." Foreground="{StaticResource TextMuted}" FontSize="12" />
 
-      <CheckBox IsChecked="{Binding StartNewSession}" Content="Start new session" Foreground="#B9C0CC" FontSize="12" />
+      <CheckBox IsChecked="{Binding StartNewSession}" Content="Start new session" Foreground="{StaticResource TextSecondary}" FontSize="12" />
 
-      <TextBox Name="FilterBox" Text="{Binding FilterText}" PlaceholderText="Filter sessions (title or id)" Background="#1A1D24" Foreground="#E6E6E6"
-               BorderBrush="#2A3040" BorderThickness="1" />
+      <TextBox Name="FilterBox" Text="{Binding FilterText}" PlaceholderText="Filter sessions (title or id)" Background="{StaticResource BgSecondary}" Foreground="{StaticResource TextPrimary}"
+               BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1" />
 
-      <Border Background="#0B0D10" BorderBrush="#2A3040" BorderThickness="1" CornerRadius="6" Padding="8">
+      <Border Background="{StaticResource BgBase}" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1" CornerRadius="6" Padding="8">
         <ListBox ItemsSource="{Binding FilteredSessions}" SelectedItem="{Binding Selected}" Height="260">
           <ListBox.ItemTemplate>
             <DataTemplate>
               <Border Padding="8" Background="Transparent">
                 <StackPanel Spacing="2">
-                  <TextBlock Text="{Binding DisplayTitle}" Foreground="#E6E6E6" FontSize="13" />
-                  <TextBlock Text="{Binding SessionId}" Foreground="#6B7280" FontSize="11" />
-                  <TextBlock Text="{Binding DisplayUpdatedAt}" Foreground="#6B7280" FontSize="11" />
+                  <TextBlock Text="{Binding DisplayTitle}" Foreground="{StaticResource TextPrimary}" FontSize="13" />
+                  <TextBlock Text="{Binding SessionId}" Foreground="{StaticResource TextMuted}" FontSize="11" />
+                  <TextBlock Text="{Binding DisplayUpdatedAt}" Foreground="{StaticResource TextMuted}" FontSize="11" />
                 </StackPanel>
               </Border>
             </DataTemplate>
@@ -39,7 +39,7 @@
       </Border>
 
       <StackPanel Orientation="Horizontal" Spacing="8">
-        <Button Content="Open" Command="{Binding OpenCommand}" Background="#3B82F6" Foreground="#FFFFFF" Padding="12,6" IsEnabled="{Binding CanOpen}" />
+        <Button Content="Open" Command="{Binding OpenCommand}" Background="{StaticResource AccentPrimary}" Foreground="#FFFFFF" Padding="12,6" IsEnabled="{Binding CanOpen}" />
         <Button Content="Refresh" Command="{Binding RefreshCommand}" Padding="12,6" />
         <Button Content="Disconnect" Command="{Binding DisconnectCommand}" Padding="12,6" />
         <Button Content="Back" Command="{Binding CancelCommand}" Padding="12,6" />

@@ -13,15 +13,15 @@
   <Expander IsExpanded="{Binding IsExpanded}">
     <Expander.Header>
       <StackPanel Orientation="Horizontal" Spacing="8">
-        <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="Bold" Foreground="#E6E6E6" />
-        <Border Background="#2A3142" CornerRadius="4" Padding="6,2">
-          <TextBlock Text="{Binding Items.Count}" FontSize="11" Foreground="#8B95A5" />
+        <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" />
+        <Border Background="{StaticResource BgBadge}" CornerRadius="4" Padding="6,2">
+          <TextBlock Text="{Binding Items.Count}" FontSize="11" Foreground="{StaticResource TextMuted}" />
         </Border>
       </StackPanel>
     </Expander.Header>
 
-    <Border Background="#1A1D24" CornerRadius="6" Padding="8" Margin="0,4,0,0"
-            BorderBrush="#2A3040" BorderThickness="1">
+    <Border Background="{StaticResource BgSecondary}" CornerRadius="6" Padding="8" Margin="0,4,0,0"
+            BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
       <ItemsControl ItemsSource="{Binding Items}">
         <ItemsControl.DataTemplates>
           <DataTemplate DataType="vm:ToolCallRowViewModel">
@@ -32,18 +32,18 @@
                 </Flyout>
               </Button.Flyout>
 
-              <Border Background="#151820" CornerRadius="4" Padding="6" Margin="0,0,0,4"
-                      BorderBrush="#2A3040" BorderThickness="1">
+              <Border Background="{StaticResource BgTertiary}" CornerRadius="4" Padding="6" Margin="0,0,0,4"
+                      BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
                 <StackPanel Spacing="2">
                   <StackPanel Orientation="Horizontal" Spacing="6">
                     <!-- Status dot instead of text -->
                     <Ellipse Width="8" Height="8" Fill="{Binding StatusColor}" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding Title}" Foreground="#E6E6E6" FontWeight="Medium" />
+                    <TextBlock Text="{Binding Title}" Foreground="{StaticResource TextPrimary}" FontWeight="Medium" />
                   </StackPanel>
 
-                  <TextBlock Text="{Binding InputPreview}" Foreground="#6B7280" FontFamily="Consolas" FontSize="11"
+                  <TextBlock Text="{Binding InputPreview}" Foreground="{StaticResource TextMuted}" FontFamily="Consolas" FontSize="11"
                              MaxLines="1" TextTrimming="CharacterEllipsis" />
-                  <TextBlock Text="{Binding OutputPreview}" Foreground="#6B9A7D" FontFamily="Consolas" FontSize="11"
+                  <TextBlock Text="{Binding OutputPreview}" Foreground="{StaticResource TextSuccess}" FontFamily="Consolas" FontSize="11"
                              MaxLines="1" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
               </Border>
@@ -51,7 +51,7 @@
           </DataTemplate>
 
           <DataTemplate x:DataType="sys:Object">
-            <TextBlock Text="{Binding}" FontFamily="Consolas" Foreground="#E6E6E6" />
+            <TextBlock Text="{Binding}" FontFamily="Consolas" Foreground="{StaticResource TextPrimary}" />
           </DataTemplate>
         </ItemsControl.DataTemplates>
       </ItemsControl>
