@@ -27,15 +27,32 @@ public sealed partial class ShellViewModel : ObservableObject
         _composer = new ComposerViewModel(send: SendPromptAsync);
 
         CurrentScreen = Screen.Connection;
-        OnPropertyChanged(nameof(IsConnection));
-        OnPropertyChanged(nameof(IsSessionPicker));
-        OnPropertyChanged(nameof(IsChat));
 
-        Connection.ConnectRequested += async psi => await ConnectAsync(psi);
-        SessionPicker.OpenRequested += async sessionId => await OpenSessionAsync(sessionId);
-        SessionPicker.RefreshRequested += async () => await RefreshSessionsAsync();
-        SessionPicker.DisconnectRequested += async () => await DisconnectAsync();
-        SessionPicker.CancelRequested += async () => await CancelSessionPickerAsync();
+        Connection.ConnectRequested += async psi =>
+        {
+            try { await ConnectAsync(psi); }
+            catch (Exception ex) { Status = $"Connect error: {ex.Message}"; }
+        };
+        SessionPicker.OpenRequested += async sessionId =>
+        {
+            try { await OpenSessionAsync(sessionId); }
+            catch (Exception ex) { Status = $"Open error: {ex.Message}"; }
+        };
+        SessionPicker.RefreshRequested += async () =>
+        {
+            try { await RefreshSessionsAsync(); }
+            catch (Exception ex) { Status = $"Refresh error: {ex.Message}"; }
+        };
+        SessionPicker.DisconnectRequested += async () =>
+        {
+            try { await DisconnectAsync(); }
+            catch (Exception ex) { Status = $"Disconnect error: {ex.Message}"; }
+        };
+        SessionPicker.CancelRequested += () =>
+        {
+            try { CancelSessionPicker(); }
+            catch (Exception ex) { Status = $"Cancel error: {ex.Message}"; }
+        };
     }
 
     public ConnectionViewModel Connection { get; }
@@ -48,6 +65,13 @@ public sealed partial class ShellViewModel : ObservableObject
 
     [ObservableProperty]
     private Screen _currentScreen;
+
+    partial void OnCurrentScreenChanged(Screen value)
+    {
+        OnPropertyChanged(nameof(IsConnection));
+        OnPropertyChanged(nameof(IsSessionPicker));
+        OnPropertyChanged(nameof(IsChat));
+    }
 
     public bool IsConnection => CurrentScreen == Screen.Connection;
     public bool IsSessionPicker => CurrentScreen == Screen.SessionPicker;
@@ -101,9 +125,6 @@ public sealed partial class ShellViewModel : ObservableObject
         _sessionId = null;
 
         CurrentScreen = Screen.Connection;
-        OnPropertyChanged(nameof(IsConnection));
-        OnPropertyChanged(nameof(IsSessionPicker));
-        OnPropertyChanged(nameof(IsChat));
         OnPropertyChanged(nameof(CanDisconnect));
         OnPropertyChanged(nameof(ConnectionSummary));
         DisconnectCommand.NotifyCanExecuteChanged();
@@ -159,9 +180,6 @@ public sealed partial class ShellViewModel : ObservableObject
             }
 
             CurrentScreen = Screen.SessionPicker;
-            OnPropertyChanged(nameof(IsConnection));
-            OnPropertyChanged(nameof(IsSessionPicker));
-            OnPropertyChanged(nameof(IsChat));
             Status = "Select a session";
             OnPropertyChanged(nameof(CanDisconnect));
             OnPropertyChanged(nameof(ConnectionSummary));
@@ -189,64 +207,68 @@ public sealed partial class ShellViewModel : ObservableObject
         if (_process is null)
             return;
 
-        var ct = CancellationToken.None;
-        var cwd = cwdOverride ?? Connection.WorkingDirectory;
-
-        Status = "Fetching sessions...";
-
-        var list = await AcpClientBootstrap.ListSessionsAsync(_process.Connection, cwd: cwd, cancellationToken: ct);
-
-        var items = new System.Collections.Generic.List<SessionListItemViewModel>();
-        foreach (var s in list.Sessions)
+        try
         {
-            if (s is null || string.IsNullOrWhiteSpace(s.SessionId))
-                continue;
+            var ct = CancellationToken.None;
+            var cwd = cwdOverride ?? Connection.WorkingDirectory;
 
-            items.Add(new SessionListItemViewModel(
-                sessionId: s.SessionId,
-                title: s.Title,
-                updatedAt: s.UpdatedAt));
+            Status = "Fetching sessions...";
+
+            var list = await AcpClientBootstrap.ListSessionsAsync(_process.Connection, cwd: cwd, cancellationToken: ct);
+
+            var items = new System.Collections.Generic.List<SessionListItemViewModel>();
+            foreach (var s in list.Sessions)
+            {
+                if (s is null || string.IsNullOrWhiteSpace(s.SessionId))
+                    continue;
+
+                items.Add(new SessionListItemViewModel(
+                    sessionId: s.SessionId,
+                    title: s.Title,
+                    updatedAt: s.UpdatedAt));
+            }
+
+            // Stable sort: updatedAt desc when available, then sessionId asc.
+            items.Sort((a, b) =>
+            {
+                var aOk = DateTimeOffset.TryParse(a.UpdatedAt, out var aDt);
+                var bOk = DateTimeOffset.TryParse(b.UpdatedAt, out var bDt);
+
+                if (aOk && bOk)
+                {
+                    var cmp = bDt.CompareTo(aDt);
+                    if (cmp != 0) return cmp;
+                }
+                else if (aOk)
+                {
+                    return -1;
+                }
+                else if (bOk)
+                {
+                    return 1;
+                }
+
+                return string.Compare(a.SessionId, b.SessionId, StringComparison.Ordinal);
+            });
+
+            SessionPicker.SetSessions(items);
+
+            // Default select: first item (already sorted by recency).
+            SessionPicker.Selected = SessionPicker.Sessions.Count > 0 ? SessionPicker.Sessions[0] : null;
+            SessionPicker.StartNewSession = SessionPicker.Sessions.Count == 0;
         }
-
-        // Stable sort: updatedAt desc when available, then sessionId asc.
-        items.Sort((a, b) =>
+        catch (Exception ex)
         {
-            var aOk = DateTimeOffset.TryParse(a.UpdatedAt, out var aDt);
-            var bOk = DateTimeOffset.TryParse(b.UpdatedAt, out var bDt);
-
-            if (aOk && bOk)
-            {
-                var cmp = bDt.CompareTo(aDt);
-                if (cmp != 0) return cmp;
-            }
-            else if (aOk)
-            {
-                return -1;
-            }
-            else if (bOk)
-            {
-                return 1;
-            }
-
-            return string.Compare(a.SessionId, b.SessionId, StringComparison.Ordinal);
-        });
-
-        SessionPicker.SetSessions(items);
-
-        // Default select: first item (already sorted by recency).
-        SessionPicker.Selected = SessionPicker.Sessions.Count > 0 ? SessionPicker.Sessions[0] : null;
-        SessionPicker.StartNewSession = SessionPicker.Sessions.Count == 0;
+            Status = $"Failed to fetch sessions: {ex.Message}";
+        }
     }
 
-    private async Task CancelSessionPickerAsync()
+    private void CancelSessionPicker()
     {
         // Cancel returns to Connect screen but keeps the agent running (so user can still Disconnect explicitly).
         CurrentScreen = Screen.Connection;
-        OnPropertyChanged(nameof(IsConnection));
-        OnPropertyChanged(nameof(IsSessionPicker));
-        OnPropertyChanged(nameof(IsChat));
         OnPropertyChanged(nameof(ConnectionSummary));
-        Status = "Back";
+        Status = "Connection screen";
     }
 
     private async Task OpenSessionAsync(string? sessionId)
@@ -283,9 +305,6 @@ public sealed partial class ShellViewModel : ObservableObject
         }
 
         CurrentScreen = Screen.Chat;
-        OnPropertyChanged(nameof(IsConnection));
-        OnPropertyChanged(nameof(IsSessionPicker));
-        OnPropertyChanged(nameof(IsChat));
         Status = $"Connected (session: {_sessionId})";
         OnPropertyChanged(nameof(CanDisconnect));
         OnPropertyChanged(nameof(ConnectionSummary));

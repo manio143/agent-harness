@@ -8,11 +8,12 @@ public partial class SessionPickerView : UserControl
     public SessionPickerView()
     {
         InitializeComponent();
-        AttachedToVisualTree += OnAttachedToVisualTree;
     }
 
-    private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        base.OnAttachedToVisualTree(e);
+
         // UX: focus the filter box so you can immediately type.
         var filter = this.FindControl<TextBox>("FilterBox");
         filter?.Focus();
