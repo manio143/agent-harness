@@ -5,6 +5,8 @@ using Agent.Acp.Client.AvaloniaApp.Services.Acp;
 using Agent.Acp.Client.AvaloniaApp.ViewModels.Connection;
 using Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation;
 using Agent.Acp.Schema;
+using Avalonia;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -12,6 +14,19 @@ namespace Agent.Acp.Client.AvaloniaApp.ViewModels.Shell;
 
 public sealed partial class ShellViewModel : ObservableObject
 {
+    private static void Ui(Action action)
+    {
+        // In production, keep all property changes on the UI thread.
+        // In test/non-UI contexts, just run inline.
+        if (Application.Current is null || Dispatcher.UIThread.CheckAccess())
+        {
+            action();
+            return;
+        }
+
+        Dispatcher.UIThread.Post(action);
+    }
+
     private readonly ChatViewModel _chat;
     private readonly ComposerViewModel _composer;
 
@@ -124,12 +139,15 @@ public sealed partial class ShellViewModel : ObservableObject
         _pump = null;
         _sessionId = null;
 
-        CurrentScreen = Screen.Connection;
-        OnPropertyChanged(nameof(CanDisconnect));
-        OnPropertyChanged(nameof(ConnectionSummary));
-        DisconnectCommand.NotifyCanExecuteChanged();
+        Ui(() =>
+        {
+            CurrentScreen = Screen.Connection;
+            OnPropertyChanged(nameof(CanDisconnect));
+            OnPropertyChanged(nameof(ConnectionSummary));
+            DisconnectCommand.NotifyCanExecuteChanged();
 
-        Status = "Disconnected";
+            Status = "Disconnected";
+        });
     }
 
     private async Task ConnectAsync(System.Diagnostics.ProcessStartInfo psi)
@@ -266,9 +284,12 @@ public sealed partial class ShellViewModel : ObservableObject
     private void CancelSessionPicker()
     {
         // Cancel returns to Connect screen but keeps the agent running (so user can still Disconnect explicitly).
-        CurrentScreen = Screen.Connection;
-        OnPropertyChanged(nameof(ConnectionSummary));
-        Status = "Connection screen";
+        Ui(() =>
+        {
+            CurrentScreen = Screen.Connection;
+            OnPropertyChanged(nameof(ConnectionSummary));
+            Status = "Connection screen";
+        });
     }
 
     private async Task OpenSessionAsync(string? sessionId)
@@ -304,11 +325,14 @@ public sealed partial class ShellViewModel : ObservableObject
             _ = await AcpClientBootstrap.LoadSessionAsync(_process.Connection, _sessionId, cwd, ct);
         }
 
-        CurrentScreen = Screen.Chat;
-        Status = $"Connected (session: {_sessionId})";
-        OnPropertyChanged(nameof(CanDisconnect));
-        OnPropertyChanged(nameof(ConnectionSummary));
-        DisconnectCommand.NotifyCanExecuteChanged();
+        Ui(() =>
+        {
+            CurrentScreen = Screen.Chat;
+            Status = $"Connected (session: {_sessionId})";
+            OnPropertyChanged(nameof(CanDisconnect));
+            OnPropertyChanged(nameof(ConnectionSummary));
+            DisconnectCommand.NotifyCanExecuteChanged();
+        });
     }
 
     public enum Screen
