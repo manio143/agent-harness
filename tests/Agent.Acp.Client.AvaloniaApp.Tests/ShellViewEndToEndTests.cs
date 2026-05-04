@@ -221,6 +221,36 @@ public sealed class ShellViewEndToEndTests
         Assert.Contains("\"exitCode\":0", tool.RawOutputJson);
     }
 
+    [Fact]
+    public async Task Prompt_failure_shows_composer_error_and_keeps_text_and_send_enabled()
+    {
+        var (repo, exe) = GetPromptFailAgent();
+
+        var vm = new ShellViewModel();
+
+        vm.Connection.RequestConnect(new ProcessStartInfo
+        {
+            FileName = exe,
+            Arguments = "",
+            WorkingDirectory = repo,
+        });
+
+        await WaitUntilAsync(() => vm.IsChat, timeoutMs: 10_000);
+
+        vm.Composer.Text = "hello";
+        await vm.Composer.SendCommand.ExecuteAsync(Xunit.TestContext.Current.CancellationToken);
+
+        await WaitUntilAsync(() => vm.Composer.Error is not null, timeoutMs: 10_000);
+
+        Assert.Contains("boom: prompt failed", vm.Composer.Error);
+        Assert.Equal("hello", vm.Composer.Text);
+        Assert.False(vm.Composer.IsBusy);
+        Assert.True(vm.Composer.CanSend);
+
+        // Local echo should still appear even when prompt fails.
+        await WaitUntilAsync(() => HasUserText(vm.Chat, "hello"), timeoutMs: 10_000);
+    }
+
     private static bool HasText(Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation.ChatViewModel chat, string contains)
     {
         foreach (var it in chat.Transcript)
@@ -284,6 +314,14 @@ public sealed class ShellViewEndToEndTests
     {
         var repo = GetRepoRoot();
         var exe = Path.Combine(repo, "samples", "Acp.ToolLifecycleAgent", "bin", "Release", "net8.0", "Acp.ToolLifecycleAgent");
+        Assert.True(File.Exists(exe));
+        return (repo, exe);
+    }
+
+    private static (string repo, string exe) GetPromptFailAgent()
+    {
+        var repo = GetRepoRoot();
+        var exe = Path.Combine(repo, "samples", "Acp.PromptFailAgent", "bin", "Release", "net8.0", "Acp.PromptFailAgent");
         Assert.True(File.Exists(exe));
         return (repo, exe);
     }
