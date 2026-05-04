@@ -40,7 +40,7 @@
       </Border>
 
       <StackPanel Orientation="Horizontal" Spacing="8">
-        <Button Content="Connect" Command="{Binding ConnectCommand}" Background="{StaticResource AccentPrimary}" Foreground="#FFFFFF" Padding="12,6" />
+        <Button Content="Connect" Command="{Binding ConnectCommand}" Background="{StaticResource AccentPrimary}" Foreground="{StaticResource TextOnAccent}" Padding="12,6" />
         <Button Content="Settings" IsEnabled="False" Padding="12,6" />
       </StackPanel>
     </StackPanel>

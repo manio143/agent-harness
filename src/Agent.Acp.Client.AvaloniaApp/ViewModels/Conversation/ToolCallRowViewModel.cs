@@ -1,3 +1,4 @@
+using Agent.Acp.Client.AvaloniaApp.Services.Theme;
 using Agent.Acp.Schema;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -6,12 +7,6 @@ namespace Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation;
 
 public sealed partial class ToolCallRowViewModel : ObservableObject
 {
-    // Status dot colors (Opus UX review)
-    private static readonly IBrush RunningBrush = new SolidColorBrush(Color.Parse("#F59E0B")); // amber
-    private static readonly IBrush CompletedBrush = new SolidColorBrush(Color.Parse("#4ADE80")); // green
-    private static readonly IBrush ErrorBrush = new SolidColorBrush(Color.Parse("#EF4444")); // red
-    private static readonly IBrush DefaultBrush = new SolidColorBrush(Color.Parse("#6B7280")); // gray
-
     private readonly Agent.Acp.Client.AvaloniaApp.Services.Clipboard.IClipboardService? _clipboard;
 
     public ToolCallRowViewModel(string toolCallId, string title, Agent.Acp.Client.AvaloniaApp.Services.Clipboard.IClipboardService? clipboard = null)
@@ -46,10 +41,10 @@ public sealed partial class ToolCallRowViewModel : ObservableObject
             var s = Status.ToString().ToLowerInvariant();
             return s switch
             {
-                "running" => RunningBrush,
-                "completed" => CompletedBrush,
-                "error" or "failed" => ErrorBrush,
-                _ => DefaultBrush
+                "running" => ThemeBrushes.StatusRunning,
+                "completed" => ThemeBrushes.StatusSuccess,
+                "error" or "failed" => ThemeBrushes.StatusError,
+                _ => ThemeBrushes.StatusPending
             };
         }
     }

@@ -18,7 +18,7 @@
                    IsVisible="{Binding Error, Converter={x:Static c:StringConverters.IsNotNullOrEmpty}}" />
 
         <Button DockPanel.Dock="Right" Content="Send" Command="{Binding SendCommand}" IsEnabled="{Binding CanSend}"
-                Background="{StaticResource AccentPrimary}" Foreground="#FFFFFF" />
+                Background="{StaticResource AccentPrimary}" Foreground="{StaticResource TextOnAccent}" />
       </DockPanel>
     </StackPanel>
   </Border>

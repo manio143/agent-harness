@@ -25,8 +25,15 @@
 
     <SolidColorBrush x:Key="AccentPrimary" Color="#3B82F6" />
     <SolidColorBrush x:Key="AccentHover" Color="#2563EB" />
+    <SolidColorBrush x:Key="TextOnAccent" Color="#FFFFFF" />
 
     <SolidColorBrush x:Key="BgErrorBanner" Color="#2A1515" />
+
+    <!-- Status colors -->
+    <SolidColorBrush x:Key="StatusRunning" Color="#F59E0B" />
+    <SolidColorBrush x:Key="StatusSuccess" Color="#4ADE80" />
+    <SolidColorBrush x:Key="StatusError" Color="#EF4444" />
+    <SolidColorBrush x:Key="StatusPending" Color="#6B7280" />
   </Application.Resources>
 
   <Application.DataTemplates>
