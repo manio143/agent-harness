@@ -222,6 +222,61 @@ public sealed class ShellViewEndToEndTests
     }
 
     [Fact]
+    public async Task Story_preserves_state_transitions_and_strict_timeline_ordering_across_turns()
+    {
+        var (repo, exe) = GetStoryAgent();
+
+        var vm = new ShellViewModel();
+
+        vm.Connection.RequestConnect(new ProcessStartInfo
+        {
+            FileName = exe,
+            Arguments = "",
+            WorkingDirectory = repo,
+        });
+
+        await WaitUntilAsync(() => vm.IsChat, timeoutMs: 10_000);
+
+        // Turn 1
+        vm.Composer.Text = "t1";
+        await vm.Composer.SendCommand.ExecuteAsync(Xunit.TestContext.Current.CancellationToken);
+
+        await WaitUntilAsync(() => HasText(vm.Chat, "assistant: done turn1"), timeoutMs: 10_000);
+
+        // Validate ordering + grouping semantics:
+        // - User prompt is echoed
+        // - Tools are in IntentGroupViewModel
+        // - A message breaks tool grouping, so the second tool call is in a separate group
+        var transcript = vm.Chat.Transcript.ToList();
+
+        var userIndex = transcript.FindIndex(o => o is UserMessageViewModel u && u.Text == "t1");
+        Assert.True(userIndex >= 0);
+
+        var firstGroupIndex = transcript.FindIndex(userIndex + 1, o => o is IntentGroupViewModel);
+        Assert.True(firstGroupIndex > userIndex);
+
+        var afterFirstToolMessageIndex = transcript.FindIndex(firstGroupIndex + 1, o => o is string s && s.Contains("assistant: after first tool", StringComparison.Ordinal));
+        Assert.True(afterFirstToolMessageIndex > firstGroupIndex);
+
+        var secondGroupIndex = transcript.FindIndex(afterFirstToolMessageIndex + 1, o => o is IntentGroupViewModel);
+        Assert.True(secondGroupIndex > afterFirstToolMessageIndex);
+        Assert.NotEqual(firstGroupIndex, secondGroupIndex);
+
+        var doneTurn1Index = transcript.FindIndex(secondGroupIndex + 1, o => o is string s && s.Contains("assistant: done turn1", StringComparison.Ordinal));
+        Assert.True(doneTurn1Index > secondGroupIndex);
+
+        // Turn 2
+        vm.Composer.Text = "t2";
+        await vm.Composer.SendCommand.ExecuteAsync(Xunit.TestContext.Current.CancellationToken);
+
+        await WaitUntilAsync(() => HasText(vm.Chat, "assistant: done turn2"), timeoutMs: 10_000);
+
+        var reasoningBlocks = vm.Chat.Transcript.OfType<ReasoningBlockViewModel>().ToList();
+        Assert.NotEmpty(reasoningBlocks);
+        Assert.Contains(reasoningBlocks, r => r.Text.Replace("-", "", StringComparison.Ordinal) == "reasoning");
+    }
+
+    [Fact]
     public async Task Prompt_failure_shows_composer_error_and_keeps_text_and_send_enabled()
     {
         var (repo, exe) = GetPromptFailAgent();
@@ -314,6 +369,14 @@ public sealed class ShellViewEndToEndTests
     {
         var repo = GetRepoRoot();
         var exe = Path.Combine(repo, "samples", "Acp.ToolLifecycleAgent", "bin", "Release", "net8.0", "Acp.ToolLifecycleAgent");
+        Assert.True(File.Exists(exe));
+        return (repo, exe);
+    }
+
+    private static (string repo, string exe) GetStoryAgent()
+    {
+        var repo = GetRepoRoot();
+        var exe = Path.Combine(repo, "samples", "Acp.StoryAgent", "bin", "Release", "net8.0", "Acp.StoryAgent");
         Assert.True(File.Exists(exe));
         return (repo, exe);
     }
