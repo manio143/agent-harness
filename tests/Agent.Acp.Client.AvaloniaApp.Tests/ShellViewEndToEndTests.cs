@@ -31,8 +31,15 @@ public sealed class ShellViewEndToEndTests
         vm.Composer.Text = "hello";
         await vm.Composer.SendCommand.ExecuteAsync(Xunit.TestContext.Current.CancellationToken);
 
+        // Local echo should remain in transcript.
+        await WaitUntilAsync(() => HasUserText(vm.Chat, "hello"), timeoutMs: 10_000);
+
         // Minimal agent should have emitted at least its "done" message.
         await WaitUntilAsync(() => HasText(vm.Chat, "done"), timeoutMs: 10_000);
+
+        // Composer should clear after successful send.
+        Assert.Equal(string.Empty, vm.Composer.Text);
+        Assert.False(vm.Composer.CanSend);
     }
 
     [Fact]
@@ -148,6 +155,14 @@ public sealed class ShellViewEndToEndTests
     {
         foreach (var it in chat.Transcript)
             if (it is string s && s.Contains(contains, StringComparison.OrdinalIgnoreCase))
+                return true;
+        return false;
+    }
+
+    private static bool HasUserText(Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation.ChatViewModel chat, string exact)
+    {
+        foreach (var it in chat.Transcript)
+            if (it is Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation.UserMessageViewModel u && u.Text == exact)
                 return true;
         return false;
     }
