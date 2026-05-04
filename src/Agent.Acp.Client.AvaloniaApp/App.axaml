@@ -2,8 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Agent.Acp.Client.AvaloniaApp.App"
              xmlns:local="using:Agent.Acp.Client.AvaloniaApp"
-             RequestedThemeVariant="Default">
-  <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             RequestedThemeVariant="Dark">
+  <!-- "Dark" forced for consistent dark theme on headless/X11 environments (Linux CI, Xvfb). -->
 
   <Application.Resources>
     <!-- Color tokens (see docs/ux/STYLE_GUIDE.md) -->
