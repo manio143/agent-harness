@@ -4,7 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using Agent.Acp.Client.AvaloniaApp.ViewModels.Connection;
 using Agent.Acp.Client.AvaloniaApp.ViewModels.Shell;
+using Agent.Acp.Client.AvaloniaApp.Views.Connection;
 using Agent.Acp.Client.AvaloniaApp.Views.Conversation;
 using Agent.Acp.Client.AvaloniaApp.Views.Shell;
 using Avalonia;
@@ -12,6 +14,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Controls.Primitives;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Xunit;
@@ -21,6 +24,72 @@ namespace Agent.Acp.Client.AvaloniaApp.Tests;
 [Collection("samples")]
 public sealed class ShellViewInteractionTests
 {
+    [AvaloniaFact]
+    public void SessionPickerView_declares_enter_and_escape_keybindings_bound_to_vm_commands()
+    {
+        var vm = new SessionPickerViewModel();
+        vm.SetSessions(new[]
+        {
+            new SessionListItemViewModel(sessionId: "s1", title: "First", updatedAt: null),
+        });
+        vm.Selected = vm.Sessions.Single();
+
+        var view = new SessionPickerView { DataContext = vm };
+
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        ForceLayout(window);
+
+        var bindings = view.KeyBindings.OfType<KeyBinding>().ToList();
+        Assert.NotEmpty(bindings);
+
+        var enter = bindings.SingleOrDefault(b => b.Gesture is KeyGesture g && g.Key == Key.Enter);
+        var esc = bindings.SingleOrDefault(b => b.Gesture is KeyGesture g && g.Key == Key.Escape);
+
+        Assert.NotNull(enter);
+        Assert.NotNull(esc);
+
+        // Binding should resolve to the VM commands.
+        Assert.Same(vm.OpenCommand, enter!.Command);
+        Assert.Same(vm.CancelCommand, esc!.Command);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void ToolCallDetailView_escape_marks_event_handled()
+    {
+        var vm = new Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation.ToolCallDetailViewModel(
+            toolCallId: "t1",
+            title: "host.exec",
+            status: Agent.Acp.Schema.ToolCallStatus.Completed,
+            rawInputJson: "{}",
+            rawOutputJson: "{}",
+            clipboard: null);
+
+        var detail = new ToolCallDetailView { DataContext = vm };
+
+        var window = new Window { Width = 800, Height = 600, Content = detail };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        ForceLayout(window);
+
+        var args = new KeyEventArgs
+        {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Key = Key.Escape,
+        };
+
+        detail.RaiseEvent(args);
+
+        Assert.True(args.Handled);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
     [AvaloniaFact]
     public async Task ConnectionView_click_connect_wires_to_shell_and_navigates_to_chat()
     {
