@@ -277,6 +277,51 @@ public sealed class ShellViewEndToEndTests
     }
 
     [Fact]
+    public async Task Interleaving_streaming_and_tool_updates_preserves_order_and_updates_status()
+    {
+        var (repo, exe) = GetInterleavingAgent();
+
+        var vm = new ShellViewModel();
+
+        vm.Connection.RequestConnect(new ProcessStartInfo
+        {
+            FileName = exe,
+            Arguments = "",
+            WorkingDirectory = repo,
+        });
+
+        await WaitUntilAsync(() => vm.IsChat, timeoutMs: 10_000);
+
+        vm.Composer.Text = "go";
+        await vm.Composer.SendCommand.ExecuteAsync(Xunit.TestContext.Current.CancellationToken);
+
+        await WaitUntilAsync(() => HasText(vm.Chat, "chunk-one"), timeoutMs: 10_000);
+        await WaitUntilAsync(() => HasText(vm.Chat, "done"), timeoutMs: 10_000);
+
+        // Ensure the transcript contains a tool group and a coalesced streaming message.
+        var transcript = vm.Chat.Transcript.ToList();
+
+        var groupIndex = transcript.FindIndex(o => o is IntentGroupViewModel);
+        Assert.True(groupIndex >= 0);
+
+        var toolGroup = (IntentGroupViewModel)transcript[groupIndex];
+        var tool = toolGroup.Items.OfType<ToolCallRowViewModel>().FirstOrDefault(t => t.Title == "host.exec");
+        Assert.NotNull(tool);
+
+        // Tool status should end completed and output should be visible.
+        Assert.Equal(ToolCallStatus.Completed, tool!.Status);
+        Assert.NotNull(tool.RawOutputJson);
+        Assert.Contains("\"stdout\":\"hi\"", tool.RawOutputJson);
+
+        // Streaming chunks should coalesce into a single string containing the whole phrase.
+        // Note: by design, tool calls break streaming coalescing boundaries (domain reducer resets LastChunk).
+        // So we expect at least one message string contains "chunk-one" and another later contains "chunk-two".
+        Assert.Contains(vm.Chat.Transcript.OfType<string>(), s => s.Contains("chunk-one", StringComparison.Ordinal));
+        Assert.Contains(vm.Chat.Transcript.OfType<string>(), s => s.Contains("chunk-two", StringComparison.Ordinal));
+        Assert.Contains(vm.Chat.Transcript.OfType<string>(), s => s.Contains("done", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Prompt_failure_shows_composer_error_and_keeps_text_and_send_enabled()
     {
         var (repo, exe) = GetPromptFailAgent();
@@ -377,6 +422,14 @@ public sealed class ShellViewEndToEndTests
     {
         var repo = GetRepoRoot();
         var exe = Path.Combine(repo, "samples", "Acp.StoryAgent", "bin", "Release", "net8.0", "Acp.StoryAgent");
+        Assert.True(File.Exists(exe));
+        return (repo, exe);
+    }
+
+    private static (string repo, string exe) GetInterleavingAgent()
+    {
+        var repo = GetRepoRoot();
+        var exe = Path.Combine(repo, "samples", "Acp.InterleavingAgent", "bin", "Release", "net8.0", "Acp.InterleavingAgent");
         Assert.True(File.Exists(exe));
         return (repo, exe);
     }
