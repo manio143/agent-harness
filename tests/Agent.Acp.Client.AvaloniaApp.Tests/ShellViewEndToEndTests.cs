@@ -121,6 +121,29 @@ public sealed class ShellViewEndToEndTests
         Assert.Contains("Connected (session:", vm.Status);
     }
 
+    [Fact]
+    public async Task SessionPicker_refresh_failure_sets_status_and_keeps_picker_open()
+    {
+        var (repo, exe) = GetSessionListFlakyAgent();
+
+        var vm = new ShellViewModel();
+        vm.Connection.ContinueLastSession = true;
+
+        vm.Connection.RequestConnect(new ProcessStartInfo
+        {
+            FileName = exe,
+            Arguments = "",
+            WorkingDirectory = repo,
+        });
+
+        await WaitUntilAsync(() => vm.IsSessionPicker, timeoutMs: 10_000);
+
+        vm.SessionPicker.RefreshCommand.Execute(null);
+
+        await WaitUntilAsync(() => (vm.Status ?? string.Empty).StartsWith("Failed to fetch sessions:", StringComparison.Ordinal), timeoutMs: 10_000);
+        Assert.True(vm.IsSessionPicker);
+    }
+
     private static bool HasText(Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation.ChatViewModel chat, string contains)
     {
         foreach (var it in chat.Transcript)
@@ -152,6 +175,14 @@ public sealed class ShellViewEndToEndTests
     {
         var repo = GetRepoRoot();
         var exe = Path.Combine(repo, "samples", "Acp.SessionListAgent", "bin", "Release", "net8.0", "Acp.SessionListAgent");
+        Assert.True(File.Exists(exe));
+        return (repo, exe);
+    }
+
+    private static (string repo, string exe) GetSessionListFlakyAgent()
+    {
+        var repo = GetRepoRoot();
+        var exe = Path.Combine(repo, "samples", "Acp.SessionListFlakyAgent", "bin", "Release", "net8.0", "Acp.SessionListFlakyAgent");
         Assert.True(File.Exists(exe));
         return (repo, exe);
     }
