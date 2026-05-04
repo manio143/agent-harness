@@ -59,6 +59,39 @@ public sealed class ShellViewInteractionTests
     }
 
     [AvaloniaFact]
+    public async Task SessionPickerView_open_button_executes_bound_command()
+    {
+        var vm = new SessionPickerViewModel();
+        vm.SetSessions(new[]
+        {
+            new SessionListItemViewModel(sessionId: "s1", title: "First", updatedAt: null),
+        });
+        vm.Selected = vm.Sessions.Single();
+
+        string? openedSessionId = null;
+        vm.OpenRequested += id => openedSessionId = id;
+
+        var view = new SessionPickerView { DataContext = vm };
+
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        ForceLayout(window);
+
+        var open = FindByName<Button>(view, "OpenButton");
+        Assert.NotNull(open);
+        Assert.NotNull(open!.Command);
+
+        open.Command!.Execute(null);
+
+        await WaitUntilAsync(() => openedSessionId is not null, timeoutMs: 2_000);
+        Assert.Equal("s1", openedSessionId);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
     public void ToolCallDetailView_escape_marks_event_handled()
     {
         var vm = new Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation.ToolCallDetailViewModel(

@@ -39,10 +39,10 @@
       </Border>
 
       <StackPanel Orientation="Horizontal" Spacing="8">
-        <Button Content="Open" Command="{Binding OpenCommand}" Background="{StaticResource AccentPrimary}" Foreground="{StaticResource TextOnAccent}" Padding="12,6" IsEnabled="{Binding CanOpen}" />
-        <Button Content="Refresh" Command="{Binding RefreshCommand}" Padding="12,6" />
-        <Button Content="Disconnect" Command="{Binding DisconnectCommand}" Padding="12,6" />
-        <Button Content="Back" Command="{Binding CancelCommand}" Padding="12,6" />
+        <Button Name="OpenButton" Content="Open" Command="{Binding OpenCommand}" Background="{StaticResource AccentPrimary}" Foreground="{StaticResource TextOnAccent}" Padding="12,6" IsEnabled="{Binding CanOpen}" />
+        <Button Name="RefreshButton" Content="Refresh" Command="{Binding RefreshCommand}" Padding="12,6" />
+        <Button Name="DisconnectButton" Content="Disconnect" Command="{Binding DisconnectCommand}" Padding="12,6" />
+        <Button Name="BackButton" Content="Back" Command="{Binding CancelCommand}" Padding="12,6" />
       </StackPanel>
     </StackPanel>
   </Border>
