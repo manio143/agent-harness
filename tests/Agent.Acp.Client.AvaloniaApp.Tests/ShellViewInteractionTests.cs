@@ -204,6 +204,7 @@ public sealed class ShellViewInteractionTests
         Dispatcher.UIThread.RunJobs();
     }
 
+
     [AvaloniaFact]
     public async Task ConnectionView_click_connect_wires_to_shell_and_navigates_to_chat()
     {
@@ -315,6 +316,27 @@ public sealed class ShellViewInteractionTests
         window.UpdateLayout();
         Dispatcher.UIThread.RunJobs();
     }
+
+    private static bool GetFlyoutIsOpen(FlyoutBase flyout)
+    {
+        // Some Avalonia versions expose IsOpen; others don't. Prefer reading the underlying Popup.
+        var isOpenProp = flyout.GetType().GetProperty("IsOpen", BindingFlags.Instance | BindingFlags.Public);
+        if (isOpenProp?.PropertyType == typeof(bool))
+            return (bool)(isOpenProp.GetValue(flyout) ?? false);
+
+        var popupProp = flyout.GetType().GetProperty("Popup", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (popupProp?.PropertyType == typeof(Popup))
+            return ((Popup?)popupProp.GetValue(flyout))?.IsOpen == true;
+
+        var popupField = flyout.GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
+            .FirstOrDefault(f => f.FieldType == typeof(Popup));
+        if (popupField is not null)
+            return ((Popup?)popupField.GetValue(flyout))?.IsOpen == true;
+
+        // Last resort.
+        return flyout.Target is not null;
+    }
+
 
     private static T? FindByName<T>(Control root, string name) where T : Control
         => root.GetVisualDescendants().OfType<T>().FirstOrDefault(c => c.Name == name);
