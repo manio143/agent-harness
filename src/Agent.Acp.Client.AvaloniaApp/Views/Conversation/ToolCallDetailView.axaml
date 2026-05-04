@@ -8,7 +8,8 @@
              x:DataType="vm:ToolCallDetailViewModel">
 
   <Border Background="#0B0D10" Padding="12" CornerRadius="8" MinWidth="400" MaxWidth="700"
-          BorderBrush="#2A3040" BorderThickness="1">
+          BorderBrush="#2A3040" BorderThickness="1"
+          Focusable="True" KeyDown="OnKeyDown">
     <StackPanel Spacing="8">
       <StackPanel Orientation="Horizontal" Spacing="8">
         <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" Foreground="#E6E6E6" />
