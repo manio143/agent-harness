@@ -282,6 +282,61 @@ public sealed class ShellViewInteractionTests
     }
 
     [AvaloniaFact]
+    public async Task SessionPickerView_filter_box_text_reflects_vm_filter_text()
+    {
+        var vm = new SessionPickerViewModel();
+        vm.FilterText = "abc";
+
+        var view = new SessionPickerView { DataContext = vm };
+
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        ForceLayout(window);
+
+        var box = FindByName<TextBox>(view, "FilterBox");
+        Assert.NotNull(box);
+
+        await WaitUntilAsync(() => box!.Text == "abc", timeoutMs: 2_000);
+
+        vm.FilterText = "second";
+        Dispatcher.UIThread.RunJobs();
+
+        await WaitUntilAsync(() => box.Text == "second", timeoutMs: 2_000);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public async Task SessionPickerView_typing_in_filter_box_updates_vm_filter_text()
+    {
+        var vm = new SessionPickerViewModel();
+        var view = new SessionPickerView { DataContext = vm };
+
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        ForceLayout(window);
+
+        var box = FindByName<TextBox>(view, "FilterBox");
+        Assert.NotNull(box);
+
+        box!.Text = "hello";
+        Dispatcher.UIThread.RunJobs();
+
+        await WaitUntilAsync(() => vm.FilterText == "hello", timeoutMs: 2_000);
+
+        box.Text = "world";
+        Dispatcher.UIThread.RunJobs();
+
+        await WaitUntilAsync(() => vm.FilterText == "world", timeoutMs: 2_000);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
     public void ToolCallDetailView_escape_marks_event_handled()
     {
         var vm = new Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation.ToolCallDetailViewModel(
