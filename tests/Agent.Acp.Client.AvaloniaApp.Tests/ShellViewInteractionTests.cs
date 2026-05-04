@@ -219,6 +219,69 @@ public sealed class ShellViewInteractionTests
     }
 
     [AvaloniaFact]
+    public async Task SessionPickerView_filter_text_clears_selection_and_disables_open_button()
+    {
+        var vm = new SessionPickerViewModel();
+        vm.SetSessions(new[]
+        {
+            new SessionListItemViewModel(sessionId: "s1", title: "First", updatedAt: null),
+            new SessionListItemViewModel(sessionId: "s2", title: "Second", updatedAt: null),
+        });
+
+        vm.Selected = vm.Sessions.Single(s => s.SessionId == "s1");
+
+        var view = new SessionPickerView { DataContext = vm };
+
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        ForceLayout(window);
+
+        var open = FindByName<Button>(view, "OpenButton");
+        Assert.NotNull(open);
+
+        await WaitUntilAsync(() => open!.IsEnabled, timeoutMs: 2_000);
+
+        // Filter out the selected item. VM should clear selection; Open should disable.
+        vm.FilterText = "second";
+        Dispatcher.UIThread.RunJobs();
+
+        await WaitUntilAsync(() => vm.Selected is null, timeoutMs: 2_000);
+        await WaitUntilAsync(() => !open.IsEnabled, timeoutMs: 2_000);
+
+        Assert.False(vm.CanOpen);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public async Task SessionPickerView_start_new_session_checkbox_reflects_vm_state()
+    {
+        var vm = new SessionPickerViewModel();
+        var view = new SessionPickerView { DataContext = vm };
+
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        ForceLayout(window);
+
+        var cb = FindByName<CheckBox>(view, "StartNewSessionCheckBox");
+        Assert.NotNull(cb);
+
+        // Default off.
+        await WaitUntilAsync(() => cb!.IsChecked == false, timeoutMs: 2_000);
+
+        vm.StartNewSession = true;
+        Dispatcher.UIThread.RunJobs();
+
+        await WaitUntilAsync(() => cb.IsChecked == true, timeoutMs: 2_000);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
     public void ToolCallDetailView_escape_marks_event_handled()
     {
         var vm = new Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation.ToolCallDetailViewModel(

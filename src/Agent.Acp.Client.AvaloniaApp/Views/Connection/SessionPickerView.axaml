@@ -17,7 +17,7 @@
       <TextBlock Text="Open session" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" />
       <TextBlock Text="Select a previous session to resume (server replay), or start a new session. Enter to open • Esc/Back returns to Connect (agent stays running until you Disconnect)." Foreground="{StaticResource TextMuted}" FontSize="12" />
 
-      <CheckBox IsChecked="{Binding StartNewSession}" Content="Start new session" Foreground="{StaticResource TextSecondary}" FontSize="12" />
+      <CheckBox Name="StartNewSessionCheckBox" IsChecked="{Binding StartNewSession}" Content="Start new session" Foreground="{StaticResource TextSecondary}" FontSize="12" />
 
       <TextBox Name="FilterBox" Text="{Binding FilterText}" PlaceholderText="Filter sessions (title or id)" Background="{StaticResource BgSecondary}" Foreground="{StaticResource TextPrimary}"
                BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1" />
