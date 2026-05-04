@@ -78,6 +78,49 @@ public sealed class ShellViewEndToEndTests
         Assert.Equal("Agent: not running", vm.ConnectionSummary);
     }
 
+    [Fact]
+    public async Task Connect_with_continue_last_session_and_existing_sessions_shows_picker_and_allows_back_then_open()
+    {
+        var (repo, exe) = GetSessionListAgent();
+
+        var vm = new ShellViewModel();
+        vm.Connection.ContinueLastSession = true;
+
+        vm.Connection.RequestConnect(new ProcessStartInfo
+        {
+            FileName = exe,
+            Arguments = "",
+            WorkingDirectory = repo,
+        });
+
+        await WaitUntilAsync(() => vm.IsSessionPicker || vm.IsChat || vm.Connection.Error is not null, timeoutMs: 10_000);
+
+        Assert.True(vm.IsSessionPicker, $"Expected SessionPicker but got screen={vm.CurrentScreen} status={vm.Status} error={vm.Connection.Error}");
+        Assert.Equal("Agent: running (no session)", vm.ConnectionSummary);
+
+        // Back to connection screen (agent still running)
+        vm.SessionPicker.CancelCommand.Execute(null);
+        await WaitUntilAsync(() => vm.IsConnection, timeoutMs: 10_000);
+        Assert.Equal("Agent: running (no session)", vm.ConnectionSummary);
+
+        // Re-open picker by reconnecting (simple deterministic path for now).
+        vm.Connection.RequestConnect(new ProcessStartInfo
+        {
+            FileName = exe,
+            Arguments = "",
+            WorkingDirectory = repo,
+        });
+
+        await WaitUntilAsync(() => vm.IsSessionPicker, timeoutMs: 10_000);
+
+        // Open existing session
+        vm.SessionPicker.Selected = vm.SessionPicker.Sessions[0];
+        vm.SessionPicker.OpenCommand.Execute(null);
+
+        await WaitUntilAsync(() => vm.IsChat, timeoutMs: 10_000);
+        Assert.Contains("Connected (session:", vm.Status);
+    }
+
     private static bool HasText(Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation.ChatViewModel chat, string contains)
     {
         foreach (var it in chat.Transcript)
@@ -101,6 +144,14 @@ public sealed class ShellViewEndToEndTests
     {
         var repo = GetRepoRoot();
         var exe = Path.Combine(repo, "samples", "Acp.MinimalAgent", "bin", "Release", "net8.0", "Acp.MinimalAgent");
+        Assert.True(File.Exists(exe));
+        return (repo, exe);
+    }
+
+    private static (string repo, string exe) GetSessionListAgent()
+    {
+        var repo = GetRepoRoot();
+        var exe = Path.Combine(repo, "samples", "Acp.SessionListAgent", "bin", "Release", "net8.0", "Acp.SessionListAgent");
         Assert.True(File.Exists(exe));
         return (repo, exe);
     }

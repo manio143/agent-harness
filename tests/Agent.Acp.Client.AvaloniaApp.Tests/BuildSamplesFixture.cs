@@ -10,7 +10,13 @@ public sealed class BuildSamplesFixture
     public BuildSamplesFixture()
     {
         var repo = GetRepoRoot();
-        var csproj = Path.Combine(repo, "samples", "Acp.MinimalAgent", "Acp.MinimalAgent.csproj");
+
+        Build(repo, Path.Combine(repo, "samples", "Acp.MinimalAgent", "Acp.MinimalAgent.csproj"));
+        Build(repo, Path.Combine(repo, "samples", "Acp.SessionListAgent", "Acp.SessionListAgent.csproj"));
+    }
+
+    private static void Build(string repo, string csproj)
+    {
         Assert.True(File.Exists(csproj));
 
         var p = Process.Start(new ProcessStartInfo
@@ -28,13 +34,13 @@ public sealed class BuildSamplesFixture
         if (!exited)
         {
             try { p.Kill(entireProcessTree: true); } catch { /* ignore */ }
-            throw new TimeoutException("Timed out building sample Acp.MinimalAgent (dotnet build -c Release)");
+            throw new TimeoutException($"Timed out building sample {Path.GetFileNameWithoutExtension(csproj)} (dotnet build -c Release)");
         }
 
         if (p.ExitCode != 0)
         {
             var err = p.StandardError.ReadToEnd();
-            throw new Exception("Failed to build sample Acp.MinimalAgent: " + err);
+            throw new Exception($"Failed to build sample {Path.GetFileNameWithoutExtension(csproj)}: {err}");
         }
     }
 
