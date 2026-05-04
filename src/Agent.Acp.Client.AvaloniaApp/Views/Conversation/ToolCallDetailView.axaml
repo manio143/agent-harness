@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation"
+             xmlns:c="clr-namespace:Agent.Acp.Client.AvaloniaApp.Converters"
              mc:Ignorable="d"
              x:Class="Agent.Acp.Client.AvaloniaApp.Views.Conversation.ToolCallDetailView"
              x:DataType="vm:ToolCallDetailViewModel">
@@ -37,6 +38,8 @@
       <StackPanel Orientation="Horizontal" Spacing="8">
         <Button Content="Copy input" Command="{Binding CopyInputCommand}" FontSize="12" Padding="8,4" />
         <Button Content="Copy output" Command="{Binding CopyOutputCommand}" FontSize="12" Padding="8,4" />
+        <TextBlock Text="{Binding CopyStatus}" Foreground="#6B9A7D" FontSize="12" VerticalAlignment="Center"
+                   IsVisible="{Binding CopyStatus, Converter={x:Static c:StringConverters.IsNotNullOrEmpty}}" />
       </StackPanel>
     </StackPanel>
   </Border>

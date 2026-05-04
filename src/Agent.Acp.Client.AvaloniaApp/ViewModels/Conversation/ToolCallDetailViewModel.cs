@@ -9,6 +9,8 @@ namespace Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation;
 
 public sealed partial class ToolCallDetailViewModel : ObservableObject
 {
+    [ObservableProperty]
+    private string? _copyStatus;
     private readonly IClipboardService? _clipboard;
 
     public ToolCallDetailViewModel(string toolCallId, string title, string status, string? rawInputJson, string? rawOutputJson, IClipboardService? clipboard = null)
@@ -38,6 +40,7 @@ public sealed partial class ToolCallDetailViewModel : ObservableObject
             throw new InvalidOperationException("Clipboard service not configured");
 
         await _clipboard.SetTextAsync(RawInputJson ?? string.Empty).ConfigureAwait(false);
+        CopyStatus = "Copied input";
     }
 
     [RelayCommand]
@@ -47,5 +50,6 @@ public sealed partial class ToolCallDetailViewModel : ObservableObject
             throw new InvalidOperationException("Clipboard service not configured");
 
         await _clipboard.SetTextAsync(RawOutputJson ?? string.Empty).ConfigureAwait(false);
+        CopyStatus = "Copied output";
     }
 }
