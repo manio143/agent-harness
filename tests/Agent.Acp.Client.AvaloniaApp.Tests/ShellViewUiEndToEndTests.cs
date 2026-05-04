@@ -46,6 +46,14 @@ public sealed class ShellViewUiEndToEndTests
         await WaitUntilUiAsync(() => vm.IsChat, timeoutMs: 10_000);
         Assert.True(vm.IsChat);
 
+        // Production-path: send a prompt and verify transcript updates.
+        vm.Composer.Text = "hello";
+        await vm.Composer.SendCommand.ExecuteAsync(Xunit.TestContext.Current.CancellationToken);
+
+        await WaitUntilUiAsync(
+            () => vm.Chat.Transcript.OfType<string>().Any(s => s.Contains("done", StringComparison.OrdinalIgnoreCase)),
+            timeoutMs: 10_000);
+
         window.Close();
         Dispatcher.UIThread.RunJobs();
     }
@@ -80,7 +88,16 @@ public sealed class ShellViewUiEndToEndTests
         Assert.NotEmpty(vm.SessionPicker.Sessions);
         vm.SessionPicker.Selected = vm.SessionPicker.Sessions[0];
 
+        await WaitUntilUiAsync(
+            () => shellView.GetVisualDescendants().OfType<SessionPickerView>().Any(),
+            timeoutMs: 10_000);
+
         var pickerView = shellView.GetVisualDescendants().OfType<SessionPickerView>().First();
+
+        await WaitUntilUiAsync(
+            () => FindByName<Button>(pickerView, "OpenButton")?.Command is not null,
+            timeoutMs: 10_000);
+
         var openButton = FindByName<Button>(pickerView, "OpenButton");
         Assert.NotNull(openButton);
         Assert.NotNull(openButton!.Command);
@@ -89,6 +106,14 @@ public sealed class ShellViewUiEndToEndTests
 
         await WaitUntilUiAsync(() => vm.IsChat, timeoutMs: 10_000);
         Assert.True(vm.IsChat);
+
+        // Production-path: send a prompt and verify transcript updates.
+        vm.Composer.Text = "hello";
+        await vm.Composer.SendCommand.ExecuteAsync(Xunit.TestContext.Current.CancellationToken);
+
+        await WaitUntilUiAsync(
+            () => vm.Chat.Transcript.OfType<string>().Any(s => s.Contains("done", StringComparison.OrdinalIgnoreCase)),
+            timeoutMs: 10_000);
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
