@@ -8,17 +8,17 @@
              x:Class="Agent.Acp.Client.AvaloniaApp.Views.Conversation.ComposerView"
              x:DataType="vm:ComposerViewModel">
 
-  <Border Background="#0B0D10" Padding="10" BorderBrush="#2A3040" BorderThickness="0,1,0,0">
+  <Border Background="{StaticResource BgBase}" Padding="10" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="0,1,0,0">
     <StackPanel Spacing="6">
       <TextBox Name="ComposerTextBox" Text="{Binding Text}" AcceptsReturn="True" MinHeight="40" MaxHeight="120"
-               Background="#1A1D24" Foreground="#E6E6E6" KeyDown="OnComposerKeyDown" />
+               Background="{StaticResource BgSecondary}" Foreground="{StaticResource TextPrimary}" KeyDown="OnComposerKeyDown" />
 
       <DockPanel>
-        <TextBlock DockPanel.Dock="Left" Text="{Binding Error}" Foreground="#FFB4B4"
+        <TextBlock DockPanel.Dock="Left" Text="{Binding Error}" Foreground="{StaticResource TextError}"
                    IsVisible="{Binding Error, Converter={x:Static c:StringConverters.IsNotNullOrEmpty}}" />
 
         <Button DockPanel.Dock="Right" Content="Send" Command="{Binding SendCommand}" IsEnabled="{Binding CanSend}"
-                Background="#3B82F6" Foreground="#FFFFFF" />
+                Background="{StaticResource AccentPrimary}" Foreground="#FFFFFF" />
       </DockPanel>
     </StackPanel>
   </Border>

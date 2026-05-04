@@ -3,13 +3,35 @@
              x:Class="Agent.Acp.Client.AvaloniaApp.App"
              xmlns:local="using:Agent.Acp.Client.AvaloniaApp"
              RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+  <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
-    <Application.DataTemplates>
-        <local:ViewLocator/>
-    </Application.DataTemplates>
-  
-    <Application.Styles>
-        <FluentTheme />
-    </Application.Styles>
+  <Application.Resources>
+    <!-- Color tokens (see docs/ux/STYLE_GUIDE.md) -->
+    <SolidColorBrush x:Key="BgBase" Color="#0B0D10" />
+    <SolidColorBrush x:Key="BgPrimary" Color="#111318" />
+    <SolidColorBrush x:Key="BgSecondary" Color="#1A1D24" />
+    <SolidColorBrush x:Key="BgTertiary" Color="#151820" />
+    <SolidColorBrush x:Key="BgBadge" Color="#2A3142" />
+
+    <SolidColorBrush x:Key="BorderSubtle" Color="#2A3040" />
+    <SolidColorBrush x:Key="BorderError" Color="#5C2020" />
+
+    <SolidColorBrush x:Key="TextPrimary" Color="#E6E6E6" />
+    <SolidColorBrush x:Key="TextSecondary" Color="#B9C0CC" />
+    <SolidColorBrush x:Key="TextMuted" Color="#6B7280" />
+    <SolidColorBrush x:Key="TextSuccess" Color="#6B9A7D" />
+    <SolidColorBrush x:Key="TextSuccessBright" Color="#8FBFA3" />
+    <SolidColorBrush x:Key="TextError" Color="#FFB4B4" />
+
+    <SolidColorBrush x:Key="AccentPrimary" Color="#3B82F6" />
+    <SolidColorBrush x:Key="AccentHover" Color="#2563EB" />
+  </Application.Resources>
+
+  <Application.DataTemplates>
+    <local:ViewLocator />
+  </Application.DataTemplates>
+
+  <Application.Styles>
+    <FluentTheme />
+  </Application.Styles>
 </Application>

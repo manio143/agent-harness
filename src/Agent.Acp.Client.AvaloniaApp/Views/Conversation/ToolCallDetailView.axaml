@@ -8,29 +8,29 @@
              x:Class="Agent.Acp.Client.AvaloniaApp.Views.Conversation.ToolCallDetailView"
              x:DataType="vm:ToolCallDetailViewModel">
 
-  <Border Background="#0B0D10" Padding="12" CornerRadius="8" MinWidth="400" MaxWidth="700"
-          BorderBrush="#2A3040" BorderThickness="1"
+  <Border Background="{StaticResource BgBase}" Padding="12" CornerRadius="8" MinWidth="400" MaxWidth="700"
+          BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1"
           Focusable="True" KeyDown="OnKeyDown">
     <StackPanel Spacing="8">
       <StackPanel Orientation="Horizontal" Spacing="8">
-        <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" Foreground="#E6E6E6" />
-        <TextBlock Text="{Binding Status}" Foreground="#6B7280" FontSize="12" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" />
+        <TextBlock Text="{Binding Status}" Foreground="{StaticResource TextMuted}" FontSize="12" VerticalAlignment="Center" />
       </StackPanel>
 
       <StackPanel Spacing="4">
-        <TextBlock Text="Input" Foreground="#6B7280" FontSize="11" />
-        <Border Background="#151820" CornerRadius="4" Padding="6" BorderBrush="#2A3040" BorderThickness="1">
+        <TextBlock Text="Input" Foreground="{StaticResource TextMuted}" FontSize="11" />
+        <Border Background="{StaticResource BgTertiary}" CornerRadius="4" Padding="6" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
           <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto">
-            <TextBlock Text="{Binding RawInputJson}" Foreground="#B9C0CC" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding RawInputJson}" Foreground="{StaticResource TextSecondary}" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" />
           </ScrollViewer>
         </Border>
       </StackPanel>
 
       <StackPanel Spacing="4">
-        <TextBlock Text="Output" Foreground="#6B7280" FontSize="11" />
-        <Border Background="#151820" CornerRadius="4" Padding="6" BorderBrush="#2A3040" BorderThickness="1">
+        <TextBlock Text="Output" Foreground="{StaticResource TextMuted}" FontSize="11" />
+        <Border Background="{StaticResource BgTertiary}" CornerRadius="4" Padding="6" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
           <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto">
-            <TextBlock Text="{Binding RawOutputJson}" Foreground="#8FBFA3" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding RawOutputJson}" Foreground="{StaticResource TextSuccessBright}" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" />
           </ScrollViewer>
         </Border>
       </StackPanel>
@@ -38,7 +38,7 @@
       <StackPanel Orientation="Horizontal" Spacing="8">
         <Button Content="Copy input" Command="{Binding CopyInputCommand}" FontSize="12" Padding="8,4" />
         <Button Content="Copy output" Command="{Binding CopyOutputCommand}" FontSize="12" Padding="8,4" />
-        <TextBlock Text="{Binding CopyStatus}" Foreground="#6B9A7D" FontSize="12" VerticalAlignment="Center"
+        <TextBlock Text="{Binding CopyStatus}" Foreground="{StaticResource TextSuccess}" FontSize="12" VerticalAlignment="Center"
                    IsVisible="{Binding CopyStatus, Converter={x:Static c:StringConverters.IsNotNullOrEmpty}}" />
       </StackPanel>
     </StackPanel>

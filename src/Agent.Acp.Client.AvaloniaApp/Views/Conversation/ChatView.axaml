@@ -10,14 +10,14 @@
              x:Class="Agent.Acp.Client.AvaloniaApp.Views.Conversation.ChatView"
              x:DataType="vm:ChatViewModel">
 
-  <Border Background="#111318" Padding="12">
+  <Border Background="{StaticResource BgPrimary}" Padding="12">
     <DockPanel LastChildFill="True">
       <!-- Removed "Chat (WIP)" header per Opus review -->
 
-      <Border Background="#111318" CornerRadius="6" Padding="12" Margin="0,0,0,8"
-              BorderBrush="#2A3040" BorderThickness="1"
+      <Border Background="{StaticResource BgPrimary}" CornerRadius="6" Padding="12" Margin="0,0,0,8"
+              BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1"
               IsVisible="{Binding HasTranscriptItems, Converter={x:Static Converters:BoolConverters.Not}}">
-        <TextBlock Text="Send a message to get started" Foreground="#6B7280" FontStyle="Italic" />
+        <TextBlock Text="Send a message to get started" Foreground="{StaticResource TextMuted}" FontStyle="Italic" />
       </Border>
 
       <ScrollViewer Name="TranscriptScroller" VerticalScrollBarVisibility="Auto">
@@ -34,41 +34,41 @@
             </DataTemplate>
 
             <DataTemplate DataType="sys:String">
-              <Border Background="#1A1D24" CornerRadius="6" Padding="10"
-                      BorderBrush="#2A3040" BorderThickness="1">
-                <TextBlock Text="{Binding}" Foreground="#E6E6E6" TextWrapping="Wrap"/>
+              <Border Background="{StaticResource BgSecondary}" CornerRadius="6" Padding="10"
+                      BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
+                <TextBlock Text="{Binding}" Foreground="{StaticResource TextPrimary}" TextWrapping="Wrap"/>
               </Border>
             </DataTemplate>
 
 
             <DataTemplate DataType="vm:UserMessageViewModel">
-              <Border Background="#1A1D24" CornerRadius="6" Padding="10"
-                      BorderBrush="#3B82F6" BorderThickness="1">
-                <TextBlock Text="{Binding Text}" Foreground="#E6E6E6" TextWrapping="Wrap" />
+              <Border Background="{StaticResource BgSecondary}" CornerRadius="6" Padding="10"
+                      BorderBrush="{StaticResource AccentPrimary}" BorderThickness="1">
+                <TextBlock Text="{Binding Text}" Foreground="{StaticResource TextPrimary}" TextWrapping="Wrap" />
               </Border>
             </DataTemplate>
 
             <DataTemplate DataType="vm:ToolCallRowViewModel">
-              <Border Background="#1A1D24" CornerRadius="6" Padding="8"
-                      BorderBrush="#2A3040" BorderThickness="1">
+              <Border Background="{StaticResource BgSecondary}" CornerRadius="6" Padding="8"
+                      BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                   <Ellipse Width="8" Height="8" Fill="{Binding StatusColor}" VerticalAlignment="Center" />
-                  <TextBlock Text="{Binding Title}" Foreground="#E6E6E6" />
+                  <TextBlock Text="{Binding Title}" Foreground="{StaticResource TextPrimary}" />
                 </StackPanel>
               </Border>
             </DataTemplate>
 
             <DataTemplate DataType="vm:ReasoningBlockViewModel">
-              <Border Background="#0B0D10" CornerRadius="6" Padding="8"
-                      BorderBrush="#2A3040" BorderThickness="1">
+              <Border Background="{StaticResource BgBase}" CornerRadius="6" Padding="8"
+                      BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
                 <Expander IsExpanded="{Binding IsExpanded}">
                   <Expander.Header>
-                    <TextBlock Text="{Binding HeaderText}" Foreground="#6B7280" FontStyle="Italic" />
+                    <TextBlock Text="{Binding HeaderText}" Foreground="{StaticResource TextMuted}" FontStyle="Italic" />
                   </Expander.Header>
 
-                  <Border Background="#151820" CornerRadius="4" Padding="8" Margin="0,6,0,0"
-                          BorderBrush="#2A3040" BorderThickness="1">
-                    <TextBlock Text="{Binding Text}" Foreground="#B9C0CC" FontStyle="Italic" TextWrapping="Wrap" />
+                  <Border Background="{StaticResource BgTertiary}" CornerRadius="4" Padding="8" Margin="0,6,0,0"
+                          BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1">
+                    <TextBlock Text="{Binding Text}" Foreground="{StaticResource TextSecondary}" FontStyle="Italic" TextWrapping="Wrap" />
                   </Border>
                 </Expander>
               </Border>
