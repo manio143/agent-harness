@@ -11,6 +11,8 @@ namespace Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation;
 /// </summary>
 public sealed partial class ChatViewModel : ObservableObject
 {
+    [ObservableProperty]
+    private bool _hasTranscriptItems;
     private readonly Agent.Acp.Client.AvaloniaApp.Services.Clipboard.IClipboardService? _clipboard;
 
     public ChatViewModel(Agent.Acp.Client.AvaloniaApp.Services.Clipboard.IClipboardService? clipboard = null)
@@ -141,6 +143,8 @@ public sealed partial class ChatViewModel : ObservableObject
 
             Transcript.Add(new StreamingIndicatorViewModel(label));
         }
+
+        HasTranscriptItems = Transcript.Count > 0;
     }
 
 }

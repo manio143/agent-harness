@@ -5,6 +5,7 @@
              xmlns:vm="clr-namespace:Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation"
              xmlns:views="clr-namespace:Agent.Acp.Client.AvaloniaApp.Views.Conversation"
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             xmlns:Converters="clr-namespace:Agent.Acp.Client.AvaloniaApp.Converters"
              mc:Ignorable="d"
              x:Class="Agent.Acp.Client.AvaloniaApp.Views.Conversation.ChatView"
              x:DataType="vm:ChatViewModel">
@@ -12,6 +13,12 @@
   <Border Background="#111318" Padding="12">
     <DockPanel LastChildFill="True">
       <!-- Removed "Chat (WIP)" header per Opus review -->
+
+      <Border Background="#111318" CornerRadius="6" Padding="12" Margin="0,0,0,8"
+              BorderBrush="#2A3040" BorderThickness="1"
+              IsVisible="{Binding HasTranscriptItems, Converter={x:Static Converters:BoolConverters.Not}}">
+        <TextBlock Text="Send a message to get started" Foreground="#6B7280" FontStyle="Italic" />
+      </Border>
 
       <ScrollViewer Name="TranscriptScroller" VerticalScrollBarVisibility="Auto">
         <ItemsControl ItemsSource="{Binding Transcript}" Margin="0,0,0,8">
