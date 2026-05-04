@@ -161,6 +161,64 @@ public sealed class ShellViewUiEndToEndTests
         return (repo, exe);
     }
 
+    private static (string repo, string exe) GetSessionReplayAgent()
+    {
+        var repo = GetRepoRoot();
+        var exe = Path.Combine(repo, "samples", "Acp.SessionReplayAgent", "bin", "Release", "net8.0", "Acp.SessionReplayAgent");
+        Assert.True(File.Exists(exe));
+        return (repo, exe);
+    }
+
+    [AvaloniaFact]
+    public async Task Connect_with_continue_last_session_open_replays_history_into_transcript()
+    {
+        var (repo, exe) = GetSessionReplayAgent();
+
+        var vm = new ShellViewModel();
+        vm.Connection.Command = exe;
+        vm.Connection.Arguments = "";
+        vm.Connection.WorkingDirectory = repo;
+        vm.Connection.ContinueLastSession = true;
+
+        var shellView = new ShellView { DataContext = vm };
+
+        var window = new Window { Width = 900, Height = 700, Content = shellView };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        ForceLayout(window);
+
+        var connectionView = shellView.GetVisualDescendants().OfType<Agent.Acp.Client.AvaloniaApp.Views.Connection.ConnectionView>().First();
+        var connectButton = FindByName<Button>(connectionView, "ConnectButton");
+        connectButton!.Command!.Execute(null);
+
+        await WaitUntilUiAsync(() => vm.IsSessionPicker, timeoutMs: 10_000);
+        Assert.NotEmpty(vm.SessionPicker.Sessions);
+        vm.SessionPicker.Selected = vm.SessionPicker.Sessions[0];
+
+        await WaitUntilUiAsync(
+            () => shellView.GetVisualDescendants().OfType<SessionPickerView>().Any(),
+            timeoutMs: 10_000);
+
+        var pickerView = shellView.GetVisualDescendants().OfType<SessionPickerView>().First();
+
+        await WaitUntilUiAsync(
+            () => FindByName<Button>(pickerView, "OpenButton")?.Command is not null,
+            timeoutMs: 10_000);
+
+        var openButton = FindByName<Button>(pickerView, "OpenButton");
+        openButton!.Command!.Execute(null);
+
+        await WaitUntilUiAsync(() => vm.IsChat, timeoutMs: 10_000);
+
+        // Assert we received the deterministic replay update without requiring a prompt.
+        await WaitUntilUiAsync(
+            () => vm.Chat.Transcript.OfType<string>().Any(s => s.StartsWith("replay:", StringComparison.Ordinal)),
+            timeoutMs: 10_000);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
     private static string GetRepoRoot()
     {
         // Walk up until we find Agent.slnx.
