@@ -3,6 +3,8 @@ using System.Text.Json;
 using Agent.Acp.Protocol;
 using Agent.Acp.Schema;
 using Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation;
+using Avalonia;
+using Avalonia.Threading;
 
 namespace Agent.Acp.Client.AvaloniaApp.Services.Acp;
 
@@ -47,7 +49,27 @@ public sealed class AcpSessionUpdatePump
         if (update is null)
             return true;
 
-        _chat.Apply(update);
+        try
+        {
+            // In the real app, notifications can arrive on a background thread.
+            // Updating ObservableCollection off-UI-thread can throw and (worse) break the JSON-RPC receive loop,
+            // which would cause `session/load` to appear to "hang".
+            // In non-UI test contexts there may be no Avalonia Application/dispatcher loop; apply directly.
+            if (Application.Current is null || Dispatcher.UIThread.CheckAccess())
+            {
+                _chat.Apply(update);
+            }
+            else
+            {
+                // In the real app, marshal onto the UI thread to avoid cross-thread ObservableCollection access.
+                Dispatcher.UIThread.Post(() => _chat.Apply(update));
+            }
+        }
+        catch
+        {
+            // Never let UI/update exceptions kill the transport/receive loop.
+        }
+
         handledUpdate = update;
         return true;
     }
