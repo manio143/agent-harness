@@ -15,7 +15,7 @@
   <Border Padding="20" Background="{StaticResource BgPrimary}">
     <StackPanel Spacing="12" MaxWidth="720">
       <TextBlock Text="Open session" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" />
-      <TextBlock Text="Select a previous session to resume (server replay), or start a new session. Use Back to return to Connect (agent stays running until you Disconnect)." Foreground="{StaticResource TextMuted}" FontSize="12" />
+      <TextBlock Text="Select a previous session to resume (server replay), or start a new session. Enter to open • Esc/Back returns to Connect (agent stays running until you Disconnect)." Foreground="{StaticResource TextMuted}" FontSize="12" />
 
       <CheckBox IsChecked="{Binding StartNewSession}" Content="Start new session" Foreground="{StaticResource TextSecondary}" FontSize="12" />
 

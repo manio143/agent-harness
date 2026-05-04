@@ -40,6 +40,8 @@
         <Button Content="Copy output" Command="{Binding CopyOutputCommand}" FontSize="12" Padding="8,4" />
         <TextBlock Text="{Binding CopyStatus}" Foreground="{StaticResource TextSuccess}" FontSize="12" VerticalAlignment="Center"
                    IsVisible="{Binding CopyStatus, Converter={x:Static c:StringConverters.IsNotNullOrEmpty}}" />
+
+        <TextBlock Text="Esc to close" Foreground="{StaticResource TextMuted}" FontSize="11" VerticalAlignment="Center" />
       </StackPanel>
     </StackPanel>
   </Border>

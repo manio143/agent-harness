@@ -14,8 +14,13 @@
                Background="{StaticResource BgSecondary}" Foreground="{StaticResource TextPrimary}" KeyDown="OnComposerKeyDown" />
 
       <DockPanel>
-        <TextBlock DockPanel.Dock="Left" Text="{Binding Error}" Foreground="{StaticResource TextError}"
-                   IsVisible="{Binding Error, Converter={x:Static c:StringConverters.IsNotNullOrEmpty}}" />
+        <StackPanel DockPanel.Dock="Left" Spacing="2">
+          <TextBlock Text="{Binding Error}" Foreground="{StaticResource TextError}"
+                     IsVisible="{Binding Error, Converter={x:Static c:StringConverters.IsNotNullOrEmpty}}" />
+
+          <TextBlock Text="Ctrl+Enter to send • Esc closes tool details"
+                     Foreground="{StaticResource TextMuted}" FontSize="11" />
+        </StackPanel>
 
         <Button DockPanel.Dock="Right" Content="Send" Command="{Binding SendCommand}" IsEnabled="{Binding CanSend}"
                 Background="{StaticResource AccentPrimary}" Foreground="{StaticResource TextOnAccent}" />

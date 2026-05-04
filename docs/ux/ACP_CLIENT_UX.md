@@ -133,6 +133,12 @@ Covered by TDD (integration-style test using `samples/Acp.MinimalAgent`):
 
 ---
 
+## Keyboard shortcuts (current)
+
+- **Composer:** `Ctrl+Enter` → Send
+- **Tool detail flyout:** `Esc` → Close
+- **Session picker:** `Enter` → Open selected session, `Esc` → Back to Connect
+
 ## Tool call detail (drill-in)
 
 Tool calls support a drill-in panel (Flyout) showing full details:
