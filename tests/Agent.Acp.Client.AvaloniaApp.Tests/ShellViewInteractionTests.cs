@@ -92,6 +92,87 @@ public sealed class ShellViewInteractionTests
     }
 
     [AvaloniaFact]
+    public async Task SessionPickerView_back_button_executes_cancel_command()
+    {
+        var vm = new SessionPickerViewModel();
+
+        var canceled = false;
+        vm.CancelRequested += () => canceled = true;
+
+        var view = new SessionPickerView { DataContext = vm };
+
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        ForceLayout(window);
+
+        var back = FindByName<Button>(view, "BackButton");
+        Assert.NotNull(back);
+        Assert.NotNull(back!.Command);
+
+        back.Command!.Execute(null);
+
+        await WaitUntilAsync(() => canceled, timeoutMs: 2_000);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public async Task SessionPickerView_refresh_button_executes_refresh_command()
+    {
+        var vm = new SessionPickerViewModel();
+
+        var refreshed = false;
+        vm.RefreshRequested += () => refreshed = true;
+
+        var view = new SessionPickerView { DataContext = vm };
+
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        ForceLayout(window);
+
+        var refresh = FindByName<Button>(view, "RefreshButton");
+        Assert.NotNull(refresh);
+        Assert.NotNull(refresh!.Command);
+
+        refresh.Command!.Execute(null);
+
+        await WaitUntilAsync(() => refreshed, timeoutMs: 2_000);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public async Task SessionPickerView_disconnect_button_executes_disconnect_command()
+    {
+        var vm = new SessionPickerViewModel();
+
+        var disconnected = false;
+        vm.DisconnectRequested += () => disconnected = true;
+
+        var view = new SessionPickerView { DataContext = vm };
+
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        ForceLayout(window);
+
+        var disconnect = FindByName<Button>(view, "DisconnectButton");
+        Assert.NotNull(disconnect);
+        Assert.NotNull(disconnect!.Command);
+
+        disconnect.Command!.Execute(null);
+
+        await WaitUntilAsync(() => disconnected, timeoutMs: 2_000);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
     public void ToolCallDetailView_escape_marks_event_handled()
     {
         var vm = new Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation.ToolCallDetailViewModel(
