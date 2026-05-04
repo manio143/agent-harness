@@ -173,6 +173,52 @@ public sealed class ShellViewInteractionTests
     }
 
     [AvaloniaFact]
+    public async Task SessionPickerView_open_button_is_enabled_only_when_can_open()
+    {
+        var vm = new SessionPickerViewModel();
+        vm.SetSessions(new[]
+        {
+            new SessionListItemViewModel(sessionId: "s1", title: "First", updatedAt: null),
+        });
+
+        var view = new SessionPickerView { DataContext = vm };
+
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        ForceLayout(window);
+
+        var open = FindByName<Button>(view, "OpenButton");
+        Assert.NotNull(open);
+
+        // Initially: nothing selected and not starting new session => cannot open.
+        await WaitUntilAsync(() => open!.IsEnabled == vm.CanOpen, timeoutMs: 2_000);
+        Assert.False(vm.CanOpen);
+        Assert.False(open.IsEnabled);
+
+        // Selecting a session should enable Open.
+        vm.Selected = vm.Sessions.Single();
+        Dispatcher.UIThread.RunJobs();
+
+        await WaitUntilAsync(() => vm.CanOpen, timeoutMs: 2_000);
+        await WaitUntilAsync(() => open.IsEnabled, timeoutMs: 2_000);
+
+        Assert.True(vm.CanOpen);
+        Assert.True(open.IsEnabled);
+
+        // Starting a new session should also enable Open even if selection is cleared.
+        vm.Selected = null;
+        vm.StartNewSession = true;
+        Dispatcher.UIThread.RunJobs();
+
+        await WaitUntilAsync(() => vm.CanOpen, timeoutMs: 2_000);
+        await WaitUntilAsync(() => open.IsEnabled, timeoutMs: 2_000);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
     public void ToolCallDetailView_escape_marks_event_handled()
     {
         var vm = new Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation.ToolCallDetailViewModel(
