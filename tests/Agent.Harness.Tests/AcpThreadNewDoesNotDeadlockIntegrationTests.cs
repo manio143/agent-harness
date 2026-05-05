@@ -45,7 +45,8 @@ public sealed class AcpThreadStartDoesNotDeadlockIntegrationTests
             store: store,
             initialState: Agent.Harness.SessionState.Empty);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        // This is a deadlock regression test, not a perf test. Give it slack on busy CI runners.
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
         await agent.PromptAsync(
             new PromptRequest

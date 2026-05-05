@@ -11,7 +11,7 @@
   <Border Background="{StaticResource BgBase}" Padding="10" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="0,1,0,0">
     <StackPanel Spacing="6">
       <TextBox Name="ComposerTextBox" Text="{Binding Text}" AcceptsReturn="True" MinHeight="40" MaxHeight="120"
-               Background="{StaticResource BgSecondary}" Foreground="{StaticResource TextPrimary}" KeyDown="OnComposerKeyDown" />
+               Background="{StaticResource BgSecondary}" Foreground="{StaticResource TextPrimary}" />
 
       <DockPanel>
         <StackPanel DockPanel.Dock="Left" Spacing="2">

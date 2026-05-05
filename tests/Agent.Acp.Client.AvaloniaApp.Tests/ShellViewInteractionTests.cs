@@ -460,6 +460,58 @@ public sealed class ShellViewInteractionTests
         Dispatcher.UIThread.RunJobs();
     }
 
+    [AvaloniaFact]
+    public async Task Composer_ctrl_enter_via_routed_event_executes_send_and_does_not_insert_newline()
+    {
+        // Higher-fidelity than reflection-invocation: exercise Avalonia routed event dispatch.
+        var invoked = false;
+
+        var vm = new Agent.Acp.Client.AvaloniaApp.ViewModels.Conversation.ComposerViewModel(send: _ =>
+        {
+            invoked = true;
+            return Task.CompletedTask;
+        });
+
+        vm.Text = "hello";
+
+        var view = new ComposerView { DataContext = vm };
+        var window = new Window { Width = 600, Height = 200, Content = view };
+
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        ForceLayout(window);
+
+        var composerBox = FindByName<TextBox>(view, "ComposerTextBox");
+        Assert.NotNull(composerBox);
+
+        await Dispatcher.UIThread.InvokeAsync(() => composerBox!.Focus());
+        Dispatcher.UIThread.RunJobs();
+
+        var before = composerBox!.Text;
+
+        var keyArgs = new KeyEventArgs
+        {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Source = composerBox,
+            Key = Key.Enter,
+            KeyModifiers = KeyModifiers.Control,
+        };
+
+        // Raise event on the TextBox: should route to the KeyDown handler and mark handled.
+        await Dispatcher.UIThread.InvokeAsync(() => composerBox.RaiseEvent(keyArgs));
+
+        Assert.True(invoked);
+        Assert.True(keyArgs.Handled);
+
+        // If we handled Ctrl+Enter correctly, it should not be treated as "insert newline".
+        // Note: the send command may clear the textbox on success, so we assert on absence of a newline.
+        Assert.DoesNotContain("\n", composerBox.Text);
+        Assert.DoesNotContain("\r", composerBox.Text);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+    }
+
     private static async Task WaitUntilAsync(Func<bool> predicate, int timeoutMs)
     {
         var start = Environment.TickCount64;
