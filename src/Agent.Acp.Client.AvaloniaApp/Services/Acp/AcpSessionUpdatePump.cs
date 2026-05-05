@@ -62,7 +62,18 @@ public sealed class AcpSessionUpdatePump
             else
             {
                 // In the real app, marshal onto the UI thread to avoid cross-thread ObservableCollection access.
-                Dispatcher.UIThread.Post(() => _chat.Apply(update));
+                // In test contexts there's often no running dispatcher loop; prefer a best-effort synchronous invoke.
+                var op = Dispatcher.UIThread.InvokeAsync(() => _chat.Apply(update));
+                try
+                {
+                    if (!op.GetTask().Wait(millisecondsTimeout: 250))
+                        Dispatcher.UIThread.Post(() => _chat.Apply(update));
+                }
+                catch
+                {
+                    // Fall back to async post; never fail the transport.
+                    Dispatcher.UIThread.Post(() => _chat.Apply(update));
+                }
             }
         }
         catch

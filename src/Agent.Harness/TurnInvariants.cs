@@ -19,6 +19,11 @@ internal static class TurnInvariants
 
         foreach (var r in turn.OfType<ToolCallRequested>())
         {
+            // report_intent is a meta-tool; it may be emitted by the model even when the harness rejects
+            // subsequent tool calls early (e.g. invalid_args). Treat it as non-blocking for this invariant.
+            if (r.ToolName == ToolSchemas.ReportIntent.Name)
+                continue;
+
             if (!HasTerminalToolCall(turn, r.ToolId))
                 Debug.Fail($"turn_invariant_failed: open tool call at TurnEnded: toolId={r.ToolId} toolName={r.ToolName}");
         }

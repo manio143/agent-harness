@@ -77,6 +77,16 @@ public sealed class AcpCommittedEventPublisher
                 // Start tool call in ACP as soon as core commits the request.
                 var call = GetOrStart(turn, req.ToolId, req.ToolName);
                 toolCalls[req.ToolId] = call;
+
+                // UX invariant (client): tool rows should show tool name + parameters immediately.
+                // ACP "tool_call" currently carries title/status/kind; we publish args via a tool_call_update rawInput.
+                await _events.SendSessionUpdateAsync(new
+                {
+                    sessionUpdate = "tool_call_update",
+                    toolCallId = req.ToolId,
+                    rawInput = req.Args,
+                }, cancellationToken).ConfigureAwait(false);
+
                 break;
             }
 

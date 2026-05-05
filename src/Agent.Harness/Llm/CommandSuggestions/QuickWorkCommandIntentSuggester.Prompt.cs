@@ -21,12 +21,43 @@ public sealed partial class QuickWorkCommandIntentSuggester
             .Select(x => new CatalogItem(x.Name, x.Synopsis, Source: "mcp"))
             .ToImmutableArray();
 
-        if (mcp.Length == 0)
-            return null;
+        // Builtin PowerShell cmdlets (best-effort). This allows suggestions even when no MCP tools are offered.
+        ImmutableArray<CatalogItem> builtin;
+        try
+        {
+            var cmdlets = await _psCatalog.GetCmdletsAsync(cancellationToken).ConfigureAwait(false);
+            builtin = cmdlets
+                .Where(c => ShouldIncludeBuiltin(c.Name))
+                .Select(c => new CatalogItem(c.Name, c.Synopsis ?? "", Source: "builtin"))
+                .ToImmutableArray();
+        }
+        catch
+        {
+            builtin = ImmutableArray<CatalogItem>.Empty;
+        }
+
+        var all = mcp.AddRange(builtin);
+
+        // Even if we have no catalog items, return an empty catalog (not null).
+        // This keeps behavior deterministic and makes the caller unit-testable.
+        if (all.Length == 0)
+            return "";
+
+        var intentTokens = Tokenize(intent);
+        var ranked = all
+            .Select(i => (Item: i, Score: Score(i, intentTokens)))
+            .OrderByDescending(x => x.Score)
+            .ThenBy(x => x.Item.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.Item)
+            .ToList();
 
         var sbCatalog = new StringBuilder();
-        foreach (var i in mcp)
+        foreach (var i in ranked)
+        {
             AppendItem(sbCatalog, i);
+            if (sbCatalog.Length >= MaxCatalogChars)
+                break;
+        }
 
         return sbCatalog.ToString();
     }

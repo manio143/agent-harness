@@ -186,6 +186,32 @@ public sealed class ShellViewEndToEndTests
     }
 
     [Fact]
+    public async Task Streaming_indicator_turns_off_after_end_turn()
+    {
+        // UX invariant: when a turn ends (PromptResponse.stopReason=end_turn), the UI must stop showing
+        // the streaming indicator even if the last session/update was a chunk.
+        var (repo, exe) = GetStreamingAgent();
+
+        var vm = new ShellViewModel();
+
+        vm.Connection.RequestConnect(new ProcessStartInfo
+        {
+            FileName = exe,
+            Arguments = "",
+            WorkingDirectory = repo,
+        });
+
+        await WaitUntilAsync(() => vm.IsChat, timeoutMs: 10_000);
+
+        vm.Composer.Text = "go";
+        await vm.Composer.SendCommand.ExecuteAsync(Xunit.TestContext.Current.CancellationToken);
+
+        await WaitUntilAsync(() => HasText(vm.Chat, "done"), timeoutMs: 10_000);
+
+        Assert.DoesNotContain(vm.Chat.Transcript, t => t is StreamingIndicatorViewModel);
+    }
+
+    [Fact]
     public async Task Tool_call_lifecycle_updates_status_and_output()
     {
         var (repo, exe) = GetToolLifecycleAgent();

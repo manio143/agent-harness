@@ -146,6 +146,7 @@ function Find-AgentCommand {
         }
 
         // Best-effort: expose a sandbox: drive rooted at the session working dir.
+        // Also set the current location to it, so relative paths in scripts are contained and predictable.
         try
         {
             try { _runspace.SessionStateProxy.Drive.Remove("sandbox", force: true, scope: "Global"); } catch { /* ignore */ }
@@ -159,6 +160,10 @@ function Find-AgentCommand {
                     root: _workingDir,
                     description: "Agent session sandbox drive",
                     credential: null), scope: "Global");
+
+                // Ensure relative paths like "shared.txt" resolve under the sandbox.
+                // Use the runspace API to avoid any provider resolution surprises.
+                try { _runspace.SessionStateProxy.Path.SetLocation("sandbox:\\"); } catch { /* ignore */ }
             }
         }
         catch
@@ -243,10 +248,12 @@ function Find-AgentCommand {
             // Re-anchor location at the start of every call.
             try
             {
-                if (_runspace.SessionStateProxy.Drive.Get("project") is not null)
+                // Prefer sandbox: as the default working location.
+                // project: may depend on ACP client filesystem capabilities and should be opt-in by the user/script.
+                if (_runspace.SessionStateProxy.Drive.Get("sandbox") is not null)
+                    _runspace.SessionStateProxy.Path.SetLocation("sandbox:\\");
+                else if (_runspace.SessionStateProxy.Drive.Get("project") is not null)
                     _runspace.SessionStateProxy.Path.SetLocation("project:\\");
-                else
-                _runspace.SessionStateProxy.Path.SetLocation("sandbox:\\");
             }
             catch
             {

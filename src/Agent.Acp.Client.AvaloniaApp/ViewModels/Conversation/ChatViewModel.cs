@@ -34,7 +34,15 @@ public sealed partial class ChatViewModel : ObservableObject
     {
         _state = ChatReducer.Reduce(_state, new ChatSessionUpdate(update));
 
+        // Streaming indicator is a UI affordance: it should be on while we are receiving message/thought chunks.
+        // It must be turned off when the prompt ends (handled by EndTurn()), not just when a non-chunk update arrives.
         _isStreaming = update is AgentMessageChunk or AgentThoughtChunk;
+        RebuildTranscript();
+    }
+
+    public void EndTurn()
+    {
+        _isStreaming = false;
         RebuildTranscript();
     }
 

@@ -327,7 +327,9 @@ public static class Core
                         ImmutableArray.Create<Effect>(new RunCompaction(stabilized.ThreadId)));
                 }
 
-                var shouldCallModel = newly.Any(e => e is UserMessage or InterThreadMessage or ThreadIdleNotification or NewThreadTask);
+                // Only wake/call the model when there's actual new work.
+                // ThreadIdleNotification is informational and must NOT trigger an extra model call.
+                var shouldCallModel = newly.Any(e => e is UserMessage or InterThreadMessage or NewThreadTask);
                 if (shouldCallModel)
                 {
                     return new ReduceResult(
@@ -369,6 +371,7 @@ public static class Core
                         ? state.Buffer with { IntentReportedThisTurn = true }
                         : state.Buffer,
                 };
+
 
                 // Policy: the model MUST report intent before calling any other tools in a turn.
                 if (detected.ToolName != ToolSchemas.ReportIntent.Name && !state.Buffer.IntentReportedThisTurn)

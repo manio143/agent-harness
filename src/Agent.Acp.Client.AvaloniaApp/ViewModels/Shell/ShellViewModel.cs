@@ -118,7 +118,18 @@ public sealed partial class ShellViewModel : ObservableObject
 
         // Local echo: show what the user sent.
         _chat.ApplyUserPrompt(text);
-        return AcpClientBootstrap.PromptAsync(_process.Connection, _sessionId, text, cancellationToken);
+
+        return SendPromptCoreAsync(text, cancellationToken);
+    }
+
+    private async Task<PromptResponse> SendPromptCoreAsync(string text, CancellationToken cancellationToken)
+    {
+        var resp = await AcpClientBootstrap.PromptAsync(_process!.Connection, _sessionId!, text, cancellationToken).ConfigureAwait(false);
+
+        // UX invariant: if the server says the turn ended, the streaming indicator must turn off.
+        Ui(() => _chat.EndTurn());
+
+        return resp;
     }
 
     [RelayCommand(CanExecute = nameof(CanDisconnect))]

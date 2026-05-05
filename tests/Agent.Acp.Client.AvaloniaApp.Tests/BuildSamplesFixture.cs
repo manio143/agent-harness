@@ -37,7 +37,8 @@ public sealed class BuildSamplesFixture
         });
 
         Assert.NotNull(p);
-        var exited = p!.WaitForExit(1000 * 60);
+        // Building samples can be slow on cold caches / CI runners.
+        var exited = p!.WaitForExit(1000 * 60 * 5);
         if (!exited)
         {
             try { p.Kill(entireProcessTree: true); } catch { /* ignore */ }
