@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Agent.Acp.Client.AvaloniaApp.Services.Theme;
 using Agent.Acp.Schema;
 using Avalonia.Media;
@@ -29,7 +32,7 @@ public sealed partial class ToolCallRowViewModel : ObservableObject
     [ObservableProperty]
     private string? _rawOutputJson;
 
-    public string? InputPreview => Preview(RawInputJson);
+    public string? InputPreview => PreviewInput(RawInputJson);
 
     public string? OutputPreview => Preview(RawOutputJson);
 
@@ -62,6 +65,73 @@ public sealed partial class ToolCallRowViewModel : ObservableObject
             rawInputJson: RawInputJson,
             rawOutputJson: RawOutputJson,
             clipboard: _clipboard);
+
+    private static string? PreviewInput(string? rawInputJson)
+    {
+        if (string.IsNullOrWhiteSpace(rawInputJson)) return null;
+        rawInputJson = rawInputJson.Trim();
+
+        // Try to render a human-friendly summary for small JSON objects.
+        // This makes the tool row useful even when the full args are only visible in the detail flyout.
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(rawInputJson);
+            if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                var props = doc.RootElement.EnumerateObject().Take(6).ToList();
+                if (props.Count > 0)
+                {
+                    var parts = new List<string>();
+                    foreach (var p in props)
+                    {
+                        var v = p.Value;
+                        var rendered = v.ValueKind switch
+                        {
+                            System.Text.Json.JsonValueKind.String => v.GetString(),
+                            System.Text.Json.JsonValueKind.Number => v.GetRawText(),
+                            System.Text.Json.JsonValueKind.True => "true",
+                            System.Text.Json.JsonValueKind.False => "false",
+                            System.Text.Json.JsonValueKind.Array => RenderArray(v),
+                            _ => null,
+                        };
+
+                        if (!string.IsNullOrEmpty(rendered))
+                            parts.Add($"{p.Name}={rendered}");
+                    }
+
+                    if (parts.Count > 0)
+                    {
+                        var summary = string.Join(' ', parts);
+                        return summary.Length <= 140 ? summary : summary[..140] + "…";
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Ignore and fall back to raw preview.
+        }
+
+        return Preview(rawInputJson);
+
+        static string RenderArray(System.Text.Json.JsonElement a)
+        {
+            try
+            {
+                var items = a.EnumerateArray().Take(5).Select(e =>
+                {
+                    return e.ValueKind == System.Text.Json.JsonValueKind.String ? e.GetString() : e.GetRawText();
+                }).Where(s => !string.IsNullOrEmpty(s)).ToList();
+
+                var inner = string.Join(",", items);
+                return $"[{inner}]";
+            }
+            catch
+            {
+                return "[...]";
+            }
+        }
+    }
 
     private static string? Preview(string? s)
     {
