@@ -4,6 +4,7 @@
     <Project Path="src/Agent.Acp/Agent.Acp.csproj" />
     <Project Path="src/Agent.Harness/Agent.Harness.csproj" />
     <Project Path="src/Agent.Server/Agent.Server.csproj" />
+    <Project Path="src/Lilliput.Harness/Lilliput.Harness.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Agent.Acp.Client.AvaloniaApp.Tests/Agent.Acp.Client.AvaloniaApp.Tests.csproj" />
